@@ -1221,6 +1221,9 @@ body[data-theme] .app-shell,body[data-theme] .login-screen{position:relative;z-i
   <button onclick="showPage('profile')">👤<span>حسابي</span></button>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="cloud.js"></script>
 <script>
 const navByRole = {
   student:[
@@ -1498,47 +1501,50 @@ function saveRememberedLogin(email,password){
   }
 }
 
-function enterDemo(){
+async function syncCloudProfiles(){
+  const profiles=await NabdCloud.loadProfiles();
+  const students=profiles.filter(x=>x.role==='student');
+  const teachers=profiles.filter(x=>x.role==='teacher');
+  const admin=profiles.find(x=>x.role==='admin');
+  if(role==='admin'){
+    demoData.students=students;
+    demoData.teachers=teachers;
+    if(admin) demoData.admin={...demoData.admin,...admin,password:''};
+  }else if(role==='student'){
+    const me=students.find(x=>String(x.email||'').toLowerCase()===String(currentLoginEmail||'').toLowerCase());
+    demoData.students=me?[me]:[];
+  }else if(role==='teacher'){
+    const me=teachers.find(x=>String(x.email||'').toLowerCase()===String(currentLoginEmail||'').toLowerCase());
+    demoData.teachers=me?[me]:[];
+  }
+}
+
+async function enterDemo(){
   const enteredEmail=(document.getElementById('loginEmail')?.value||'').trim().toLowerCase();
   const enteredPassword=(document.getElementById('loginPassword')?.value||'').trim();
-
-  if(!enteredEmail || !enteredPassword){
-    alert('يرجى إدخال البريد الإلكتروني وكلمة المرور.');
-    return;
+  if(!enteredEmail || !enteredPassword){ alert('يرجى إدخال البريد الإلكتروني وكلمة المرور.'); return; }
+  const btn=document.querySelector('.login-main-btn');
+  const oldText=btn?.textContent;
+  if(btn){btn.disabled=true;btn.textContent='جاري تسجيل الدخول...';}
+  try{
+    const result=await NabdCloud.signIn(enteredEmail,enteredPassword);
+    role=result.profile.role;
+    currentLoginEmail=enteredEmail;
+    saveRememberedLogin(enteredEmail,enteredPassword);
+    await syncCloudProfiles();
+    registerVisitorLogin(role);
+    document.getElementById('login').style.display='none';
+    renderNav(); renderDashboard(); renderRolePages(); renderAdminManagement(); updateVisitorCounter(); showPage('dashboard');
+  }catch(e){
+    console.error(e);
+    alert('تعذر تسجيل الدخول: '+(e.message||'تحقق من البريد الإلكتروني وكلمة المرور وإعدادات Supabase.'));
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent=oldText||'تسجيل الدخول';}
   }
-
-  const adminMatch=
-    enteredEmail===String(demoData.admin?.email||'').trim().toLowerCase() &&
-    enteredPassword===String(demoData.admin?.password||'');
-
-  const studentMatch=demoData.students.find(s=>
-    String(s.email||'').trim().toLowerCase()===enteredEmail &&
-    String(s.password||'')===enteredPassword
-  );
-
-  const teacherMatch=demoData.teachers.find(t=>
-    String(t.email||'').trim().toLowerCase()===enteredEmail &&
-    String(t.password||'')===enteredPassword
-  );
-
-  if(adminMatch){
-    role='admin';
-  }else if(studentMatch){
-    role='student';
-  }else if(teacherMatch){
-    role='teacher';
-  }else{
-    alert('البريد الإلكتروني أو كلمة المرور غير صحيحة.');
-    return;
-  }
-
-  currentLoginEmail=enteredEmail;
-  saveRememberedLogin(enteredEmail,enteredPassword);
-  registerVisitorLogin(role);
-  document.getElementById('login').style.display='none';
-  renderNav(); renderDashboard(); renderRolePages(); renderAdminManagement(); renderRolePages(); updateVisitorCounter(); showPage('dashboard');
 }
-function logoutDemo(){
+async function logoutDemo(){
+  try{await NabdCloud.signOut();}catch(e){}
+  currentLoginEmail='';
   document.getElementById('login').style.display='grid';
 }
 function changeRole(v){ role=v; renderNav(); renderDashboard(); renderRolePages(); renderAdminManagement(); showPage('dashboard'); }
@@ -2231,87 +2237,35 @@ function renderProfilePageForRole(){
   }
 }
 
-function saveAdminProfileChanges(){
-  if(role!=='admin') return;
+async function saveAdminProfileChanges(){
+  if(role!=='admin')return;
   const email=(document.getElementById('adminProfileEmail')?.value||'').trim().toLowerCase();
   const password=(document.getElementById('adminProfilePassword')?.value||'').trim();
   const status=document.getElementById('adminProfileSaveStatus');
-
-  if(!email || !password){
-    if(status){ status.style.color='#c0392b'; status.textContent='يرجى إدخال البريد الإلكتروني وكلمة المرور.'; }
-    return;
-  }
-  const emailPattern=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if(!emailPattern.test(email)){
-    if(status){ status.style.color='#c0392b'; status.textContent='صيغة البريد الإلكتروني غير صحيحة.'; }
-    return;
-  }
-  const usedByStudent=demoData.students.some(x=>(x.email||'').trim().toLowerCase()===email);
-  const usedByTeacher=demoData.teachers.some(x=>(x.email||'').trim().toLowerCase()===email);
-  if(usedByStudent || usedByTeacher){
-    if(status){ status.style.color='#c0392b'; status.textContent='هذا البريد مستخدم في حساب طالب أو معلم. استخدم بريدًا مختلفًا للإدارة.'; }
-    return;
-  }
-
-  demoData.admin=demoData.admin||{name:'إدارة المدرسة'};
-  demoData.admin.name=demoData.admin.name||'إدارة المدرسة';
-  const oldPassword=String(demoData.admin.password||'');
-  demoData.admin.email=email;
-  demoData.admin.password=password; // تخزين آخر كلمة مرور فقط؛ لا توجد قائمة كلمات مرور سابقة
-  currentLoginEmail=email;
-  saveDemoData();
-
-  const loginEmail=document.getElementById('loginEmail');
-  const loginPassword=document.getElementById('loginPassword');
-  if(loginEmail) loginEmail.value=email;
-  if(loginPassword) loginPassword.value='';
-
-  if(password!==oldPassword){
-    alert('✓ تم تغيير كلمة مرور الإدارة بنجاح. تم إلغاء كلمة المرور السابقة فورًا، وسيتم تسجيل خروجك الآن للتحقق من الدخول بكلمة المرور الجديدة فقط.');
-    logoutDemo();
-    return;
-  }
-
-  renderProfilePageForRole();
-  const newStatus=document.getElementById('adminProfileSaveStatus');
-  if(newStatus){ newStatus.style.color='#178a5b'; newStatus.textContent='✓ تم تحديث بيانات الإدارة. النظام يقبل آخر كلمة مرور محفوظة فقط.'; }
+  if(!email || !password){if(status){status.style.color='#c0392b';status.textContent='يرجى إدخال البريد الإلكتروني وكلمة المرور الجديدة.';}return;}
+  try{
+    const c=await NabdCloud.init();
+    const {data:u,error:ae}=await c.auth.updateUser({email,password}); if(ae)throw ae;
+    const {error:pe}=await c.from('profiles').update({email}).eq('auth_user_id',u.user.id); if(pe)throw pe;
+    currentLoginEmail=email;
+    if(status){status.style.color='#178a5b';status.textContent='✓ تم تحديث بيانات الإدارة السحابية.';}
+  }catch(e){if(status){status.style.color='#c0392b';status.textContent='تعذر التحديث: '+(e.message||'');}}
 }
 
-function saveStudentProfileChanges(){
-  if(role!=='student') return;
-  const s=getCurrentStudent();
-  if(!s){ alert('تعذر العثور على سجل الطالب.'); return; }
-
+async function saveStudentProfileChanges(){
+  if(role!=='student')return;
+  const s=getCurrentStudent(); if(!s){alert('تعذر العثور على سجل الطالب.');return;}
   const email=(document.getElementById('studentProfileEmail')?.value||'').trim().toLowerCase();
   const password=(document.getElementById('studentProfilePassword')?.value||'').trim();
   const status=document.getElementById('studentProfileSaveStatus');
-
-  if(!email || !password){
-    if(status){ status.style.color='#c0392b'; status.textContent='يرجى إدخال البريد الإلكتروني وكلمة المرور.'; }
-    return;
-  }
-  const emailPattern=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if(!emailPattern.test(email)){
-    if(status){ status.style.color='#c0392b'; status.textContent='صيغة البريد الإلكتروني غير صحيحة.'; }
-    return;
-  }
-  const duplicate=demoData.students.some(x=>x.id!==s.id && (x.email||'').trim().toLowerCase()===email);
-  if(duplicate){
-    if(status){ status.style.color='#c0392b'; status.textContent='هذا البريد الإلكتروني مسجل لطالب آخر، اختر بريدًا مختلفًا.'; }
-    alert('لا يمكن الحفظ: البريد الإلكتروني مستخدم لطالب آخر.');
-    return;
-  }
-
-  s.email=email;
-  s.password=password;
-  currentLoginEmail=email;
-  const loginEmail=document.getElementById('loginEmail');
-  if(loginEmail) loginEmail.value=email;
-  saveDemoData();
-  renderAdminManagement();
-  renderProfilePageForRole();
-  const newStatus=document.getElementById('studentProfileSaveStatus');
-  if(newStatus){ newStatus.style.color='#178a5b'; newStatus.textContent='✓ تم حفظ التغييرات وتحديث سجل الطالب في الإدارة تلقائيًا.'; }
+  if(!email || !password){if(status){status.style.color='#c0392b';status.textContent='يرجى إدخال البريد الإلكتروني وكلمة المرور الجديدة.';}return;}
+  try{
+    const c=await NabdCloud.init();
+    const {error:ae}=await c.auth.updateUser({email,password}); if(ae)throw ae;
+    const {error:pe}=await c.from('profiles').update({email}).eq('auth_user_id',s.authUserId); if(pe)throw pe;
+    s.email=email; currentLoginEmail=email; renderProfilePageForRole();
+    const st=document.getElementById('studentProfileSaveStatus');if(st){st.style.color='#178a5b';st.textContent='✓ تم تحديث بيانات الدخول السحابية.';}
+  }catch(e){if(status){status.style.color='#c0392b';status.textContent='تعذر التحديث: '+(e.message||'');}}
 }
 
 function renderRolePages(){
@@ -2781,39 +2735,20 @@ function getStudentOwnReportHtml(){
   </div>`;
 }
 
-function saveTeacherProfileChanges(){
-  if(role!=='teacher') return;
-  const t=getCurrentTeacher();
-  if(!t){ alert('تعذر العثور على سجل المعلم.'); return; }
-
+async function saveTeacherProfileChanges(){
+  if(role!=='teacher')return;
+  const t=getCurrentTeacher(); if(!t){alert('تعذر العثور على سجل المعلم.');return;}
   const email=(document.getElementById('teacherProfileEmail')?.value||'').trim().toLowerCase();
   const password=(document.getElementById('teacherProfilePassword')?.value||'').trim();
   const status=document.getElementById('teacherProfileSaveStatus');
-
-  if(!email || !password){
-    if(status){ status.style.color='#c0392b'; status.textContent='يرجى إدخال البريد الإلكتروني وكلمة المرور.'; }
-    return;
-  }
-  const emailPattern=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if(!emailPattern.test(email)){
-    if(status){ status.style.color='#c0392b'; status.textContent='صيغة البريد الإلكتروني غير صحيحة.'; }
-    return;
-  }
-  const duplicate=demoData.teachers.some(x=>x.id!==t.id && (x.email||'').trim().toLowerCase()===email);
-  if(duplicate){
-    if(status){ status.style.color='#c0392b'; status.textContent='هذا البريد الإلكتروني مسجل لمعلم آخر، اختر بريدًا مختلفًا.'; }
-    alert('لا يمكن الحفظ: البريد الإلكتروني مستخدم لمعلم آخر.');
-    return;
-  }
-
-  t.email=email;
-  t.password=password;
-  currentLoginEmail=email;
-  const loginEmail=document.getElementById('loginEmail');
-  if(loginEmail) loginEmail.value=email;
-  saveDemoData();
-  renderAdminManagement();
-  if(status){ status.style.color='#16835d'; status.textContent='تم حفظ التغييرات ومزامنتها تلقائيًا مع حسابات دخول المعلمين في الإدارة ✓'; }
+  if(!email || !password){if(status){status.style.color='#c0392b';status.textContent='يرجى إدخال البريد الإلكتروني وكلمة المرور الجديدة.';}return;}
+  try{
+    const c=await NabdCloud.init();
+    const {error:ae}=await c.auth.updateUser({email,password}); if(ae)throw ae;
+    const {error:pe}=await c.from('profiles').update({email}).eq('auth_user_id',t.authUserId); if(pe)throw pe;
+    t.email=email; currentLoginEmail=email; renderProfilePageForRole();
+    const st=document.getElementById('teacherProfileSaveStatus');if(st){st.style.color='#178a5b';st.textContent='✓ تم تحديث بيانات الدخول السحابية.';}
+  }catch(e){if(status){status.style.color='#c0392b';status.textContent='تعذر التحديث: '+(e.message||'');}}
 }
 
 function mobileAI(){ if(role==='student') showPage('ai'); else showPage('dashboard'); }
@@ -3254,31 +3189,20 @@ function toggleAdminStudentPassword(id){
   input.type=input.type==='password'?'text':'password';
 }
 
-function saveStudentCredentialsAdmin(id){
+async function saveStudentCredentialsAdmin(id){
   if(role!=='admin'){ alert('هذا الخيار متاح للإدارة فقط.'); return; }
-  const s=demoData.students.find(x=>x.id===id);
-  if(!s) return;
-
+  const s=demoData.students.find(x=>x.id===id); if(!s)return;
   const email=(document.getElementById('adminStudentEmail_'+id)?.value||'').trim().toLowerCase();
   const password=(document.getElementById('adminStudentPassword_'+id)?.value||'').trim();
-
-  if(!email || !password){ alert('البريد الإلكتروني وكلمة المرور مطلوبان.'); return; }
-
+  if(!email){alert('البريد الإلكتروني مطلوب.');return;}
+  if(!password){alert('اكتب كلمة مرور جديدة للحساب.');return;}
   const emailPattern=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if(!emailPattern.test(email)){ alert('صيغة البريد الإلكتروني غير صحيحة.'); return; }
-
-  const duplicate=demoData.students.some(x=>x.id!==id && (x.email||'').trim().toLowerCase()===email);
-  if(duplicate){ alert('لا يمكن الحفظ: البريد الإلكتروني مستخدم لطالب آخر.'); return; }
-
-  s.email=email;
-  s.password=password;
-  saveDemoData();
-
-  // إعادة رسم الإدارة والملف الشخصي من نفس السجل لضمان التزامن.
-  renderAdminManagement();
-  if(role==='student') renderProfilePageForRole();
-
-  alert('✓ تم تحديث إيميل وكلمة مرور الطالب ومزامنتهما تلقائيًا مع صفحة الطالب.');
+  if(!emailPattern.test(email)){alert('صيغة البريد الإلكتروني غير صحيحة.');return;}
+  try{
+    await NabdCloud.updateUser({...s,role:'student',email},password);
+    await syncCloudProfiles(); renderAdminManagement();
+    alert('✓ تم تحديث بيانات دخول الطالب في Supabase.');
+  }catch(e){alert('تعذر تحديث الحساب: '+(e.message||''));}
 }
 
 function filterStudentCredentials(){
@@ -3554,83 +3478,41 @@ function setStudentFormMode(editing){
   if(status) status.textContent='';
 }
 
-function saveStudentAdminForm(){
+async function saveStudentAdminForm(){
   if(role!=='admin'){alert('هذا الخيار متاح لإدارة المدرسة فقط.');return;}
   const v=getStudentFormValues();
   const status=document.getElementById('studentFormStatus');
-
   if(!v.name || !v.phone || !v.email || !v.password || !v.grade || !v.section){
-    if(status){status.style.color='#c0392b';status.textContent='يرجى تعبئة جميع بيانات الطالب.';}
-    return;
+    if(status){status.style.color='#c0392b';status.textContent='يرجى تعبئة جميع بيانات الطالب.';} return;
   }
-
   const phoneValid=validateStudentPhoneField();
   const emailValid=validateStudentEmailField();
   if(!phoneValid || !emailValid){
-    if(status){
-      status.style.color='#c0392b';
-      status.textContent='⚠️ يرجى تصحيح البيانات الموضحة باللون الأحمر قبل الحفظ.';
-    }
-    if(!phoneValid) document.getElementById('newStudentPhone')?.focus();
-    else if(!emailValid) document.getElementById('newStudentEmail')?.focus();
-    return;
+    if(status){status.style.color='#c0392b';status.textContent='⚠️ يرجى تصحيح البيانات الموضحة باللون الأحمر قبل الحفظ.';} return;
   }
-
-  if(editingStudentId){
-    const s=demoData.students.find(x=>x.id===editingStudentId);
-    if(!s) return;
-    const oldEmail=(s.email||'').trim().toLowerCase();
-
-    s.name=v.name;
-    s.phone=v.phone;
-    s.email=v.email;
-    s.password=v.password;
-    s.stage=v.stage;
-    s.grade=v.grade;
-    s.section=v.section;
-
-    if(currentLoginEmail && currentLoginEmail.toLowerCase()===oldEmail){
-      currentLoginEmail=v.email;
+  try{
+    if(status){status.style.color='#486581';status.textContent='جاري الحفظ في السحابة...';}
+    if(editingStudentId){
+      const s=demoData.students.find(x=>x.id===editingStudentId); if(!s)return;
+      const oldEmail=(s.email||'').trim().toLowerCase();
+      const updated=await NabdCloud.updateUser({...s,role:'student',name:v.name,phone:v.phone,email:v.email,stage:v.stage,grade:v.grade,section:v.section},v.password);
+      Object.assign(s,updated);
+      if(currentLoginEmail && currentLoginEmail.toLowerCase()===oldEmail) currentLoginEmail=v.email;
+      editingStudentId=null;
+      await syncCloudProfiles(); renderAdminManagement(); renderProfilePageForRole();
+      setTimeout(()=>{const st=document.getElementById('studentFormStatus');if(st){st.style.color='#178a5b';st.textContent='✓ تم حفظ التعديلات سحابيًا.';}},50);
+      return;
     }
-
-    saveDemoData();
-    editingStudentId=null;
-    renderAdminManagement();
-    renderProfilePageForRole();
-
-    setTimeout(()=>{
-      const form=document.getElementById('studentFormCard');
-      if(form) form.scrollIntoView({behavior:'smooth',block:'start'});
-      const st=document.getElementById('studentFormStatus');
-      if(st){st.style.color='#178a5b';st.textContent='✓ تم حفظ التعديلات وتحديث حساب الطالب تلقائيًا.';}
-    },50);
-    return;
+    const sid='ST-'+Date.now().toString().slice(-6);
+    await NabdCloud.createUser('student',{name:v.name,phone:v.phone,email:v.email,studentId:sid,stage:v.stage,grade:v.grade,section:v.section},v.password);
+    await syncCloudProfiles(); renderAdminManagement();
+    setTimeout(()=>{const st=document.getElementById('studentFormStatus');if(st){st.style.color='#178a5b';st.textContent='✓ تمت إضافة الطالب وحسابه السحابي بنجاح.';}},50);
+  }catch(e){
+    console.error(e); if(status){status.style.color='#c0392b';status.textContent='تعذر الحفظ: '+(e.message||'خطأ غير معروف');} alert('تعذر حفظ حساب الطالب: '+(e.message||''));
   }
-
-  const sid='ST-'+Date.now().toString().slice(-6);
-  demoData.students.push({
-    id:Date.now(),
-    name:v.name,
-    phone:v.phone,
-    studentId:sid,
-    stage:v.stage,
-    grade:v.grade,
-    section:v.section,
-    email:v.email,
-    password:v.password
-  });
-
-  saveDemoData();
-  renderAdminManagement();
-  setTimeout(()=>{
-    const st=document.getElementById('studentFormStatus');
-    if(st){st.style.color='#178a5b';st.textContent='✓ تمت إضافة الطالب وحساب الدخول الخاص به.';}
-  },50);
 }
 
-function addStudentAdmin(){
-  saveStudentAdminForm();
-}
+function addStudentAdmin(){ saveStudentAdminForm(); }
 
 function cancelStudentEdit(){
   editingStudentId=null;
@@ -3639,10 +3521,11 @@ function cancelStudentEdit(){
   document.getElementById('studentFormCard')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-function deleteStudentAdmin(id){
+async function deleteStudentAdmin(id){
   if(!confirm('هل تريد حذف هذا الطالب؟')) return;
-  demoData.students = demoData.students.filter(x=>x.id!==id);
-  saveDemoData(); renderAdminManagement();
+  const s=demoData.students.find(x=>x.id===id); if(!s)return;
+  try{ await NabdCloud.deleteUser(s.authUserId); await syncCloudProfiles(); renderAdminManagement(); }
+  catch(e){ alert('تعذر حذف الطالب: '+(e.message||'')); }
 }
 
 function renderTeacherRows(list){
@@ -3668,19 +3551,16 @@ function renderTeacherCredentialsRows(list=demoData.teachers){
   </tr>`).join('');
 }
 
-function editTeacherCredentialsAdmin(id){
-  const t=demoData.teachers.find(x=>x.id===id);
-  if(!t) return;
-  const email=prompt('البريد الإلكتروني:',t.email||''); if(email===null) return;
-  const password=prompt('كلمة المرور:',t.password||''); if(password===null) return;
+async function editTeacherCredentialsAdmin(id){
+  const t=demoData.teachers.find(x=>x.id===id); if(!t)return;
+  const email=prompt('البريد الإلكتروني:',t.email||''); if(email===null)return;
+  const password=prompt('اكتب كلمة مرور جديدة للمعلم:',''); if(password===null)return;
   const cleanEmail=email.trim().toLowerCase();
-  if(!cleanEmail || !password.trim()){ alert('البريد الإلكتروني وكلمة المرور مطلوبان.'); return; }
-  const emailPattern=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if(!emailPattern.test(cleanEmail)){ alert('صيغة البريد الإلكتروني غير صحيحة.'); return; }
-  if(demoData.teachers.some(x=>x.id!==id && (x.email||'').trim().toLowerCase()===cleanEmail)){ alert('البريد الإلكتروني مستخدم لمعلم آخر.'); return; }
-  t.email=cleanEmail; t.password=password.trim();
-  saveDemoData(); renderAdminManagement();
-  alert('تم تحديث حساب دخول المعلم ومزامنته تلقائيًا.');
+  if(!cleanEmail || !password.trim()){alert('البريد الإلكتروني وكلمة المرور الجديدة مطلوبان.');return;}
+  try{
+    await NabdCloud.updateUser({...t,role:'teacher',email:cleanEmail},password.trim());
+    await syncCloudProfiles(); renderAdminManagement(); alert('تم تحديث حساب المعلم في Supabase.');
+  }catch(e){alert('تعذر تحديث الحساب: '+(e.message||''));}
 }
 
 function applyTeacherFilters(){
@@ -3778,7 +3658,7 @@ function validateTeacherEmailField(){
   return true;
 }
 
-function saveTeacherAdminForm(){
+async function saveTeacherAdminForm(){
  const name=document.getElementById('newTeacherName').value.trim();
  const tid=document.getElementById('newTeacherId').value.trim()||('T-'+Date.now().toString().slice(-3));
  const phone=document.getElementById('newTeacherPhone').value.trim();
@@ -3788,23 +3668,18 @@ function saveTeacherAdminForm(){
  if(!name||!password){alert('اسم المعلم وكلمة المرور مطلوبان.');return;}
  if(!validateTeacherPhoneField()||!validateTeacherEmailField()){alert('يرجى تصحيح رقم الهاتف أو البريد الإلكتروني قبل الحفظ.');return;}
  const checked=[...document.querySelectorAll('.teacher-grade-toggle:checked')];
- const stages=checked.map(o=>{
-   const p=o.value.split('||'), idx=o.dataset.index, sec=document.getElementById('teacherSection'+idx)?.value;
-   return sec?`${p[0]} — ${p[1]} — الشعبة (${sec})`:null;
- }).filter(Boolean);
- if(!editingTeacherId){
-   if(!checked.length){alert('حدد صفًا واحدًا على الأقل.');return;}
-   if(stages.length!==checked.length){alert('اختر الشعبة لكل صف تم تحديده.');return;}
- }
- if(editingTeacherId){
-   const t=demoData.teachers.find(x=>x.id===editingTeacherId); if(!t)return;
-   t.name=name;t.phone=phone;t.email=email;t.password=password;
-   editingTeacherId=null;saveDemoData();renderAdminManagement();
-   setTimeout(()=>document.getElementById('teacherFormCard')?.scrollIntoView({behavior:'smooth',block:'start'}),50);
-   return;
- }
- demoData.teachers.push({id:Date.now(),name,teacherId:tid,phone,email,password,subject,stages});
- saveDemoData();renderAdminManagement();alert('تمت إضافة المعلم بنجاح.');
+ const stages=checked.map(o=>{const p=o.value.split('||'),idx=o.dataset.index,sec=document.getElementById('teacherSection'+idx)?.value;return sec?`${p[0]} — ${p[1]} — الشعبة (${sec})`:null;}).filter(Boolean);
+ if(!editingTeacherId){if(!checked.length){alert('حدد صفًا واحدًا على الأقل.');return;}if(stages.length!==checked.length){alert('اختر الشعبة لكل صف تم تحديده.');return;}}
+ try{
+   if(editingTeacherId){
+     const t=demoData.teachers.find(x=>x.id===editingTeacherId); if(!t)return;
+     await NabdCloud.updateUser({...t,role:'teacher',name,phone,email,subject,stages:t.stages||[]},password);
+     editingTeacherId=null; await syncCloudProfiles(); renderAdminManagement();
+     setTimeout(()=>document.getElementById('teacherFormCard')?.scrollIntoView({behavior:'smooth',block:'start'}),50); return;
+   }
+   await NabdCloud.createUser('teacher',{name,teacherId:tid,phone,email,subject,stages},password);
+   await syncCloudProfiles(); renderAdminManagement(); alert('تمت إضافة المعلم وحسابه السحابي بنجاح.');
+ }catch(e){console.error(e);alert('تعذر حفظ حساب المعلم: '+(e.message||''));}
 }
 function addTeacherAdmin(){saveTeacherAdminForm();}
 function setTeacherFormMode(editing){
@@ -3846,10 +3721,11 @@ function editTeacherAdminFull(id){
  setTeacherFormMode(true);validateTeacherPhoneField();validateTeacherEmailField();
  document.getElementById('teacherFormCard')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
-function deleteTeacherAdmin(id){
+async function deleteTeacherAdmin(id){
   if(!confirm('هل تريد حذف هذا المعلم؟')) return;
-  demoData.teachers = demoData.teachers.filter(x=>x.id!==id);
-  saveDemoData(); renderAdminManagement();
+  const t=demoData.teachers.find(x=>x.id===id); if(!t)return;
+  try{ await NabdCloud.deleteUser(t.authUserId); await syncCloudProfiles(); renderAdminManagement(); }
+  catch(e){ alert('تعذر حذف المعلم: '+(e.message||'')); }
 }
 function addStageAdmin(){
   const name=document.getElementById('newStageName').value.trim();
