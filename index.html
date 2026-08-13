@@ -2408,6 +2408,8 @@ function renderRolePages(){
             <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">الصف</label>
             <select id="reportGrade" onchange="renderTeacherReportStudents()" style="width:100%;padding:12px;border:1px solid var(--line);border-radius:13px;background:#fff">
               <option value="">اختر الصف</option>
+              <option value="روضة">روضة</option>
+              <option value="تمهيدي">تمهيدي</option>
               <option value="الصف الأول">الصف الأول</option>
               <option value="الصف الثاني">الصف الثاني</option>
               <option value="الصف الثالث">الصف الثالث</option>
@@ -2560,7 +2562,7 @@ const teacherReportDemoStudents = [
   {name:'راشد حمد', grade:'الصف الرابع', section:'د'}
 ];
 
-function renderTeacherReportStudents(){
+async function renderTeacherReportStudents(){
   const grade=document.getElementById('reportGrade')?.value || '';
   const section=document.getElementById('reportSection')?.value || '';
   const target=document.getElementById('teacherReportStudents');
@@ -2569,11 +2571,22 @@ function renderTeacherReportStudents(){
     target.innerHTML='<div style="text-align:center;color:var(--muted);padding:20px">اختر الصف والشعبة لعرض أسماء الطلاب.</div>';
     return;
   }
-  const students=teacherReportDemoStudents.filter(s=>s.grade===grade && s.section===section);
+
+  target.innerHTML='<div style="text-align:center;color:var(--muted);padding:20px">جاري تحميل الطلاب...</div>';
+
+  let students=[];
+  try{
+    const profiles=await NabdCloud.loadProfiles();
+    students=profiles.filter(s=>s.role==='student' && s.grade===grade && s.section===section);
+  }catch(e){
+    students=teacherReportDemoStudents.filter(s=>s.grade===grade && s.section===section);
+  }
+
   if(!students.length){
-    target.innerHTML='<div style="text-align:center;color:var(--muted);padding:20px">لا يوجد طلاب تجريبيون في هذا الصف والشعبة.</div>';
+    target.innerHTML=`<div style="text-align:center;color:var(--muted);padding:20px">لا يوجد طلاب مسجلون في ${esc(grade)} — الشعبة (${esc(section)}).</div>`;
     return;
   }
+
   target.innerHTML=students.map((s,i)=>{
     const key=`teacherReport_${grade}_${section}_${s.name}`;
     let saved='', updated='';
@@ -2582,12 +2595,12 @@ function renderTeacherReportStudents(){
       updated=localStorage.getItem(key+'_updated')||'';
     }catch(e){}
     return `<div style="padding:14px 0;border-bottom:${i===students.length-1?'0':'1px solid var(--line)'};position:relative">
-      ${updated?`<div style="position:absolute;left:10px;top:10px;opacity:.42;font-size:11px;font-weight:700;transform:rotate(-3deg)">آخر تعديل: ${updated}</div>`:''}
+      ${updated?`<div style="position:absolute;left:10px;top:10px;opacity:.42;font-size:11px;font-weight:700">آخر تعديل: ${updated}</div>`:''}
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:9px">
-        <div><strong>${s.name}</strong><small style="display:block;color:var(--muted);margin-top:3px">${s.grade} • الشعبة ${s.section}</small></div>
+        <div><strong>${esc(s.name)}</strong><small style="display:block;color:var(--muted);margin-top:3px">${esc(grade)} • الشعبة (${esc(section)})</small></div>
         <button class="btn primary" onclick="saveTeacherStudentReport('${encodeURIComponent(key)}','report_${i}')">حفظ التقرير</button>
       </div>
-      <textarea id="report_${i}" rows="3" placeholder="اكتب تقريرًا وصفيًا بسيطًا عن الطالب..." style="width:100%;padding:12px;border:1px solid var(--line);border-radius:13px;resize:vertical">${saved}</textarea>
+      <textarea id="report_${i}" rows="3" placeholder="اكتب تقريرًا وصفيًا بسيطًا عن الطالب..." style="width:100%;padding:12px;border:1px solid var(--line);border-radius:13px;resize:vertical">${esc(saved)}</textarea>
     </div>`;
   }).join('');
 }
@@ -3010,23 +3023,55 @@ async function loadStudentInteractiveHomeworks(){
   }
 }
 
+function toggleStudentHomeworkCard(id){
+  const body=document.getElementById('student_hw_body_'+id);
+  const btn=document.getElementById('student_hw_open_'+id);
+  if(!body)return;
+  const opening=body.style.display==='none' || !body.style.display;
+  body.style.display=opening?'block':'none';
+  if(btn) btn.textContent=opening?'إغلاق الواجب':'فتح الواجب';
+}
+
 function renderStudentCloudHomework(hw,sub){
   const submitted=!!sub;
-  const scoreText=(sub?.score_visible && sub?.score!=null)?` • الدرجة: ${sub.score}/${sub.max_score||hw.max_score||'—'}`:(submitted?' • الدرجة لم يرسلها المعلم بعد':'');
+  const scoreText=(sub?.score_visible && sub?.score!=null)
+    ?`الدرجة: ${sub.score}/${sub.max_score||hw.max_score||'—'}`
+    :(submitted?'الدرجة لم يرسلها المعلم بعد':'');
+  const typeLabel=hw.mode==='file'?'واجب ملف':'حل داخل المنصة';
+  const icon=hw.mode==='file'?'📎':'🧠';
+
+  let body='';
   if(hw.mode==='file'){
-    return `<div style="padding:15px 0;border-bottom:1px solid var(--line)">
-      <div class="task"><div class="dot">📎</div><div><strong>${esc(hw.title)}</strong><small>التسليم ${formatHomeworkDue(hw.due_at)}</small></div><span class="tag ${submitted?'green':'orange'}">${submitted?'تم التسليم':'واجب ملف'}</span></div>
-      ${hw.description?`<p style="margin:8px 8px;color:var(--muted)">${esc(hw.description)}</p>`:''}
+    body=`
+      ${hw.description?`<p style="margin:0 0 12px;color:var(--muted)">${esc(hw.description)}</p>`:''}
       ${hw.attachment?.path?`<button class="btn soft" onclick="openHomeworkAttachment('${encodeURIComponent(hw.attachment.path)}')">فتح ملف الواجب</button>`:''}
-      <div style="margin-top:10px;color:var(--muted)">هذا النوع يستخدم ملفًا مرفقًا. ${submitted?'تم تسجيل تسليمك.':''}${scoreText}</div>
-    </div>`;
+      <div style="margin-top:12px;color:var(--muted)">${submitted?'تم تسجيل تسليمك.':''} ${scoreText}</div>`;
+  }else{
+    body=`
+      ${hw.description?`<p style="margin:0 0 12px;color:var(--muted)">${esc(hw.description)}</p>`:''}
+      ${submitted
+        ?`<div style="padding:12px;border-radius:12px;background:#e8fff5;color:#148b67;font-weight:800">✓ تم إرسال إجاباتك للمعلم${scoreText?` • ${scoreText}`:''}${sub.score_visible&&sub.feedback?`<div style="margin-top:5px">ملاحظة المعلم: ${esc(sub.feedback)}</div>`:''}</div>`
+        :`<div>${(hw.questions||[]).map((q,i)=>renderStudentQuestion(hw.id,q,i)).join('')}
+           <button class="btn primary" onclick="submitOnlineHomework(${hw.id})">إرسال الإجابات للمعلم</button></div>`}`;
   }
-  return `<div style="padding:16px 0;border-bottom:1px solid var(--line)" id="cloud_hw_${hw.id}">
-    <div class="task"><div class="dot">🧠</div><div><strong>${esc(hw.title)}</strong><small>${esc(hw.teacher_name||'')} • التسليم ${formatHomeworkDue(hw.due_at)}</small></div><span class="tag ${submitted?'green':'blue'}">${submitted?'تم التسليم':'حل داخل المنصة'}</span></div>
-    ${hw.description?`<p style="margin:8px 8px;color:var(--muted)">${esc(hw.description)}</p>`:''}
-    ${submitted?`<div style="padding:12px;border-radius:12px;background:#e8fff5;color:#148b67;font-weight:800">✓ تم إرسال إجاباتك للمعلم${scoreText}${sub.score_visible&&sub.feedback?`<div style="margin-top:5px">ملاحظة المعلم: ${esc(sub.feedback)}</div>`:''}</div>`:
-      `<div style="margin-top:12px">${(hw.questions||[]).map((q,i)=>renderStudentQuestion(hw.id,q,i)).join('')}
-       <button class="btn primary" onclick="submitOnlineHomework(${hw.id})">إرسال الإجابات للمعلم</button></div>`}
+
+  return `<div class="card" style="margin-bottom:12px;padding:0;overflow:hidden" id="cloud_hw_${hw.id}">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;cursor:pointer" onclick="toggleStudentHomeworkCard(${hw.id})">
+      <div style="display:flex;align-items:center;gap:12px;min-width:0">
+        <div class="dot">${icon}</div>
+        <div style="min-width:0">
+          <strong style="display:block;font-size:15px">${esc(hw.title)}</strong>
+          <small style="display:block;color:var(--muted);margin-top:4px">${esc(hw.teacher_name||'')} • التسليم ${formatHomeworkDue(hw.due_at)}</small>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span class="tag ${submitted?'green':'blue'}">${submitted?'تم التسليم':typeLabel}</span>
+        <button id="student_hw_open_${hw.id}" class="btn soft" onclick="event.stopPropagation();toggleStudentHomeworkCard(${hw.id})">فتح الواجب</button>
+      </div>
+    </div>
+    <div id="student_hw_body_${hw.id}" style="display:none;border-top:1px solid var(--line);padding:16px 18px;background:#fcfdff">
+      ${body}
+    </div>
   </div>`;
 }
 
