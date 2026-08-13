@@ -290,3 +290,81 @@
     get config(){return cfg;}
   };
 })();
+
+
+/* FIX: force legacy progress page to show the active Supabase student's real reports. */
+setTimeout(function(){
+  window.getStudentOwnReportHtml=function(){
+    setTimeout(function(){
+      if(typeof window.loadStudentOwnReportsCloud==='function'){
+        window.loadStudentOwnReportsCloud();
+      }
+    },80);
+
+    return `<div class="card" id="studentReportsCloudBox" style="margin-top:16px">
+      <div style="margin-bottom:12px">
+        <h3 style="margin:0">📋 تقارير المعلمين</h3>
+        <small id="studentReportIdentity" style="display:block;color:var(--muted);margin-top:7px">
+          جاري تحميل بيانات حسابك الحقيقي...
+        </small>
+      </div>
+      <div id="studentReportsCloudList" style="color:var(--muted)">جاري تحميل التقارير...</div>
+    </div>`;
+  };
+
+  window.loadStudentOwnReportsCloud=async function(){
+    const identity=document.getElementById('studentReportIdentity');
+    const box=document.getElementById('studentReportsCloudList');
+    if(!box) return;
+
+    const safe=function(v){
+      if(typeof window.esc==='function') return window.esc(v??'');
+      return String(v??'')
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'",'&#39;');
+    };
+
+    try{
+      const bundle=await window.NabdCloud.myStudentReportBundle();
+      const student=bundle.profile;
+      const reports=bundle.reports||[];
+
+      if(!student){
+        if(identity) identity.textContent='تعذر تحديد حساب الطالب الحالي.';
+        box.innerHTML='<div style="color:#c0392b;padding:12px">تعذر تحميل بيانات الطالب من Supabase.</div>';
+        return;
+      }
+
+      if(identity){
+        identity.innerHTML=
+          `الطالب: <strong>${safe(student.name)}</strong> • ${safe(student.grade||'غير محدد')} • الشعبة (${safe(student.section||'غير محددة')})`+
+          `<br>الحساب: ${safe(student.email||'')}`;
+      }
+
+      if(!reports.length){
+        box.innerHTML='<div style="padding:18px;text-align:center;color:var(--muted)">لا توجد تقارير مرسلة لهذا الحساب حتى الآن.</div>';
+        return;
+      }
+
+      box.innerHTML=reports.map(function(r){
+        return `<div style="padding:14px;border:1px solid var(--line);border-radius:14px;margin-bottom:10px;background:#fafcff">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+            <div>
+              <strong>المعلم: ${safe(r.teacher_name||'المعلم')}</strong>
+              <small style="display:block;color:var(--muted);margin-top:3px">المادة: ${safe(r.subject||'غير محدد')}</small>
+              <small style="display:block;color:var(--muted);margin-top:3px">الطالب: ${safe(r.student_name||student.name||'')}</small>
+            </div>
+            <small style="color:var(--muted)">${r.updated_at?new Date(r.updated_at).toLocaleString('ar-OM'):''}</small>
+          </div>
+          <div style="margin-top:10px;line-height:1.9">${safe(r.report_text||'')}</div>
+        </div>`;
+      }).join('');
+    }catch(e){
+      if(identity) identity.textContent='حدث خطأ أثناء تحميل بيانات الحساب.';
+      box.innerHTML='<div style="color:#c0392b;padding:12px">تعذر تحميل التقارير: '+safe(e?.message||e)+'</div>';
+    }
+  };
+},0);
