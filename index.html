@@ -1117,6 +1117,11 @@ body[data-theme] .app-shell,body[data-theme] .login-screen{position:relative;z-i
 @media(max-width:700px){.theme-scenery .large{font-size:48px}.theme-scenery .medium{font-size:31px}.theme-scenery .i3,.theme-scenery .i5{display:none}}
 @media(prefers-reduced-motion:reduce){.theme-scenery *{animation:none!important}}
 
+
+    /* تعطيل الخلفيات والزخارف المتحركة مع الإبقاء على ألوان الثيم */
+    .theme-scenery{display:none !important;animation:none !important}
+    .theme-scenery *,.theme-scenery:before,.theme-scenery:after{animation:none !important;display:none !important}
+
 </style>
 </head>
 <body>
@@ -1279,13 +1284,7 @@ const themeSceneryItems={
 };
 function renderThemeScenery(themeId){
   const box=document.getElementById('themeScenery');
-  if(!box) return;
-  const items=themeSceneryItems[themeId]||[];
-  if(!items.length){box.innerHTML='';return;}
-  const six=items.slice(0,6).map((x,i)=>`<span class="float-item i${i+1} ${i%3===0?'large':i%3===1?'medium':'small'}">${x}</span>`).join('');
-  const drift=`<span class="drifter d1">${items[6]||items[0]}</span><span class="drifter d2">${items[7]||items[1]}</span>`;
-  const bubbles='<i class="bubble b1"></i><i class="bubble b2"></i><i class="bubble b3"></i><i class="bubble b4"></i>';
-  box.innerHTML=six+drift+bubbles;
+  if(box) box.innerHTML='';
 }
 
 function getPlatformTheme(){
@@ -1595,9 +1594,11 @@ function renderDashboard(){
    </div></div>
   </div>`;
  } else if(role==='teacher'){
+ const currentTeacher=demoData.teachers.find(x=>String(x.email||'').toLowerCase()===String(currentLoginEmail||'').toLowerCase()) || demoData.teachers[0];
+ const teacherFirstName=esc((currentTeacher?.name||'معلمنا').trim().split(/\s+/)[0]);
  d.innerHTML=`
   <div class="hero dashboard-with-school-logo">
-    <div class="dashboard-logo-side"><img class="school-home-logo" src="school-official-logo.png" alt="شعار المدرسة"></div><div><h1>مرحبًا أستاذ محمد 👨‍🏫</h1><p>لديك 8 واجبات تحتاج إلى تصحيح، وحصتان اليوم.</p></div><div class="mascot">👨‍🏫</div></div>
+    <div class="dashboard-logo-side"><img class="school-home-logo" src="school-official-logo.png" alt="شعار المدرسة"></div><div><h1>مرحبًا أستاذ ${teacherFirstName} 👨‍🏫</h1><p>نتمنى لك يومًا تعليميًا موفقًا ومليئًا بالإنجاز.</p></div><div class="mascot">👨‍🏫</div></div>
   <div class="section-title"><h3>نظرة سريعة</h3></div>
   <div class="grid grid-4">${stat('👥','#eaf4ff','120','طالب')}${stat('📚','#f2eaff','6','مواد')}${stat('🎓','#e8fff5','48','درس منشور')}${stat('📝','#fff2df','8','بانتظار التصحيح')}</div>
   <div class="section-title"><h3>إجراءات سريعة</h3></div>
