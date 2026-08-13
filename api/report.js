@@ -31,21 +31,26 @@ export default async function handler(req,res){
     if(action==='save'){
       if(profile.role!=='teacher') return res.status(403).json({error:'هذه العملية للمعلم فقط.'});
       const studentAuthId=String(body.student_auth_id||'').trim();
-      const studentName=String(body.student_name||'').trim();
       const subject=String(body.subject||profile.subject||'').trim();
-      const grade=String(body.grade||'').trim();
-      const section=String(body.section||'').trim();
       const reportText=String(body.report_text||'').trim();
       if(!studentAuthId||!reportText) return res.status(400).json({error:'الطالب ونص التقرير مطلوبان.'});
+
+      const {data:studentProfile,error:spErr}=await supabase.from('profiles')
+        .select('*').eq('auth_user_id',studentAuthId).eq('role','student').maybeSingle();
+      if(spErr) throw spErr;
+      if(!studentProfile) return res.status(404).json({error:'تعذر العثور على حساب الطالب المحدد.'});
 
       const key=`student_report:${studentAuthId}:${uid}:${subject||'general'}`;
       const value={
         student_auth_id:studentAuthId,
-        student_name:studentName,
+        student_name:studentProfile.name||'طالب',
+        student_email:studentProfile.email||'',
         teacher_auth_id:uid,
         teacher_name:profile.name||'معلم',
-        subject:subject||'غير محدد',
-        grade,section,
+        teacher_email:profile.email||'',
+        subject:subject||profile.subject||'غير محدد',
+        grade:studentProfile.grade||'',
+        section:studentProfile.section||'',
         report_text:reportText,
         updated_at:new Date().toISOString()
       };
@@ -57,10 +62,20 @@ export default async function handler(req,res){
     }
 
     if(action==='list-my'){
+      if(profile.role!=='student') return res.status(403).json({error:'هذه العملية للطالب فقط.'});
       const prefix=`student_report:${uid}:`;
       const {data,error}=await supabase.from('school_kv').select('key,value,updated_at').like('key',prefix+'%').order('updated_at',{ascending:false});
       if(error) throw error;
-      return res.status(200).json({reports:(data||[]).map(x=>x.value)});
+      return res.status(200).json({
+        profile:{
+          auth_user_id:profile.auth_user_id,
+          name:profile.name||'طالب',
+          email:profile.email||'',
+          grade:profile.grade||'',
+          section:profile.section||''
+        },
+        reports:(data||[]).map(x=>x.value)
+      });
     }
 
     if(action==='get-for-teacher'){
