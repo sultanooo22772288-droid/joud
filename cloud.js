@@ -83,5 +83,127 @@
 
   async function deleteUser(authUserId){ return adminRequest({action:'delete',auth_user_id:authUserId}); }
 
-  window.NabdCloud={init,signIn,signOut,loadProfiles,createUser,updateUser,deleteUser,get config(){return cfg;}};
+
+  async function currentUser(){
+    const c=await init();
+    const {data,error}=await c.auth.getUser();
+    if(error) throw error;
+    return data.user||null;
+  }
+
+  function safeFileName(name){
+    return String(name||'file').replace(/[^\p{L}\p{N}._-]+/gu,'_').slice(-140);
+  }
+
+  async function uploadSchoolFile(file,folder='homeworks'){
+    const c=await init();
+    const user=await currentUser();
+    if(!user) throw new Error('يجب تسجيل الدخول أولاً.');
+    const path=`${folder}/${user.id}/${Date.now()}_${safeFileName(file.name)}`;
+    const {error}=await c.storage.from('school-files').upload(path,file,{
+      upsert:false,
+      contentType:file.type||undefined
+    });
+    if(error) throw error;
+    return {path,name:file.name,size:file.size,type:file.type||'',uploadedAt:new Date().toISOString()};
+  }
+
+  async function signedSchoolFileUrl(path,expires=3600){
+    const c=await init();
+    const {data,error}=await c.storage.from('school-files').createSignedUrl(path,expires);
+    if(error) throw error;
+    return data.signedUrl;
+  }
+
+  async function createInteractiveHomework(payload){
+    const c=await init();
+    const user=await currentUser();
+    if(!user) throw new Error('يجب تسجيل الدخول أولاً.');
+    const row={
+      teacher_id:user.id,
+      teacher_name:payload.teacher_name||'معلم',
+      title:payload.title||'واجب',
+      description:payload.description||'',
+      grade:payload.grade||'',
+      section:payload.section||'',
+      due_at:payload.due_at||null,
+      questions:Array.isArray(payload.questions)?payload.questions:[],
+      mode:payload.mode||'online',
+      attachment:payload.attachment||null,
+      max_score:Number(payload.max_score)||null,
+      updated_at:new Date().toISOString()
+    };
+    const {data,error}=await c.from('homeworks').insert(row).select('*').single();
+    if(error) throw error;
+    return data;
+  }
+
+  async function listInteractiveHomeworks(){
+    const c=await init();
+    const {data,error}=await c.from('homeworks').select('*').order('created_at',{ascending:false});
+    if(error) throw error;
+    return data||[];
+  }
+
+  async function deleteInteractiveHomework(id){
+    const c=await init();
+    const {error}=await c.from('homeworks').delete().eq('id',id);
+    if(error) throw error;
+  }
+
+  async function submitInteractiveHomework(homeworkId,answers,studentName){
+    const c=await init();
+    const user=await currentUser();
+    if(!user) throw new Error('يجب تسجيل الدخول أولاً.');
+    const {data:existing,error:ee}=await c.from('homework_submissions')
+      .select('id').eq('homework_id',homeworkId).eq('student_id',user.id).maybeSingle();
+    if(ee) throw ee;
+    if(existing) throw new Error('تم تسليم هذا الواجب مسبقًا.');
+    const {data,error}=await c.from('homework_submissions').insert({
+      homework_id:homeworkId,
+      student_id:user.id,
+      student_name:studentName||'طالب',
+      answers:answers||{},
+      submitted_at:new Date().toISOString()
+    }).select('*').single();
+    if(error) throw error;
+    return data;
+  }
+
+  async function myInteractiveSubmission(homeworkId){
+    const c=await init();
+    const user=await currentUser();
+    if(!user) return null;
+    const {data,error}=await c.from('homework_submissions').select('*')
+      .eq('homework_id',homeworkId).eq('student_id',user.id).maybeSingle();
+    if(error) throw error;
+    return data||null;
+  }
+
+  async function teacherHomeworkSubmissions(homeworkId){
+    const c=await init();
+    const {data,error}=await c.from('homework_submissions').select('*')
+      .eq('homework_id',homeworkId).order('submitted_at',{ascending:false});
+    if(error) throw error;
+    return data||[];
+  }
+
+  async function gradeHomeworkSubmission(id,score,feedback){
+    const c=await init();
+    const {data,error}=await c.from('homework_submissions').update({
+      score:score===''||score==null?null:Number(score),
+      feedback:feedback||'',
+      graded_at:new Date().toISOString()
+    }).eq('id',id).select('*').single();
+    if(error) throw error;
+    return data;
+  }
+
+  window.NabdCloud={
+    init,signIn,signOut,loadProfiles,createUser,updateUser,deleteUser,
+    currentUser,uploadSchoolFile,signedSchoolFileUrl,
+    createInteractiveHomework,listInteractiveHomeworks,deleteInteractiveHomework,
+    submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,
+    get config(){return cfg;}
+  };
 })();

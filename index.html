@@ -1565,9 +1565,11 @@ function task(icon,title,sub,tag,cls){return `<div class="task"><div class="dot"
 function renderDashboard(){
  const d=document.getElementById('dashboard');
  if(role==='student'){
+ const currentStudent=demoData.students.find(x=>String(x.email||'').toLowerCase()===String(currentLoginEmail||'').toLowerCase()) || demoData.students[0];
+ const studentFirstName=esc((currentStudent?.name||'طالبنا').trim().split(/\s+/)[0]);
  d.innerHTML=`
   <div class="hero dashboard-with-school-logo">
-    <div class="dashboard-logo-side"><img class="school-home-logo" src="school-official-logo.png" alt="شعار المدرسة"></div><div><h1>مرحبًا يا أحمد 👋</h1><p>رائع! أكملت 3 مهام هذا الأسبوع. واصل تقدمك لتحصل على شارة جديدة ⭐</p></div><div class="mascot">🧑‍🚀</div></div>
+    <div class="dashboard-logo-side"><img class="school-home-logo" src="school-official-logo.png" alt="شعار المدرسة"></div><div><h1>مرحبًا ${studentFirstName} 👋</h1><p>سعداء بوجودك معنا اليوم. نتمنى لك يومًا دراسيًا ممتعًا ومليئًا بالإنجاز ⭐</p></div><div class="mascot">🧑‍🚀</div></div>
   <div class="section-title"><h3>ملخص اليوم</h3></div>
   <div class="grid grid-4">
    ${stat('🏅','#fff3d9','2,450','نقطة')}
@@ -1802,7 +1804,7 @@ document.getElementById('notifications').innerHTML=`
 
 document.getElementById('ai').innerHTML=`
  <div class="page-head"><div><h2>مساعد نَبْض الذكي 🤖</h2><p>اسأل، تعلّم، وتدرّب خطوة بخطوة.</p></div></div>
- <div class="card ai-box"><div class="chat" id="chat"><div class="msg bot">مرحبًا يا أحمد! 👋 أنا نَبْض. أستطيع شرح الدروس، مساعدتك في حل المسائل خطوة بخطوة، أو اختبارك بأسئلة قصيرة.</div><div class="msg user">اشرح لي الجهاز الدوري بطريقة سهلة.</div><div class="msg bot">أكيد! تخيّل أن القلب مثل مضخة، والدم مثل سيارات توصيل تحمل الأكسجين والغذاء إلى كل أجزاء الجسم ثم تعود مرة أخرى. ❤️🩸</div></div><div class="chat-input"><input id="aiInput" placeholder="اكتب سؤالك هنا..." onkeydown="if(event.key==='Enter')sendAI()"><button class="btn primary" onclick="sendAI()">إرسال</button></div></div>`;
+ <div class="card ai-box"><div class="chat" id="chat"><div class="msg bot">مرحبًا! 👋 أنا نَبْض. أستطيع شرح الدروس، مساعدتك في حل المسائل خطوة بخطوة، أو اختبارك بأسئلة قصيرة.</div><div class="msg user">اشرح لي الجهاز الدوري بطريقة سهلة.</div><div class="msg bot">أكيد! تخيّل أن القلب مثل مضخة، والدم مثل سيارات توصيل تحمل الأكسجين والغذاء إلى كل أجزاء الجسم ثم تعود مرة أخرى. ❤️🩸</div></div><div class="chat-input"><input id="aiInput" placeholder="اكتب سؤالك هنا..." onkeydown="if(event.key==='Enter')sendAI()"><button class="btn primary" onclick="sendAI()">إرسال</button></div></div>`;
 
 document.getElementById('profile').innerHTML=`
  <div class="page-head"><div><h2>الملف الشخصي والإعدادات 👤</h2><p>إدارة المعلومات والتفضيلات.</p></div></div>
@@ -2351,26 +2353,49 @@ function renderRolePages(){
       </div>`;
 
     assignments.innerHTML=`
-      <div class="page-head"><div><h2>إدارة الواجبات 📝</h2><p>أنشئ الواجب وحدد الصف وموعد التسليم.</p></div></div>
+      <div class="page-head"><div><h2>إدارة الواجبات 📝</h2><p>أنشئ واجبًا عاديًا أو واجبًا يحله الطالب داخل المنصة.</p></div></div>
       <div class="teacher-tool">
-        <h3>➕ واجب جديد</h3>
+        <h3>➕ إنشاء واجب جديد</h3>
         <div class="upload-row">
           <input id="hwTitle" placeholder="عنوان الواجب">
-          <select id="hwClass"><option>الصف السابع / أ</option><option>الصف السابع / ب</option><option>الصف الثامن / أ</option></select>
+          <select id="hwGrade">
+            <option value="روضة">روضة</option><option value="تمهيدي">تمهيدي</option>
+            <option value="الصف الأول">الصف الأول</option><option value="الصف الثاني">الصف الثاني</option>
+            <option value="الصف الثالث">الصف الثالث</option><option value="الصف الرابع">الصف الرابع</option>
+          </select>
+          <select id="hwSection"><option>أ</option><option>ب</option><option>ج</option><option>د</option></select>
           <input id="hwDue" type="datetime-local">
-          <input id="hwFile" type="file" accept=".pdf,.doc,.docx,image/*">
         </div>
         <textarea id="hwDesc" rows="3" placeholder="تعليمات الواجب..." style="width:100%;margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:13px"></textarea>
-        <button class="btn primary" style="margin-top:12px" onclick="addHomeworkDemo()">نشر الواجب</button>
+
+        <div class="card" style="margin-top:12px;padding:14px;box-shadow:none">
+          <label style="display:block;font-weight:800;margin-bottom:8px">طريقة الواجب</label>
+          <select id="hwMode" onchange="toggleHomeworkModeBuilder()" style="width:100%;padding:12px;border:1px solid var(--line);border-radius:13px;background:#fff">
+            <option value="online">🧠 أسئلة داخل المنصة</option>
+            <option value="file">📎 واجب بملف مرفق</option>
+          </select>
+
+          <div id="hwOnlineBuilder" style="margin-top:14px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+              <button type="button" class="btn soft" onclick="addHomeworkQuestion('mcq')">➕ سؤال اختيار متعدد</button>
+              <button type="button" class="btn soft" onclick="addHomeworkQuestion('essay')">➕ سؤال مقالي</button>
+            </div>
+            <div id="hwQuestionBuilder"></div>
+            <div style="font-size:12px;color:var(--muted);margin-top:8px">يمكنك إضافة أي عدد من الأسئلة وترتيبها قبل النشر.</div>
+          </div>
+
+          <div id="hwFileBuilder" style="display:none;margin-top:14px">
+            <input id="hwFile" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,image/*" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:12px;background:#fff">
+          </div>
+        </div>
+
+        <button class="btn primary" style="margin-top:12px" onclick="publishSmartHomework()">🚀 نشر الواجب للطلاب</button>
+        <span id="hwPublishStatus" style="margin-right:10px;font-size:13px;font-weight:800"></span>
       </div>
-      <div class="card" id="teacherHomework">
-        ${teacherHomeworkCard('➗','واجب المعادلات','الصف الأول / أ • التسليم اليوم','قيد المتابعة','orange',
-          ['أحمد محمد','سالم علي','مريم خالد','يوسف سعيد'],
-          ['نور عبدالله','راشد حمد','ليان سالم'])}
-        ${teacherHomeworkCard('🧪','ورقة عمل الجهاز الدوري','الصف الثاني / ب • التسليم الأربعاء','12/20','blue',
-          ['سارة خالد','محمد راشد','ريم أحمد'],
-          ['خالد سعيد','هيا علي','عمر ناصر','جنى محمد'])}
-      </div>`;
+      <div id="teacherInteractiveHomeworkList" class="card">
+        <div style="text-align:center;color:var(--muted);padding:18px">جاري تحميل الواجبات السحابية...</div>
+      </div>`; 
+    homeworkQuestionDraft=[]; setTimeout(()=>{addHomeworkQuestion('mcq');toggleHomeworkModeBuilder();loadTeacherInteractiveHomeworks();},0);
   }
   else if(role==='student'){
     subjects.innerHTML=`
@@ -2384,12 +2409,11 @@ function renderRolePages(){
        <div class="lesson-item"><div class="lesson-num">3</div><div><b>الجهاز التنفسي</b><small>فيديو • 12 دقيقة</small></div><button class="btn soft">قريبًا</button></div>
       </div>`;
     assignments.innerHTML=`
-      <div class="page-head"><div><h2>الواجبات 📝</h2><p>أرفق ملف الحل لكل واجب ثم قم بتسليمه.</p></div></div>
-      <div class="card">
-        ${studentAssignmentCard('➗','واجب الرياضيات - المعادلات','التسليم: اليوم 8:00 مساءً','متبقي 6 ساعات','orange','math_eq')}
-        ${studentAssignmentCard('🧪','واجب العلوم - الجهاز الدوري','التسليم: الأربعاء','متبقي يومان','blue','science_circulation')}
-        ${studentAssignmentCard('📖','تلخيص قصة قصيرة','تم التسليم أمس','تم التسليم','green','arabic_story',true)}
+      <div class="page-head"><div><h2>الواجبات 📝</h2><p>حل الواجبات مباشرة داخل المنصة أو ارفع الملف المطلوب.</p></div></div>
+      <div id="studentInteractiveHomeworkList" class="card">
+        <div style="text-align:center;color:var(--muted);padding:20px">جاري تحميل واجباتك...</div>
       </div>`;
+    setTimeout(loadStudentInteractiveHomeworks,0);
     document.getElementById('progressPage').innerHTML=`
       <div class="page-head"><div><h2>تقدمي 📈</h2><p>متابعة تقدمي الدراسي والتقرير الوصفي من المعلم.</p></div></div>
       ${getStudentOwnReportHtml()}`;
@@ -2649,6 +2673,278 @@ function refreshAdminPublishedView(type){
   const target=document.getElementById(type==='quiz'?'adminQuizzesPublishedList':'adminHomeworksPublishedList');
   if(target) target.innerHTML=renderAdminPublishedItems(type,filter);
 }
+
+
+let homeworkQuestionDraft=[];
+
+function toggleHomeworkModeBuilder(){
+  const mode=document.getElementById('hwMode')?.value||'online';
+  const online=document.getElementById('hwOnlineBuilder');
+  const file=document.getElementById('hwFileBuilder');
+  if(online) online.style.display=mode==='online'?'block':'none';
+  if(file) file.style.display=mode==='file'?'block':'none';
+  if(mode==='online' && !homeworkQuestionDraft.length) addHomeworkQuestion('mcq');
+}
+
+function addHomeworkQuestion(type){
+  homeworkQuestionDraft.push({
+    id:'q_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+    type:type==='essay'?'essay':'mcq',
+    text:'',
+    options:type==='essay'?[]:['','','',''],
+    correct:type==='essay'?'':0,
+    points:1
+  });
+  renderHomeworkQuestionBuilder();
+}
+
+function removeHomeworkQuestion(id){
+  homeworkQuestionDraft=homeworkQuestionDraft.filter(q=>q.id!==id);
+  renderHomeworkQuestionBuilder();
+}
+
+function updateHomeworkQuestion(id,field,value,index=null){
+  const q=homeworkQuestionDraft.find(x=>x.id===id); if(!q)return;
+  if(field==='option' && index!==null) q.options[index]=value;
+  else if(field==='correct') q.correct=Number(value);
+  else if(field==='points') q.points=Math.max(1,Number(value)||1);
+  else q[field]=value;
+}
+
+function renderHomeworkQuestionBuilder(){
+  const box=document.getElementById('hwQuestionBuilder'); if(!box)return;
+  if(!homeworkQuestionDraft.length){
+    box.innerHTML='<div style="padding:14px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);text-align:center">اضغط إضافة سؤال للبدء.</div>';
+    return;
+  }
+  box.innerHTML=homeworkQuestionDraft.map((q,i)=>`
+    <div style="border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px;background:#fff">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px">
+        <strong>السؤال ${i+1} — ${q.type==='mcq'?'اختيار متعدد':'مقالي'}</strong>
+        <button type="button" class="btn soft" onclick="removeHomeworkQuestion('${q.id}')">حذف</button>
+      </div>
+      <textarea rows="2" placeholder="اكتب نص السؤال..." oninput="updateHomeworkQuestion('${q.id}','text',this.value)" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px">${esc(q.text)}</textarea>
+      ${q.type==='mcq'?`
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+          ${q.options.map((op,oi)=>`<label style="display:flex;align-items:center;gap:6px">
+            <input type="radio" name="correct_${q.id}" value="${oi}" ${Number(q.correct)===oi?'checked':''} onchange="updateHomeworkQuestion('${q.id}','correct',this.value)">
+            <input value="${esc(op)}" placeholder="الخيار ${oi+1}" oninput="updateHomeworkQuestion('${q.id}','option',this.value,${oi})" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:9px">
+          </label>`).join('')}
+        </div>`:''}
+      <label style="display:block;margin-top:10px;font-size:12px;color:var(--muted)">درجة السؤال
+        <input type="number" min="1" value="${q.points||1}" oninput="updateHomeworkQuestion('${q.id}','points',this.value)" style="width:80px;margin-right:8px;padding:7px;border:1px solid var(--line);border-radius:8px">
+      </label>
+    </div>`).join('');
+}
+
+async function publishSmartHomework(){
+  if(role!=='teacher'){alert('هذا الخيار متاح للمعلم فقط.');return;}
+  const title=document.getElementById('hwTitle')?.value.trim()||'';
+  const description=document.getElementById('hwDesc')?.value.trim()||'';
+  const grade=document.getElementById('hwGrade')?.value||'';
+  const section=document.getElementById('hwSection')?.value||'';
+  const due=document.getElementById('hwDue')?.value||'';
+  const mode=document.getElementById('hwMode')?.value||'online';
+  const status=document.getElementById('hwPublishStatus');
+  if(!title){alert('اكتب عنوان الواجب.');return;}
+  if(!due){alert('حدد موعد التسليم.');return;}
+
+  let questions=[];
+  let attachment=null;
+  if(mode==='online'){
+    questions=homeworkQuestionDraft.map(q=>({...q,text:String(q.text||'').trim(),options:(q.options||[]).map(x=>String(x||'').trim())}));
+    if(!questions.length){alert('أضف سؤالًا واحدًا على الأقل.');return;}
+    for(const q of questions){
+      if(!q.text){alert('يوجد سؤال بدون نص.');return;}
+      if(q.type==='mcq' && q.options.some(x=>!x)){alert('أكمل جميع خيارات أسئلة الاختيار المتعدد.');return;}
+    }
+  }else{
+    const file=document.getElementById('hwFile')?.files?.[0]||null;
+    if(file){
+      if(status) status.textContent='جاري رفع الملف...';
+      attachment=await NabdCloud.uploadSchoolFile(file,'homeworks');
+    }
+  }
+
+  try{
+    if(status) status.textContent='جاري النشر في السحابة...';
+    const teacher=demoData.teachers.find(x=>String(x.email||'').toLowerCase()===String(currentLoginEmail||'').toLowerCase());
+    await NabdCloud.createInteractiveHomework({
+      teacher_name:teacher?.name||'معلم',
+      title,description,grade,section,due_at:due,questions,mode,attachment,
+      max_score:questions.reduce((s,q)=>s+(Number(q.points)||1),0)
+    });
+    homeworkQuestionDraft=[];
+    if(document.getElementById('hwTitle')) document.getElementById('hwTitle').value='';
+    if(document.getElementById('hwDesc')) document.getElementById('hwDesc').value='';
+    if(document.getElementById('hwFile')) document.getElementById('hwFile').value='';
+    renderHomeworkQuestionBuilder();
+    if(status){status.style.color='#178a5b';status.textContent='✓ تم نشر الواجب سحابيًا.';}
+    await loadTeacherInteractiveHomeworks();
+  }catch(e){
+    if(status){status.style.color='#c0392b';status.textContent='تعذر النشر: '+(e.message||'');}
+    alert('تعذر نشر الواجب: '+(e.message||''));
+  }
+}
+
+function formatHomeworkDue(v){
+  if(!v)return 'بدون موعد';
+  const d=new Date(v);
+  return Number.isNaN(d.getTime())?'—':d.toLocaleString('ar-OM',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+
+async function loadTeacherInteractiveHomeworks(){
+  if(role!=='teacher')return;
+  const box=document.getElementById('teacherInteractiveHomeworkList'); if(!box)return;
+  try{
+    const user=await NabdCloud.currentUser();
+    const all=await NabdCloud.listInteractiveHomeworks();
+    const list=all.filter(h=>h.teacher_id===user?.id);
+    if(!list.length){
+      box.innerHTML='<div style="text-align:center;color:var(--muted);padding:22px">لم تنشر واجبات سحابية بعد.</div>';
+      return;
+    }
+    const cards=[];
+    for(const h of list){
+      let subs=[];
+      try{subs=await NabdCloud.teacherHomeworkSubmissions(h.id);}catch(e){}
+      cards.push(`<div style="padding:14px 0;border-bottom:1px solid var(--line)">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+          <div><strong>${esc(h.title)}</strong><small style="display:block;color:var(--muted);margin-top:4px">${esc(h.grade)} / ${esc(h.section)} • التسليم ${formatHomeworkDue(h.due_at)} • ${h.mode==='online'?'داخل المنصة':'ملف مرفق'}</small></div>
+          <span class="tag blue">${subs.length} تسليم</span>
+        </div>
+        <details style="margin-top:10px">
+          <summary style="cursor:pointer;font-weight:800">عرض إجابات الطلاب وتصحيحها</summary>
+          <div style="margin-top:10px">${subs.length?subs.map(s=>renderTeacherSubmission(h,s)).join(''):'<div style="color:var(--muted);padding:10px">لا توجد تسليمات حتى الآن.</div>'}</div>
+        </details>
+      </div>`);
+    }
+    box.innerHTML=cards.join('');
+  }catch(e){
+    box.innerHTML='<div style="color:#c0392b;padding:16px">تعذر تحميل الواجبات: '+esc(e.message||'')+'</div>';
+  }
+}
+
+function renderTeacherSubmission(hw,s){
+  const answers=s.answers||{};
+  return `<div style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px;background:#fafbff">
+    <strong>${esc(s.student_name||'طالب')}</strong>
+    <small style="display:block;color:var(--muted);margin:4px 0 9px">تم التسليم: ${formatHomeworkDue(s.submitted_at)}</small>
+    ${(hw.questions||[]).map((q,i)=>{
+      const a=answers[q.id]??'';
+      return `<div style="padding:8px 0;border-top:1px dashed var(--line)"><b>${i+1}. ${esc(q.text)}</b><div style="margin-top:4px">إجابة الطالب: ${esc(a||'—')}</div></div>`;
+    }).join('')}
+    <div style="display:grid;grid-template-columns:120px 1fr auto;gap:8px;align-items:end;margin-top:10px">
+      <label style="font-size:12px">الدرجة
+        <input id="grade_${s.id}" type="number" min="0" max="${Number(hw.max_score)||100}" value="${s.score??''}" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px">
+      </label>
+      <label style="font-size:12px">ملاحظة المعلم
+        <input id="feedback_${s.id}" value="${esc(s.feedback||'')}" placeholder="ملاحظة اختيارية" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px">
+      </label>
+      <button class="btn primary" onclick="saveSubmissionGrade(${s.id},${hw.id})">حفظ التصحيح</button>
+    </div>
+  </div>`;
+}
+
+async function saveSubmissionGrade(submissionId,homeworkId){
+  const score=document.getElementById('grade_'+submissionId)?.value??'';
+  const feedback=document.getElementById('feedback_'+submissionId)?.value||'';
+  try{
+    await NabdCloud.gradeHomeworkSubmission(submissionId,score,feedback);
+    alert('تم حفظ درجة الطالب وملاحظة المعلم.');
+    await loadTeacherInteractiveHomeworks();
+  }catch(e){alert('تعذر حفظ التصحيح: '+(e.message||''));}
+}
+
+function currentStudentProfile(){
+  return demoData.students.find(x=>String(x.email||'').toLowerCase()===String(currentLoginEmail||'').toLowerCase())||null;
+}
+
+async function loadStudentInteractiveHomeworks(){
+  if(role!=='student')return;
+  const box=document.getElementById('studentInteractiveHomeworkList'); if(!box)return;
+  try{
+    const student=currentStudentProfile();
+    const all=await NabdCloud.listInteractiveHomeworks();
+    const list=all.filter(h=>(!h.grade||h.grade===student?.grade)&&(!h.section||h.section===student?.section));
+    if(!list.length){
+      box.innerHTML='<div style="text-align:center;color:var(--muted);padding:22px">لا توجد واجبات منشورة لك حاليًا.</div>';
+      return;
+    }
+    const cards=[];
+    for(const h of list){
+      const sub=await NabdCloud.myInteractiveSubmission(h.id);
+      cards.push(renderStudentCloudHomework(h,sub));
+    }
+    box.innerHTML=cards.join('');
+  }catch(e){
+    box.innerHTML='<div style="color:#c0392b;padding:16px">تعذر تحميل الواجبات: '+esc(e.message||'')+'</div>';
+  }
+}
+
+function renderStudentCloudHomework(hw,sub){
+  const submitted=!!sub;
+  const scoreText=sub?.score!=null?` • الدرجة: ${sub.score}/${hw.max_score||'—'}`:'';
+  if(hw.mode==='file'){
+    return `<div style="padding:15px 0;border-bottom:1px solid var(--line)">
+      <div class="task"><div class="dot">📎</div><div><strong>${esc(hw.title)}</strong><small>التسليم ${formatHomeworkDue(hw.due_at)}</small></div><span class="tag ${submitted?'green':'orange'}">${submitted?'تم التسليم':'واجب ملف'}</span></div>
+      ${hw.description?`<p style="margin:8px 8px;color:var(--muted)">${esc(hw.description)}</p>`:''}
+      ${hw.attachment?.path?`<button class="btn soft" onclick="openHomeworkAttachment('${encodeURIComponent(hw.attachment.path)}')">فتح ملف الواجب</button>`:''}
+      <div style="margin-top:10px;color:var(--muted)">هذا النوع يستخدم ملفًا مرفقًا. ${submitted?'تم تسجيل تسليمك.':''}${scoreText}</div>
+    </div>`;
+  }
+  return `<div style="padding:16px 0;border-bottom:1px solid var(--line)" id="cloud_hw_${hw.id}">
+    <div class="task"><div class="dot">🧠</div><div><strong>${esc(hw.title)}</strong><small>${esc(hw.teacher_name||'')} • التسليم ${formatHomeworkDue(hw.due_at)}</small></div><span class="tag ${submitted?'green':'blue'}">${submitted?'تم التسليم':'حل داخل المنصة'}</span></div>
+    ${hw.description?`<p style="margin:8px 8px;color:var(--muted)">${esc(hw.description)}</p>`:''}
+    ${submitted?`<div style="padding:12px;border-radius:12px;background:#e8fff5;color:#148b67;font-weight:800">✓ تم إرسال إجاباتك للمعلم${scoreText}${sub.feedback?`<div style="margin-top:5px">ملاحظة المعلم: ${esc(sub.feedback)}</div>`:''}</div>`:
+      `<div style="margin-top:12px">${(hw.questions||[]).map((q,i)=>renderStudentQuestion(hw.id,q,i)).join('')}
+       <button class="btn primary" onclick="submitOnlineHomework(${hw.id})">إرسال الإجابات للمعلم</button></div>`}
+  </div>`;
+}
+
+function renderStudentQuestion(homeworkId,q,i){
+  if(q.type==='mcq'){
+    return `<div style="padding:13px;border:1px solid var(--line);border-radius:12px;margin-bottom:10px">
+      <strong>${i+1}. ${esc(q.text)}</strong>
+      <div style="display:grid;gap:7px;margin-top:9px">${(q.options||[]).map((op,oi)=>`<label style="padding:9px;border:1px solid var(--line);border-radius:9px;cursor:pointer"><input type="radio" name="ans_${homeworkId}_${q.id}" value="${esc(op)}"> ${esc(op)}</label>`).join('')}</div>
+    </div>`;
+  }
+  return `<div style="padding:13px;border:1px solid var(--line);border-radius:12px;margin-bottom:10px">
+    <strong>${i+1}. ${esc(q.text)}</strong>
+    <textarea id="ans_${homeworkId}_${q.id}" rows="4" placeholder="اكتب إجابتك هنا..." style="width:100%;margin-top:9px;padding:10px;border:1px solid var(--line);border-radius:9px"></textarea>
+  </div>`;
+}
+
+async function submitOnlineHomework(homeworkId){
+  try{
+    const all=await NabdCloud.listInteractiveHomeworks();
+    const hw=all.find(x=>Number(x.id)===Number(homeworkId)); if(!hw)return;
+    const answers={};
+    for(const q of (hw.questions||[])){
+      if(q.type==='mcq'){
+        const checked=document.querySelector(`input[name="ans_${homeworkId}_${q.id}"]:checked`);
+        if(!checked){alert('أجب عن جميع الأسئلة قبل الإرسال.');return;}
+        answers[q.id]=checked.value;
+      }else{
+        const val=document.getElementById(`ans_${homeworkId}_${q.id}`)?.value.trim()||'';
+        if(!val){alert('أجب عن جميع الأسئلة قبل الإرسال.');return;}
+        answers[q.id]=val;
+      }
+    }
+    const student=currentStudentProfile();
+    await NabdCloud.submitInteractiveHomework(homeworkId,answers,student?.name||'طالب');
+    alert('تم إرسال إجاباتك للمعلم بنجاح.');
+    await loadStudentInteractiveHomeworks();
+  }catch(e){alert('تعذر إرسال الواجب: '+(e.message||''));}
+}
+
+async function openHomeworkAttachment(encodedPath){
+  try{
+    const url=await NabdCloud.signedSchoolFileUrl(decodeURIComponent(encodedPath),3600);
+    window.open(url,'_blank');
+  }catch(e){alert('تعذر فتح الملف: '+(e.message||''));}
+}
+
 
 function addHomeworkDemo(){
   const title=document.getElementById('hwTitle').value.trim() || 'واجب جديد';
