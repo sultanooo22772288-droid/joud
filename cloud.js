@@ -47,6 +47,34 @@
     return data.session?.access_token||'';
   }
 
+
+  async function reportRequest(payload){
+    const token=await getAccessToken();
+    const r=await fetch('/api/report',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body:JSON.stringify(payload)
+    });
+    const out=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(out.error||'تعذر تنفيذ عملية التقرير.');
+    return out;
+  }
+
+  async function saveStudentReport(payload){
+    const out=await reportRequest({action:'save',...payload});
+    return out.report;
+  }
+
+  async function myStudentReports(){
+    const out=await reportRequest({action:'list-my'});
+    return out.reports||[];
+  }
+
+  async function getTeacherStudentReport(studentAuthId,subject){
+    const out=await reportRequest({action:'get-for-teacher',student_auth_id:studentAuthId,subject});
+    return out.report||null;
+  }
+
   async function adminRequest(payload){
     const token=await getAccessToken();
     const r=await fetch('/api/admin-user',{
@@ -253,6 +281,7 @@
     createInteractiveHomework,listInteractiveHomeworks,deleteInteractiveHomework,
     submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,
     setHomeworkScoreVisibility,listClassStudents,
+    saveStudentReport,myStudentReports,getTeacherStudentReport,
     get config(){return cfg;}
   };
 })();

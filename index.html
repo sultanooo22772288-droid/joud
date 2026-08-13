@@ -2495,8 +2495,13 @@ function renderRolePages(){
       </div>`;
     setTimeout(loadStudentInteractiveHomeworks,0);
     document.getElementById('progressPage').innerHTML=`
-      <div class="page-head"><div><h2>تقدمي 📈</h2><p>متابعة تقدمي الدراسي والتقرير الوصفي من المعلم.</p></div></div>
-      ${getStudentOwnReportHtml()}`;
+      <div class="page-head"><div><h2>تقدمي 📈</h2><p>متابعة تقدمي الدراسي وتقارير المعلمين.</p></div></div>
+      <div id="studentReportShell"><div class="card" style="text-align:center;color:var(--muted)">جاري تجهيز تقاريرك...</div></div>`;
+    setTimeout(async()=>{
+      const shell=document.getElementById('studentReportShell');
+      if(shell) shell.innerHTML=await getStudentOwnReportHtml();
+      await loadStudentOwnReportsCloud();
+    },0);
   }
   else {
     // Admin retains management overview, but not teacher-specific classroom publishing tools.
@@ -2572,51 +2577,105 @@ async function renderTeacherReportStudents(){
     return;
   }
 
-  target.innerHTML='<div style="text-align:center;color:var(--muted);padding:20px">جاري تحميل الطلاب...</div>';
-
-  let students=[];
+  target.innerHTML='<div style="text-align:center;color:var(--muted);padding:20px">جاري تحميل الطلاب المسجلين...</div>';
   try{
     const profiles=await NabdCloud.loadProfiles();
-    students=profiles.filter(s=>s.role==='student' && s.grade===grade && s.section===section);
+    const students=profiles.filter(s=>s.role==='student' && s.grade===grade && s.section===section);
+
+    if(!students.length){
+      target.innerHTML=`<div style="text-align:center;color:var(--muted);padding:20px">لا يوجد طلاب مسجلون في ${esc(grade)} — الشعبة (${esc(section)}).</div>`;
+      return;
+    }
+
+    const teacher=demoData.teachers.find(x=>String(x.email||'').toLowerCase()===String(currentLoginEmail||'').toLowerCase())||demoData.teachers[0]||{};
+    const subject=teacher.subject||'غير محدد';
+
+    const cards=[];
+    for(let i=0;i<students.length;i++){
+      const s=students[i];
+      let existing=null;
+      try{ existing=await NabdCloud.getTeacherStudentReport(s.authUserId,subject); }catch(e){}
+      const saved=existing?.report_text||'';
+      const updated=existing?.updated_at||'';
+      cards.push(`<div style="padding:14px 0;border-bottom:${i===students.length-1?'0':'1px solid var(--line)'};position:relative">
+        ${updated?`<div style="position:absolute;left:10px;top:10px;opacity:.55;font-size:11px;font-weight:700">آخر تعديل: ${formatSchoolDateTime(updated)}</div>`:''}
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:9px">
+          <div>
+            <strong>${esc(s.name)}</strong>
+            <small style="display:block;color:var(--muted);margin-top:3px">${esc(grade)} • الشعبة (${esc(section)}) • ${esc(subject)}</small>
+          </div>
+          <button class="btn primary" onclick="saveTeacherStudentReportCloud('${encodeURIComponent(s.authUserId)}','${encodeURIComponent(s.name)}','${encodeURIComponent(subject)}','${encodeURIComponent(grade)}','${encodeURIComponent(section)}','report_${i}')">حفظ وإرسال للطالب</button>
+        </div>
+        <textarea id="report_${i}" rows="4" placeholder="اكتب تقريرًا وصفيًا عن الطالب..." style="width:100%;padding:12px;border:1px solid var(--line);border-radius:13px;resize:vertical">${esc(saved)}</textarea>
+      </div>`);
+    }
+    target.innerHTML=cards.join('');
   }catch(e){
-    students=teacherReportDemoStudents.filter(s=>s.grade===grade && s.section===section);
+    target.innerHTML='<div style="color:#c0392b;padding:18px">تعذر تحميل الطلاب: '+esc(e.message||'')+'</div>';
   }
-
-  if(!students.length){
-    target.innerHTML=`<div style="text-align:center;color:var(--muted);padding:20px">لا يوجد طلاب مسجلون في ${esc(grade)} — الشعبة (${esc(section)}).</div>`;
-    return;
-  }
-
-  target.innerHTML=students.map((s,i)=>{
-    const key=`teacherReport_${grade}_${section}_${s.name}`;
-    let saved='', updated='';
-    try{
-      saved=localStorage.getItem(key)||'';
-      updated=localStorage.getItem(key+'_updated')||'';
-    }catch(e){}
-    return `<div style="padding:14px 0;border-bottom:${i===students.length-1?'0':'1px solid var(--line)'};position:relative">
-      ${updated?`<div style="position:absolute;left:10px;top:10px;opacity:.42;font-size:11px;font-weight:700">آخر تعديل: ${updated}</div>`:''}
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:9px">
-        <div><strong>${esc(s.name)}</strong><small style="display:block;color:var(--muted);margin-top:3px">${esc(grade)} • الشعبة (${esc(section)})</small></div>
-        <button class="btn primary" onclick="saveTeacherStudentReport('${encodeURIComponent(key)}','report_${i}')">حفظ التقرير</button>
-      </div>
-      <textarea id="report_${i}" rows="3" placeholder="اكتب تقريرًا وصفيًا بسيطًا عن الطالب..." style="width:100%;padding:12px;border:1px solid var(--line);border-radius:13px;resize:vertical">${esc(saved)}</textarea>
-    </div>`;
-  }).join('');
 }
 
-function saveTeacherStudentReport(encodedKey, textareaId){
-  const key=decodeURIComponent(encodedKey);
+async function saveTeacherStudentReportCloud(studentAuthIdEnc,studentNameEnc,subjectEnc,gradeEnc,sectionEnc,textareaId){
   const el=document.getElementById(textareaId);
-  if(!el) return;
+  if(!el)return;
   const report=el.value.trim();
-  const stamp=new Date().toLocaleString('ar-OM',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  if(!report){alert('اكتب التقرير أولاً.');return;}
   try{
-    localStorage.setItem(key,report);
-    localStorage.setItem(key+'_updated',stamp);
-  }catch(e){}
-  renderTeacherReportStudents();
-  alert('تم حفظ تقرير الطالب بتاريخ آخر تعديل.');
+    await NabdCloud.saveStudentReport({
+      student_auth_id:decodeURIComponent(studentAuthIdEnc),
+      student_name:decodeURIComponent(studentNameEnc),
+      subject:decodeURIComponent(subjectEnc),
+      grade:decodeURIComponent(gradeEnc),
+      section:decodeURIComponent(sectionEnc),
+      report_text:report
+    });
+    alert('تم حفظ التقرير وإرساله إلى حساب الطالب مباشرة.');
+    await renderTeacherReportStudents();
+  }catch(e){
+    alert('تعذر حفظ التقرير: '+(e.message||''));
+  }
+}
+
+async function getStudentOwnReportHtml(){
+  const student=currentStudentProfile();
+  if(!student){
+    return `<div class="card" style="text-align:center;color:var(--muted)">تعذر تحديد بيانات الطالب.</div>`;
+  }
+  return `<div class="card" id="studentReportsCloudBox">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <div>
+        <h3 style="margin:0">📋 تقارير المعلمين</h3>
+        <small style="color:var(--muted)">الطالب: ${esc(student.name)} • ${esc(student.grade||'')} • الشعبة (${esc(student.section||'')})</small>
+      </div>
+    </div>
+    <div id="studentReportsCloudList" style="color:var(--muted)">جاري تحميل التقارير...</div>
+  </div>`;
+}
+
+async function loadStudentOwnReportsCloud(){
+  if(role!=='student')return;
+  const box=document.getElementById('studentReportsCloudList');
+  if(!box)return;
+  try{
+    const reports=await NabdCloud.myStudentReports();
+    if(!reports.length){
+      box.innerHTML='<div style="padding:18px;text-align:center">لا توجد تقارير مرسلة لك حتى الآن.</div>';
+      return;
+    }
+    box.innerHTML=reports.map(r=>`
+      <div style="padding:14px;border:1px solid var(--line);border-radius:14px;margin-bottom:10px;background:#fafcff">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+          <div>
+            <strong>${esc(r.teacher_name||'المعلم')}</strong>
+            <small style="display:block;color:var(--muted);margin-top:3px">المادة: ${esc(r.subject||'غير محدد')}</small>
+          </div>
+          <small style="color:var(--muted)">آخر تعديل: ${formatSchoolDateTime(r.updated_at)}</small>
+        </div>
+        <div style="margin-top:10px;line-height:1.9">${esc(r.report_text||'')}</div>
+      </div>`).join('');
+  }catch(e){
+    box.innerHTML='<div style="color:#c0392b;padding:12px">تعذر تحميل التقارير: '+esc(e.message||'')+'</div>';
+  }
 }
 
 function addLessonDemo(){
