@@ -159,12 +159,41 @@
       .select('id').eq('homework_id',homeworkId).eq('student_id',user.id).maybeSingle();
     if(ee) throw ee;
     if(existing) throw new Error('تم تسليم هذا الواجب مسبقًا.');
+
+    const {data:hw,error:he}=await c.from('homeworks').select('questions,max_score').eq('id',homeworkId).single();
+    if(he) throw he;
+    const questions=Array.isArray(hw?.questions)?hw.questions:[];
+    let autoScore=0;
+    const details={};
+    let hasEssay=false;
+    for(const q of questions){
+      const pts=Number(q.points)||1;
+      if(q.type==='mcq'){
+        const correctText=(q.options||[])[Number(q.correct)]??'';
+        const given=answers?.[q.id]??'';
+        const correct=String(given)===String(correctText);
+        if(correct) autoScore+=pts;
+        details[q.id]={type:'mcq',correct,points:pts,earned:correct?pts:0};
+      }else{
+        hasEssay=true;
+        details[q.id]={type:'essay',correct:null,points:pts,earned:null};
+      }
+    }
+    const maxScore=Number(hw?.max_score)||questions.reduce((s,q)=>s+(Number(q.points)||1),0);
+    const initialScore=hasEssay?autoScore:autoScore;
+
     const {data,error}=await c.from('homework_submissions').insert({
       homework_id:homeworkId,
       student_id:user.id,
       student_name:studentName||'طالب',
       answers:answers||{},
-      submitted_at:new Date().toISOString()
+      submitted_at:new Date().toISOString(),
+      auto_score:autoScore,
+      max_score:maxScore,
+      score:initialScore,
+      grading_details:details,
+      score_visible:false,
+      graded_at:hasEssay?null:new Date().toISOString()
     }).select('*').single();
     if(error) throw error;
     return data;
@@ -199,11 +228,31 @@
     return data;
   }
 
+  async function setHomeworkScoreVisibility(id,visible){
+    const c=await init();
+    const {data,error}=await c.from('homework_submissions').update({
+      score_visible:!!visible
+    }).eq('id',id).select('*').single();
+    if(error) throw error;
+    return data;
+  }
+
+  async function listClassStudents(grade,section){
+    const c=await init();
+    let q=c.from('profiles').select('id,auth_user_id,name,email,grade,section,role').eq('role','student');
+    if(grade) q=q.eq('grade',grade);
+    if(section) q=q.eq('section',section);
+    const {data,error}=await q.order('name',{ascending:true});
+    if(error) throw error;
+    return data||[];
+  }
+
   window.NabdCloud={
     init,signIn,signOut,loadProfiles,createUser,updateUser,deleteUser,
     currentUser,uploadSchoolFile,signedSchoolFileUrl,
     createInteractiveHomework,listInteractiveHomeworks,deleteInteractiveHomework,
     submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,
+    setHomeworkScoreVisibility,listClassStudents,
     get config(){return cfg;}
   };
 })();

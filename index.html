@@ -2803,11 +2803,15 @@ function renderHomeworkQuestionBuilder(){
       </div>
       <textarea rows="2" placeholder="اكتب نص السؤال..." oninput="updateHomeworkQuestion('${q.id}','text',this.value)" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px">${esc(q.text)}</textarea>
       ${q.type==='mcq'?`
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
-          ${q.options.map((op,oi)=>`<label style="display:flex;align-items:center;gap:6px">
-            <input type="radio" name="correct_${q.id}" value="${oi}" ${Number(q.correct)===oi?'checked':''} onchange="updateHomeworkQuestion('${q.id}','correct',this.value)">
-            <input value="${esc(op)}" placeholder="الخيار ${oi+1}" oninput="updateHomeworkQuestion('${q.id}','option',this.value,${oi})" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:9px">
-          </label>`).join('')}
+        <div style="margin-top:10px;padding:10px;border-radius:11px;background:#f4f9ff;border:1px solid #dbeafe">
+          <div style="font-size:12px;font-weight:900;color:#1769aa;margin-bottom:8px">✅ اكتب الخيارات ثم اختر الإجابة الصحيحة:</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            ${q.options.map((op,oi)=>`<label style="display:flex;align-items:center;gap:7px;padding:7px;border-radius:9px;background:${Number(q.correct)===oi?'#e8fff5':'#fff'};border:1px solid ${Number(q.correct)===oi?'#b8ead7':'var(--line)'}">
+              <input type="radio" name="correct_${q.id}" value="${oi}" ${Number(q.correct)===oi?'checked':''} onchange="updateHomeworkQuestion('${q.id}','correct',this.value);renderHomeworkQuestionBuilder()">
+              <input value="${esc(op)}" placeholder="الخيار ${oi+1}" oninput="updateHomeworkQuestion('${q.id}','option',this.value,${oi})" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:9px">
+              ${Number(q.correct)===oi?'<span style="font-size:11px;color:#178a5b;font-weight:900;white-space:nowrap">الصحيح</span>':''}
+            </label>`).join('')}
+          </div>
         </div>`:''}
       <label style="display:block;margin-top:10px;font-size:12px;color:var(--muted)">درجة السؤال
         <input type="number" min="1" value="${q.points||1}" oninput="updateHomeworkQuestion('${q.id}','points',this.value)" style="width:80px;margin-right:8px;padding:7px;border:1px solid var(--line);border-radius:8px">
@@ -2835,6 +2839,7 @@ async function publishSmartHomework(){
     for(const q of questions){
       if(!q.text){alert('يوجد سؤال بدون نص.');return;}
       if(q.type==='mcq' && q.options.some(x=>!x)){alert('أكمل جميع خيارات أسئلة الاختيار المتعدد.');return;}
+      if(q.type==='mcq' && (q.correct===null || q.correct===undefined || !q.options[Number(q.correct)])){alert('حدد الإجابة الصحيحة لكل سؤال اختيار متعدد.');return;}
     }
   }else{
     const file=document.getElementById('hwFile')?.files?.[0]||null;
@@ -2884,17 +2889,31 @@ async function loadTeacherInteractiveHomeworks(){
     }
     const cards=[];
     for(const h of list){
-      let subs=[];
+      let subs=[],classStudents=[];
       try{subs=await NabdCloud.teacherHomeworkSubmissions(h.id);}catch(e){}
-      cards.push(`<div style="padding:14px 0;border-bottom:1px solid var(--line)">
+      try{classStudents=await NabdCloud.listClassStudents(h.grade,h.section);}catch(e){}
+      const submittedIds=new Set(subs.map(s=>String(s.student_id)));
+      const notSubmitted=classStudents.filter(s=>!submittedIds.has(String(s.auth_user_id)));
+
+      cards.push(`<div style="padding:16px 0;border-bottom:1px solid var(--line)">
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
           <div><strong>${esc(h.title)}</strong><small style="display:block;color:var(--muted);margin-top:4px">${esc(h.grade)} / ${esc(h.section)} • التسليم ${formatHomeworkDue(h.due_at)} • ${h.mode==='online'?'داخل المنصة':'ملف مرفق'}</small></div>
-          <span class="tag blue">${subs.length} تسليم</span>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <span class="tag green">✅ سلّموا: ${subs.length}</span>
+            <span class="tag orange">⏳ لم يسلّموا: ${notSubmitted.length}</span>
+          </div>
         </div>
-        <details style="margin-top:10px">
-          <summary style="cursor:pointer;font-weight:800">عرض إجابات الطلاب وتصحيحها</summary>
-          <div style="margin-top:10px">${subs.length?subs.map(s=>renderTeacherSubmission(h,s)).join(''):'<div style="color:var(--muted);padding:10px">لا توجد تسليمات حتى الآن.</div>'}</div>
-        </details>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
+          <details open style="border:1px solid #d8eee4;border-radius:12px;padding:10px;background:#fbfffd">
+            <summary style="cursor:pointer;font-weight:900;color:#178a5b">✅ الطلاب الذين سلّموا (${subs.length})</summary>
+            <div style="margin-top:10px">${subs.length?subs.map(s=>renderTeacherSubmission(h,s)).join(''):'<div style="color:var(--muted);padding:10px">لا توجد تسليمات حتى الآن.</div>'}</div>
+          </details>
+          <details style="border:1px solid #f2dfc6;border-radius:12px;padding:10px;background:#fffdfa">
+            <summary style="cursor:pointer;font-weight:900;color:#b66a15">⏳ الطلاب الذين لم يسلّموا (${notSubmitted.length})</summary>
+            <div style="margin-top:10px">${notSubmitted.length?notSubmitted.map(s=>`<div style="padding:9px;border-bottom:1px dashed var(--line)">${esc(s.name||'طالب')} <small style="color:var(--muted)">• ${esc(s.grade||'')} / ${esc(s.section||'')}</small></div>`).join(''):'<div style="color:#178a5b;padding:10px;font-weight:800">جميع الطلاب سلّموا الواجب 🎉</div>'}</div>
+          </details>
+        </div>
       </div>`);
     }
     box.innerHTML=cards.join('');
@@ -2905,21 +2924,44 @@ async function loadTeacherInteractiveHomeworks(){
 
 function renderTeacherSubmission(hw,s){
   const answers=s.answers||{};
-  return `<div style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px;background:#fafbff">
-    <strong>${esc(s.student_name||'طالب')}</strong>
-    <small style="display:block;color:var(--muted);margin:4px 0 9px">تم التسليم: ${formatHomeworkDue(s.submitted_at)}</small>
+  const autoScore=Number(s.auto_score??0);
+  const maxScore=Number(s.max_score??hw.max_score??0);
+  const hasEssay=(hw.questions||[]).some(q=>q.type==='essay');
+  const visible=!!s.score_visible;
+  return `<div style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px;background:#fff">
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap">
+      <div><strong>${esc(s.student_name||'طالب')}</strong><small style="display:block;color:var(--muted);margin-top:4px">تم التسليم: ${formatHomeworkDue(s.submitted_at)}</small></div>
+      <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+        <span class="tag blue">التصحيح الآلي: ${autoScore}/${maxScore}</span>
+        <span class="tag ${visible?'green':'orange'}">${visible?'الدرجة ظاهرة للطالب':'الدرجة مخفية عن الطالب'}</span>
+      </div>
+    </div>
     ${(hw.questions||[]).map((q,i)=>{
       const a=answers[q.id]??'';
-      return `<div style="padding:8px 0;border-top:1px dashed var(--line)"><b>${i+1}. ${esc(q.text)}</b><div style="margin-top:4px">إجابة الطالب: ${esc(a||'—')}</div></div>`;
+      if(q.type==='mcq'){
+        const correct=(q.options||[])[Number(q.correct)]??'';
+        const ok=String(a)===String(correct);
+        return `<div style="padding:9px 0;border-top:1px dashed var(--line)">
+          <b>${i+1}. ${esc(q.text)}</b>
+          <div style="margin-top:5px">إجابة الطالب: <strong style="color:${ok?'#178a5b':'#c0392b'}">${esc(a||'—')} ${ok?'✓':'✗'}</strong></div>
+          <div style="font-size:12px;color:#178a5b;margin-top:3px">الإجابة الصحيحة: ${esc(correct)} • ${Number(q.points)||1} درجة</div>
+        </div>`;
+      }
+      return `<div style="padding:9px 0;border-top:1px dashed var(--line)">
+        <b>${i+1}. ${esc(q.text)}</b>
+        <div style="margin-top:5px">إجابة الطالب: ${esc(a||'—')}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:3px">سؤال مقالي — يحتاج مراجعة المعلم • ${Number(q.points)||1} درجة</div>
+      </div>`;
     }).join('')}
-    <div style="display:grid;grid-template-columns:120px 1fr auto;gap:8px;align-items:end;margin-top:10px">
-      <label style="font-size:12px">الدرجة
-        <input id="grade_${s.id}" type="number" min="0" max="${Number(hw.max_score)||100}" value="${s.score??''}" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px">
+    <div style="display:grid;grid-template-columns:130px 1fr auto auto;gap:8px;align-items:end;margin-top:11px">
+      <label style="font-size:12px">الدرجة النهائية
+        <input id="grade_${s.id}" type="number" min="0" max="${maxScore||100}" value="${s.score??autoScore}" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px">
       </label>
       <label style="font-size:12px">ملاحظة المعلم
-        <input id="feedback_${s.id}" value="${esc(s.feedback||'')}" placeholder="ملاحظة اختيارية" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px">
+        <input id="feedback_${s.id}" value="${esc(s.feedback||'')}" placeholder="${hasEssay?'راجع السؤال المقالي ثم عدّل الدرجة عند الحاجة':'ملاحظة اختيارية'}" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px">
       </label>
-      <button class="btn primary" onclick="saveSubmissionGrade(${s.id},${hw.id})">حفظ التصحيح</button>
+      <button class="btn soft" onclick="saveSubmissionGrade(${s.id},${hw.id})">💾 حفظ</button>
+      <button class="btn ${visible?'soft':'primary'}" onclick="toggleSubmissionGradeVisibility(${s.id},${visible?'false':'true'})">${visible?'🙈 إخفاء الدرجة':'📤 إرسال الدرجة للطالب'}</button>
     </div>
   </div>`;
 }
@@ -2929,9 +2971,17 @@ async function saveSubmissionGrade(submissionId,homeworkId){
   const feedback=document.getElementById('feedback_'+submissionId)?.value||'';
   try{
     await NabdCloud.gradeHomeworkSubmission(submissionId,score,feedback);
-    alert('تم حفظ درجة الطالب وملاحظة المعلم.');
+    alert('تم حفظ الدرجة وملاحظة المعلم. لن تظهر للطالب حتى تضغط إرسال الدرجة.');
     await loadTeacherInteractiveHomeworks();
   }catch(e){alert('تعذر حفظ التصحيح: '+(e.message||''));}
+}
+
+async function toggleSubmissionGradeVisibility(submissionId,visible){
+  try{
+    await NabdCloud.setHomeworkScoreVisibility(submissionId,visible);
+    alert(visible?'تم إرسال الدرجة للطالب وأصبحت ظاهرة في حسابه.':'تم إخفاء الدرجة عن الطالب.');
+    await loadTeacherInteractiveHomeworks();
+  }catch(e){alert('تعذر تحديث ظهور الدرجة: '+(e.message||''));}
 }
 
 function currentStudentProfile(){
@@ -2962,7 +3012,7 @@ async function loadStudentInteractiveHomeworks(){
 
 function renderStudentCloudHomework(hw,sub){
   const submitted=!!sub;
-  const scoreText=sub?.score!=null?` • الدرجة: ${sub.score}/${hw.max_score||'—'}`:'';
+  const scoreText=(sub?.score_visible && sub?.score!=null)?` • الدرجة: ${sub.score}/${sub.max_score||hw.max_score||'—'}`:(submitted?' • الدرجة لم يرسلها المعلم بعد':'');
   if(hw.mode==='file'){
     return `<div style="padding:15px 0;border-bottom:1px solid var(--line)">
       <div class="task"><div class="dot">📎</div><div><strong>${esc(hw.title)}</strong><small>التسليم ${formatHomeworkDue(hw.due_at)}</small></div><span class="tag ${submitted?'green':'orange'}">${submitted?'تم التسليم':'واجب ملف'}</span></div>
@@ -2974,7 +3024,7 @@ function renderStudentCloudHomework(hw,sub){
   return `<div style="padding:16px 0;border-bottom:1px solid var(--line)" id="cloud_hw_${hw.id}">
     <div class="task"><div class="dot">🧠</div><div><strong>${esc(hw.title)}</strong><small>${esc(hw.teacher_name||'')} • التسليم ${formatHomeworkDue(hw.due_at)}</small></div><span class="tag ${submitted?'green':'blue'}">${submitted?'تم التسليم':'حل داخل المنصة'}</span></div>
     ${hw.description?`<p style="margin:8px 8px;color:var(--muted)">${esc(hw.description)}</p>`:''}
-    ${submitted?`<div style="padding:12px;border-radius:12px;background:#e8fff5;color:#148b67;font-weight:800">✓ تم إرسال إجاباتك للمعلم${scoreText}${sub.feedback?`<div style="margin-top:5px">ملاحظة المعلم: ${esc(sub.feedback)}</div>`:''}</div>`:
+    ${submitted?`<div style="padding:12px;border-radius:12px;background:#e8fff5;color:#148b67;font-weight:800">✓ تم إرسال إجاباتك للمعلم${scoreText}${sub.score_visible&&sub.feedback?`<div style="margin-top:5px">ملاحظة المعلم: ${esc(sub.feedback)}</div>`:''}</div>`:
       `<div style="margin-top:12px">${(hw.questions||[]).map((q,i)=>renderStudentQuestion(hw.id,q,i)).join('')}
        <button class="btn primary" onclick="submitOnlineHomework(${hw.id})">إرسال الإجابات للمعلم</button></div>`}
   </div>`;
