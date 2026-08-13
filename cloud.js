@@ -70,6 +70,11 @@
     return out.reports||[];
   }
 
+  async function myStudentReportBundle(){
+    const out=await reportRequest({action:'list-my'});
+    return {profile:out.profile||null,reports:out.reports||[]};
+  }
+
   async function getTeacherStudentReport(studentAuthId,subject){
     const out=await reportRequest({action:'get-for-teacher',student_auth_id:studentAuthId,subject});
     return out.report||null;
@@ -281,7 +286,7 @@
     createInteractiveHomework,listInteractiveHomeworks,deleteInteractiveHomework,
     submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,
     setHomeworkScoreVisibility,listClassStudents,
-    saveStudentReport,myStudentReports,getTeacherStudentReport,
+    saveStudentReport,myStudentReports,myStudentReportBundle,getTeacherStudentReport,
     get config(){return cfg;}
   };
 })();
