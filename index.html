@@ -1176,9 +1176,33 @@ body[data-theme] .app-shell,body[data-theme] .login-screen{position:relative;z-i
       padding:22px 28px;box-shadow:var(--shadow);font-weight:800;color:var(--text);
     }
 
+
+    .success-toast{
+      position:fixed;
+      top:24px;
+      left:50%;
+      transform:translateX(-50%);
+      z-index:10000;
+      background:#e8fff5;
+      color:#148b67;
+      border:1px solid #b8ead7;
+      box-shadow:0 12px 30px rgba(20,139,103,.18);
+      border-radius:14px;
+      padding:12px 18px;
+      font-weight:800;
+      opacity:0;
+      pointer-events:none;
+      transition:.25s ease;
+    }
+    .success-toast.show{
+      opacity:1;
+      top:34px;
+    }
+
 </style>
 </head>
 <body class="session-booting">
+<div id="deleteSuccessToast" class="success-toast"></div>
 <div id="themeScenery" class="theme-scenery" aria-hidden="true"></div>
 
 <div class="session-loader" id="sessionLoader"><div class="session-loader-box">جاري فتح حسابك...</div></div>
@@ -4141,12 +4165,31 @@ function cancelStudentEdit(){
   document.getElementById('studentFormCard')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
+
+function showDeleteSuccess(message){
+  const toast=document.getElementById('deleteSuccessToast');
+  if(!toast){
+    alert(message);
+    return;
+  }
+  toast.textContent=message;
+  toast.classList.add('show');
+  clearTimeout(window.__deleteToastTimer);
+  window.__deleteToastTimer=setTimeout(()=>toast.classList.remove('show'),2600);
+}
+
 async function deleteStudentAdmin(id){
   if(!confirm('هل تريد حذف هذا الطالب؟')) return;
-  const s=demoData.students.find(x=>String(x.id||'')===String(id||'')); 
+  const s=demoData.students.find(x=>String(x.id||'')===String(id||''));
   if(!s){alert('تعذر العثور على سجل الطالب.');return;}
-  try{ await NabdCloud.deleteUser(s.authUserId); await syncCloudProfiles(); renderAdminManagement(); }
-  catch(e){ alert('تعذر حذف الطالب: '+(e.message||'')); }
+  try{
+    await NabdCloud.deleteUser(s.authUserId);
+    await syncCloudProfiles();
+    renderAdminManagement();
+    showDeleteSuccess('✅ تم حذف الطالب بنجاح');
+  }catch(e){
+    alert('تعذر حذف الطالب: '+(e.message||''));
+  }
 }
 
 function renderTeacherRows(list){
@@ -4379,10 +4422,16 @@ function editTeacherAdminFull(id){
 }
 async function deleteTeacherAdmin(id){
   if(!confirm('هل تريد حذف هذا المعلم؟')) return;
-  const t=demoData.teachers.find(x=>String(x.id||'')===String(id||'')); 
+  const t=demoData.teachers.find(x=>String(x.id||'')===String(id||''));
   if(!t){alert('تعذر العثور على سجل المعلم.');return;}
-  try{ await NabdCloud.deleteUser(t.authUserId); await syncCloudProfiles(); renderAdminManagement(); }
-  catch(e){ alert('تعذر حذف المعلم: '+(e.message||'')); }
+  try{
+    await NabdCloud.deleteUser(t.authUserId);
+    await syncCloudProfiles();
+    renderAdminManagement();
+    showDeleteSuccess('✅ تم حذف المعلم بنجاح');
+  }catch(e){
+    alert('تعذر حذف المعلم: '+(e.message||''));
+  }
 }
 function addStageAdmin(){
   const name=document.getElementById('newStageName').value.trim();
