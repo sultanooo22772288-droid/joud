@@ -3717,8 +3717,8 @@ function renderStudentRows(list){
     <td style="padding:13px;min-width:130px" dir="ltr"><span style="font-family:monospace;font-weight:700">${esc(s.password||'—')}</span></td>
     <td style="padding:13px;min-width:180px">
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn primary" type="button" onclick="editStudentAdmin(${Number(s.id)})">✏️ تعديل</button>
-        <button class="btn soft" type="button" onclick="deleteStudentAdmin(${Number(s.id)})">🗑️ حذف</button>
+        <button class="btn primary" type="button" onclick="editStudentAdmin('${esc(s.id||'')}')">✏️ تعديل</button>
+        <button class="btn soft" type="button" onclick="deleteStudentAdmin('${esc(s.id||'')}')">🗑️ حذف</button>
       </div>
     </td>
   </tr>`).join('');
@@ -3738,11 +3738,11 @@ function renderStudentCredentialsRows(list=demoData.students){list=[...(list||[]
       <div style="display:flex;gap:6px;align-items:center">
         <input id="adminStudentPassword_${s.id}" type="password" value="${esc(s.password||'')}" dir="ltr"
           style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff">
-        <button class="btn soft" type="button" onclick="toggleAdminStudentPassword(${s.id})" title="إظهار/إخفاء كلمة المرور">👁</button>
+        <button class="btn soft" type="button" onclick="toggleAdminStudentPassword('${esc(s.id||'')}')" title="إظهار/إخفاء كلمة المرور">👁</button>
       </div>
     </td>
     <td style="min-width:150px">
-      <button class="btn primary" onclick="saveStudentCredentialsAdmin(${s.id})">حفظ بيانات الدخول</button>
+      <button class="btn primary" onclick="saveStudentCredentialsAdmin('${esc(s.id||'')}')">حفظ بيانات الدخول</button>
     </td>
   </tr>`).join('');
 }
@@ -3755,7 +3755,7 @@ function toggleAdminStudentPassword(id){
 
 async function saveStudentCredentialsAdmin(id){
   if(role!=='admin'){ alert('هذا الخيار متاح للإدارة فقط.'); return; }
-  const s=demoData.students.find(x=>x.id===id); if(!s)return;
+  const s=demoData.students.find(x=>String(x.id||'')===String(id||'')); if(!s)return;
   const email=(document.getElementById('adminStudentEmail_'+id)?.value||'').trim().toLowerCase();
   const password=(document.getElementById('adminStudentPassword_'+id)?.value||'').trim();
   if(!email){alert('البريد الإلكتروني مطلوب.');return;}
@@ -3797,7 +3797,7 @@ function resetStudentCredentialsFilters(){
 
 function editStudentAdmin(id){
   if(role!=='admin'){alert('تعديل بيانات الطالب متاح لإدارة المدرسة فقط.');return;}
-  const s=demoData.students.find(x=>Number(x.id)===Number(id));
+  const s=demoData.students.find(x=>String(x.id||'')===String(id||''));
   if(!s){alert('تعذر العثور على سجل الطالب. حدّث الصفحة وحاول مرة أخرى.');return;}
 
   editingStudentId=id;
@@ -4102,7 +4102,7 @@ function cancelStudentEdit(){
 
 async function deleteStudentAdmin(id){
   if(!confirm('هل تريد حذف هذا الطالب؟')) return;
-  const s=demoData.students.find(x=>Number(x.id)===Number(id)); 
+  const s=demoData.students.find(x=>String(x.id||'')===String(id||'')); 
   if(!s){alert('تعذر العثور على سجل الطالب.');return;}
   try{ await NabdCloud.deleteUser(s.authUserId); await syncCloudProfiles(); renderAdminManagement(); }
   catch(e){ alert('تعذر حذف الطالب: '+(e.message||'')); }
@@ -4118,8 +4118,8 @@ function renderTeacherRows(list){
     <td>${(t.stages||[]).map(x=>`<span class="tag green" style="display:inline-block;margin:2px">${esc(x)}</span>`).join('')}</td>
     <td style="min-width:180px">
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn primary" type="button" onclick="editTeacherAdminFull(${Number(t.id)})">✏️ تعديل</button>
-        <button class="btn soft" type="button" onclick="deleteTeacherAdmin(${Number(t.id)})">🗑️ حذف</button>
+        <button class="btn primary" type="button" onclick="editTeacherAdminFull('${esc(t.id||'')}')">✏️ تعديل</button>
+        <button class="btn soft" type="button" onclick="deleteTeacherAdmin('${esc(t.id||'')}')">🗑️ حذف</button>
       </div>
     </td>
   </tr>`).join('');
@@ -4139,10 +4139,10 @@ function renderTeacherCredentialsRows(list=demoData.teachers){list=[...(list||[]
       <div style="display:flex;gap:6px;align-items:center">
         <input id="adminTeacherPassword_${t.id}" type="password" value="${esc(t.password||'')}" dir="ltr"
           style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff">
-        <button class="btn soft" type="button" onclick="toggleAdminTeacherPassword(${t.id})" title="إظهار/إخفاء كلمة المرور">👁</button>
+        <button class="btn soft" type="button" onclick="toggleAdminTeacherPassword('${esc(t.id||'')}')" title="إظهار/إخفاء كلمة المرور">👁</button>
       </div>
     </td>
-    <td><button class="btn primary" onclick="saveTeacherCredentialsAdmin(${t.id})">حفظ بيانات الدخول</button></td>
+    <td><button class="btn primary" onclick="saveTeacherCredentialsAdmin('${esc(t.id||'')}')">حفظ بيانات الدخول</button></td>
   </tr>`).join('');
 }
 
@@ -4153,7 +4153,7 @@ function toggleAdminTeacherPassword(id){
 
 async function saveTeacherCredentialsAdmin(id){
   if(role!=='admin'){alert('هذا الخيار متاح للإدارة فقط.');return;}
-  const t=demoData.teachers.find(x=>x.id===id); if(!t)return;
+  const t=demoData.teachers.find(x=>String(x.id||'')===String(id||'')); if(!t)return;
   const email=(document.getElementById('adminTeacherEmail_'+id)?.value||'').trim().toLowerCase();
   const password=(document.getElementById('adminTeacherPassword_'+id)?.value||'').trim();
   if(!email||!password){alert('البريد الإلكتروني وكلمة المرور مطلوبان.');return;}
@@ -4166,7 +4166,7 @@ async function saveTeacherCredentialsAdmin(id){
 }
 
 async function editTeacherCredentialsAdmin(id){
-  const t=demoData.teachers.find(x=>x.id===id); if(!t)return;
+  const t=demoData.teachers.find(x=>String(x.id||'')===String(id||'')); if(!t)return;
   const email=prompt('البريد الإلكتروني:',t.email||''); if(email===null)return;
   const password=prompt('اكتب كلمة مرور جديدة للمعلم:',''); if(password===null)return;
   const cleanEmail=email.trim().toLowerCase();
@@ -4313,7 +4313,7 @@ function cancelTeacherEdit(){
  setTimeout(()=>document.getElementById('teacherFormCard')?.scrollIntoView({behavior:'smooth',block:'start'}),50);
 }
 function editTeacherAdminFull(id){
- const t=demoData.teachers.find(x=>Number(x.id)===Number(id));if(!t){alert('تعذر العثور على سجل المعلم. حدّث الصفحة وحاول مرة أخرى.');return;}
+ const t=demoData.teachers.find(x=>String(x.id||'')===String(id||''));if(!t){alert('تعذر العثور على سجل المعلم. حدّث الصفحة وحاول مرة أخرى.');return;}
  editingTeacherId=id;
  document.getElementById('newTeacherName').value=t.name||'';
  const teacherIdField=document.getElementById('newTeacherId'); if(teacherIdField) teacherIdField.value=t.teacherId||'';
@@ -4338,7 +4338,7 @@ function editTeacherAdminFull(id){
 }
 async function deleteTeacherAdmin(id){
   if(!confirm('هل تريد حذف هذا المعلم؟')) return;
-  const t=demoData.teachers.find(x=>Number(x.id)===Number(id)); 
+  const t=demoData.teachers.find(x=>String(x.id||'')===String(id||'')); 
   if(!t){alert('تعذر العثور على سجل المعلم.');return;}
   try{ await NabdCloud.deleteUser(t.authUserId); await syncCloudProfiles(); renderAdminManagement(); }
   catch(e){ alert('تعذر حذف المعلم: '+(e.message||'')); }

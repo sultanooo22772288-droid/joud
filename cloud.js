@@ -14,7 +14,7 @@
   function toLegacyProfile(p){
     if(!p) return null;
     const base={
-      id:Number(p.id), authUserId:p.auth_user_id, name:p.name||'', phone:p.phone||'', email:p.email||'',
+      id:String(p.id||''), authUserId:p.auth_user_id, name:p.name||'', phone:p.phone||'', email:p.email||'',
       password:'', role:p.role
     };
     if(p.role==='student') return {...base,studentId:p.external_id||'',stage:p.stage||'',grade:p.grade||'',section:p.section||''};
