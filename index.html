@@ -1564,6 +1564,33 @@ async function syncCloudProfiles(){
   }
 }
 
+
+async function restoreLoggedInUser(){
+  try{
+    const result=await NabdCloud.restoreSession();
+    if(!result?.profile) return false;
+
+    role=result.profile.role;
+    currentLoginEmail=(result.profile.email||result.user?.email||'').toLowerCase();
+
+    await syncCloudProfiles();
+
+    const login=document.getElementById('login');
+    if(login) login.style.display='none';
+
+    renderNav();
+    renderDashboard();
+    renderRolePages();
+    renderAdminManagement();
+    updateVisitorCounter();
+    showPage('dashboard');
+    return true;
+  }catch(e){
+    console.warn('تعذر استعادة جلسة المستخدم:',e);
+    return false;
+  }
+}
+
 async function enterDemo(){
   const enteredEmail=(document.getElementById('loginEmail')?.value||'').trim().toLowerCase();
   const enteredPassword=(document.getElementById('loginPassword')?.value||'').trim();
@@ -4364,10 +4391,18 @@ function sendAI(){
  const q=i.value; i.value='';
  setTimeout(()=>{c.innerHTML+=`<div class="msg bot">فكرة ممتازة! في هذه النسخة التجريبية سأعطيك تلميحًا تعليميًا: ابدأ بتحديد المفهوم الأساسي، ثم اربطه بمثال بسيط من الحياة اليومية، وبعدها جرّب سؤالًا قصيرًا للتأكد من فهمك. 🤖✨</div>`;c.scrollTop=c.scrollHeight},300)
 }
-renderNav(); renderDashboard();
-
 renderAnnouncementTicker();
 loadRememberedLogin();
+
+(async function(){
+  const restored=await restoreLoggedInUser();
+  if(!restored){
+    renderNav();
+    renderDashboard();
+    const login=document.getElementById('login');
+    if(login) login.style.display='grid';
+  }
+})();
 </script>
 </body>
 </html>

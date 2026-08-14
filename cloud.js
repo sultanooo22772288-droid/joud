@@ -41,6 +41,28 @@
     await c.auth.signOut();
   }
 
+  async function restoreSession(){
+    const c=await init();
+    const {data:sessionData,error:sessionError}=await c.auth.getSession();
+    if(sessionError) throw sessionError;
+    const session=sessionData?.session;
+    if(!session?.user) return null;
+
+    const {data:profile,error:profileError}=await c.from('profiles')
+      .select('*')
+      .eq('auth_user_id',session.user.id)
+      .maybeSingle();
+
+    if(profileError) throw profileError;
+    if(!profile) return null;
+
+    return {
+      session,
+      user:session.user,
+      profile:toLegacyProfile(profile)
+    };
+  }
+
   async function getAccessToken(){
     const c=await init();
     const {data}=await c.auth.getSession();
@@ -292,7 +314,7 @@
   }
 
   window.NabdCloud={
-    init,signIn,signOut,loadProfiles,createUser,updateUser,deleteUser,bulkCreateUsers,loadAdminCredentials,syncOwnCredential,
+    init,signIn,signOut,restoreSession,loadProfiles,createUser,updateUser,deleteUser,bulkCreateUsers,loadAdminCredentials,syncOwnCredential,
     currentUser,uploadSchoolFile,signedSchoolFileUrl,
     createInteractiveHomework,listInteractiveHomeworks,deleteInteractiveHomework,
     submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,
