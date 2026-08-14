@@ -2449,8 +2449,7 @@ function renderRolePages(){
         <button class="btn primary" style="margin-top:12px" onclick="addLessonDemo()">نشر الدرس للطلاب</button>
       </div>
       <div class="card" id="teacherLessons">
-        <div class="lesson-item"><div class="lesson-num">1</div><div><b>الجهاز الدوري</b><small>فيديو + PDF • منشور للصف السابع</small></div><button class="btn soft">تعديل</button></div>
-        <div class="lesson-item"><div class="lesson-num">2</div><div><b>مقدمة عن جسم الإنسان</b><small>فيديو • منشور</small></div><button class="btn soft">تعديل</button></div>
+        <div style="text-align:center;color:var(--muted);padding:20px">جاري تحميل دروسك...</div>
       </div>`;
 
     document.getElementById('quizzes').innerHTML=`
@@ -2467,8 +2466,7 @@ function renderRolePages(){
         <button class="btn primary" style="margin-top:12px" onclick="addQuizDemo()">نشر الاختبار</button>
       </div>
       <div class="card" id="teacherQuizzes">
-        ${task('✅','اختبار العلوم التجريبي','الصف الأول / أ • 10 أسئلة','منشور','green')}
-        ${task('✅','اختبار الرياضيات القصير','الصف الثاني / أ • 8 أسئلة','قادم','blue')}
+        <div style="text-align:center;color:var(--muted);padding:20px">جاري تحميل اختباراتك...</div>
       </div>`;
 
     document.getElementById('progressPage').innerHTML=`
@@ -2759,16 +2757,76 @@ async function loadStudentOwnReportsCloud(){
   }
 }
 
-function addLessonDemo(){
-  const title=document.getElementById('lessonTitle').value.trim() || 'درس جديد';
-  const subject=document.getElementById('lessonSubject').value;
-  const file=document.getElementById('lessonFile').files[0];
-  const video=document.getElementById('lessonVideo').files[0];
-  document.getElementById('teacherLessons').insertAdjacentHTML('afterbegin',
-   `<div class="lesson-item"><div class="lesson-num">✓</div><div><b>${title}</b><small>${subject} • ${video?'فيديو ':''}${file?'+ ملف مرفق':''} • منشور الآن</small></div><button class="btn soft">تعديل</button></div>`);
-  alert('تم نشر الدرس تجريبيًا للطلاب.');
+
+function currentTeacherStorageId(){
+  const t=getCurrentTeacher();
+  return String(t?.authUserId||currentLoginEmail||'teacher');
+}
+function teacherLessonsStorageKey(){
+  return 'nabdTeacherLessons:'+currentTeacherStorageId();
+}
+function getCurrentTeacherLessons(){
+  try{
+    const rows=JSON.parse(localStorage.getItem(teacherLessonsStorageKey())||'[]');
+    return Array.isArray(rows)?rows:[];
+  }catch(e){return [];}
+}
+function saveCurrentTeacherLessons(rows){
+  try{localStorage.setItem(teacherLessonsStorageKey(),JSON.stringify(rows||[]));}catch(e){}
+}
+function renderCurrentTeacherLessons(){
+  const target=document.getElementById('teacherLessons');
+  if(!target)return;
+  const rows=getCurrentTeacherLessons().sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  target.innerHTML=rows.length?rows.map((x,i)=>`
+    <div class="lesson-item">
+      <div class="lesson-num">${i+1}</div>
+      <div><b>${esc(x.title||'درس')}</b><small>${esc(x.subject||'')} • ${x.hasVideo?'فيديو ':''}${x.hasFile?'+ ملف مرفق ':''}• منشور بواسطتك</small></div>
+      <button class="btn soft" type="button" onclick="deleteOwnTeacherLesson('${String(x.id)}')">حذف</button>
+    </div>`).join(''):'<div style="padding:20px;text-align:center;color:var(--muted)">لم تضف أي دروس بعد.</div>';
+}
+function deleteOwnTeacherLesson(id){
+  const rows=getCurrentTeacherLessons().filter(x=>String(x.id)!==String(id));
+  saveCurrentTeacherLessons(rows);
+  renderCurrentTeacherLessons();
+}
+function renderCurrentTeacherQuizzes(){
+  const target=document.getElementById('teacherQuizzes');
+  if(!target)return;
+  const me=currentTeacherStorageId();
+  const data=getPublishedSchoolContent();
+  const rows=(data.quizzes||[]).filter(x=>String(x.teacher_id||'')===me)
+    .sort((a,b)=>String(b.publishedAt||'').localeCompare(String(a.publishedAt||'')));
+  target.innerHTML=rows.length?rows.map(x=>`
+    <div class="task">
+      <div class="dot">✅</div>
+      <div><strong>${esc(x.title||'اختبار')}</strong><small>${esc(x.grade||'')} / ${esc(x.section||'')} • ${esc(x.questions||'')} أسئلة</small></div>
+      <span class="tag green">منشور</span>
+    </div>`).join(''):'<div style="padding:20px;text-align:center;color:var(--muted)">لم تنشر أي اختبارات بعد.</div>';
 }
 
+function addLessonDemo(){
+  const title=document.getElementById('lessonTitle')?.value.trim() || '';
+  const subject=document.getElementById('lessonSubject')?.value || '';
+  const file=document.getElementById('lessonFile')?.files?.[0];
+  const video=document.getElementById('lessonVideo')?.files?.[0];
+  if(!title){alert('اكتب عنوان الدرس أولاً.');return;}
+  const rows=getCurrentTeacherLessons();
+  rows.push({
+    id:Date.now(),
+    teacher_id:currentTeacherStorageId(),
+    title,subject,
+    hasFile:!!file,
+    hasVideo:!!video,
+    createdAt:new Date().toISOString()
+  });
+  saveCurrentTeacherLessons(rows);
+  renderCurrentTeacherLessons();
+  document.getElementById('lessonTitle').value='';
+  if(document.getElementById('lessonFile')) document.getElementById('lessonFile').value='';
+  if(document.getElementById('lessonVideo')) document.getElementById('lessonVideo').value='';
+  alert('تم نشر الدرس في قائمة دروسك.');
+}
 
 function parsePublishedClassLabel(cls){
   const raw=String(cls||'').trim();
@@ -2787,23 +2845,7 @@ function getPublishedSchoolContent(){
     if(saved) data={homeworks:saved.homeworks||[],quizzes:saved.quizzes||[]};
   }catch(e){}
 
-  if(!data.homeworks.length && !data.quizzes.length){
-    data={
-      homeworks:[
-        {id:1,title:'واجب المعادلات',teacher:'خالد سالم',stage:'الصف الأول',grade:'الصف الأول',section:'أ',
-         publishedAt:'2026-08-10T09:00',dueAt:'2026-08-15T20:00'},
-        {id:2,title:'ورقة عمل العلوم',teacher:'محمد علي',stage:'الصف الثاني',grade:'الصف الثاني',section:'ب',
-         publishedAt:'2026-08-01T08:30',dueAt:'2026-08-08T18:00'}
-      ],
-      quizzes:[
-        {id:1,title:'اختبار العلوم',teacher:'محمد علي',stage:'الصف الثاني',grade:'الصف الثاني',section:'ب',
-         questions:'20',publishedAt:'2026-08-10T10:00',scheduledAt:'2026-08-16T09:00'},
-        {id:2,title:'اختبار الرياضيات',teacher:'خالد سالم',stage:'الصف الأول',grade:'الصف الأول',section:'أ',
-         questions:'10',publishedAt:'2026-08-01T10:00',scheduledAt:'2026-08-07T08:00'}
-      ]
-    };
-    try{localStorage.setItem('nabdPublishedSchoolContent',JSON.stringify(data));}catch(e){}
-  }
+  if(!data.homeworks.length && !data.quizzes.length){ data={homeworks:[],quizzes:[]}; }
 
   // ترقية العناصر القديمة التي لم يكن لديها موعد.
   let changed=false;
@@ -3296,6 +3338,7 @@ function addQuizDemo(){
   const data=getPublishedSchoolContent();
   data.quizzes.push({
     id:Date.now(),
+    teacher_id:currentTeacherStorageId(),
     title,
     teacher:getCurrentTeacherNameForPublish(),
     stage:info.stage,
@@ -3307,10 +3350,7 @@ function addQuizDemo(){
   });
   savePublishedSchoolContent(data);
 
-  const target=document.getElementById('teacherQuizzes');
-  if(target){
-    target.insertAdjacentHTML('afterbegin', task('✅', title, `${cls} • ${count} أسئلة`, 'تم النشر', 'green'));
-  }
+  renderCurrentTeacherQuizzes();
   document.getElementById('quizTitle').value='';
   document.getElementById('quizDesc').value='';
   alert('تم نشر الاختبار، وسيظهر تلقائيًا في واجهة إدارة المدرسة.');
