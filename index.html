@@ -1603,12 +1603,20 @@ async function syncCloudProfiles(){
 }
 
 
+
+function normalizeAccountRole(value){
+  const r=String(value||'').trim().toLowerCase();
+  if(r==='teacher') return 'teacher';
+  if(r==='admin') return 'admin';
+  return 'student';
+}
+
 async function restoreLoggedInUser(){
   try{
     const result=await NabdCloud.restoreSession();
     if(!result?.profile) return false;
 
-    role=result.profile.role;
+    role=normalizeAccountRole(result.profile.role);
     currentLoginEmail=(result.profile.email||result.user?.email||'').toLowerCase();
 
     await syncCloudProfiles();
@@ -1637,9 +1645,11 @@ async function enterDemo(){
   const oldText=btn?.textContent;
   if(btn){btn.disabled=true;btn.textContent='جاري تسجيل الدخول...';}
   try{
+    // Prevent a previous student/admin session from leaking into a teacher login.
+    try{await NabdCloud.signOut();}catch(_e){}
     const result=await NabdCloud.signIn(enteredEmail,enteredPassword);
-    role=result.profile.role;
-    currentLoginEmail=enteredEmail;
+    role=normalizeAccountRole(result.profile.role);
+    currentLoginEmail=(result.profile.email||enteredEmail).toLowerCase();
     saveRememberedLogin(enteredEmail,enteredPassword);
     await syncCloudProfiles();
     registerVisitorLogin(role);
@@ -1647,6 +1657,10 @@ async function enterDemo(){
     renderNav(); renderDashboard(); renderRolePages(); renderAdminManagement(); updateVisitorCounter(); showPage('dashboard');
   }catch(e){
     console.error(e);
+    currentLoginEmail='';
+    role='student';
+    const login=document.getElementById('login');
+    if(login) login.style.display='grid';
     alert('تعذر تسجيل الدخول: '+(e.message||'تحقق من البريد الإلكتروني وكلمة المرور وإعدادات Supabase.'));
   }finally{
     if(btn){btn.disabled=false;btn.textContent=oldText||'تسجيل الدخول';}
@@ -1659,8 +1673,10 @@ async function logoutDemo(){
 }
 function changeRole(v){ role=v; renderNav(); renderDashboard(); renderRolePages(); renderAdminManagement(); showPage('dashboard'); }
 function renderNav(){
+  role=normalizeAccountRole(role);
   const n=document.getElementById('nav'); n.innerHTML='';
-  navByRole[role].forEach(([id,ic,name],i)=>{
+  const items=navByRole[role]||navByRole.student;
+  items.forEach(([id,ic,name],i)=>{
     const b=document.createElement('button'); b.innerHTML=`<span class="ico">${ic}</span>${name}`; b.onclick=()=>showPage(id); if(i===0)b.classList.add('active'); b.dataset.page=id; n.appendChild(b);
   })
 }
@@ -2420,6 +2436,7 @@ async function saveStudentProfileChanges(){
 }
 
 function renderRolePages(){
+  role=normalizeAccountRole(role);
   renderAdminManagement();
   renderSchedulePageForRole();
   renderProfilePageForRole();
@@ -2436,7 +2453,7 @@ function renderRolePages(){
       <div class="grid grid-3">${subjectCard('➗','الرياضيات','#eaf4ff',75)}${subjectCard('🧪','العلوم','#e8fff5',62)}${subjectCard('📖','اللغة العربية','#fff2df',80)}</div>`;
 
     lessons.innerHTML=`
-      <div class="page-head"><div><h2>إدارة الدروس 🎓</h2><p>أنشئ درسًا جديدًا وارفع المواد التعليمية للطلاب.</p></div></div>
+      <div class="page-head"><div><h2>لوحة المعلم — إدارة الدروس 🎓</h2><p>هذه المساحة خاصة بالمعلم لإضافة الدروس وحذف محتواه.</p></div></div>
       <div class="teacher-tool">
         <h3>➕ إضافة درس جديد</h3>
         <div class="upload-row">
@@ -2453,7 +2470,7 @@ function renderRolePages(){
       </div>`;
 
     document.getElementById('quizzes').innerHTML=`
-      <div class="page-head"><div><h2>إدارة الاختبارات ✅</h2><p>أنشئ اختبارًا وحدد الصف وموعده.</p></div></div>
+      <div class="page-head"><div><h2>لوحة المعلم — إدارة الاختبارات ✅</h2><p>أنشئ اختبارًا جديدًا وحدد الصف والشعبة والموعد.</p></div></div>
       <div class="teacher-tool">
         <h3>➕ إنشاء اختبار جديد</h3>
         <div class="upload-row">
@@ -2502,7 +2519,7 @@ function renderRolePages(){
       </div>`;
 
     assignments.innerHTML=`
-      <div class="page-head"><div><h2>إدارة الواجبات 📝</h2><p>أنشئ واجبًا عاديًا أو واجبًا يحله الطالب داخل المنصة.</p></div></div>
+      <div class="page-head"><div><h2>لوحة المعلم — إدارة الواجبات 📝</h2><p>أنشئ الواجبات والأسئلة وتابع تسليم الطلاب.</p></div></div>
       <div class="teacher-tool">
         <h3>➕ إنشاء واجب جديد</h3>
         <div class="upload-row">
