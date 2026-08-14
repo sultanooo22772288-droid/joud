@@ -1163,11 +1163,25 @@ body[data-theme] .app-shell,body[data-theme] .login-screen{position:relative;z-i
       .welcome-mini-stats{grid-template-columns:repeat(3,1fr)}
     }
 
+
+    body.session-booting #login{display:none !important}
+    body.session-booting .app{visibility:hidden}
+    .session-loader{
+      position:fixed;inset:0;z-index:9999;display:none;place-items:center;
+      background:linear-gradient(180deg,#f9fbff 0,#f4f7ff 100%);
+    }
+    body.session-booting .session-loader{display:grid}
+    .session-loader-box{
+      background:#fff;border:1px solid var(--line);border-radius:22px;
+      padding:22px 28px;box-shadow:var(--shadow);font-weight:800;color:var(--text);
+    }
+
 </style>
 </head>
-<body>
+<body class="session-booting">
 <div id="themeScenery" class="theme-scenery" aria-hidden="true"></div>
 
+<div class="session-loader" id="sessionLoader"><div class="session-loader-box">جاري فتح حسابك...</div></div>
 <div id="login" class="login-overlay">
   <div class="login-card login-approved-design">
     <div class="login-form">
@@ -4396,11 +4410,16 @@ loadRememberedLogin();
 
 (async function(){
   const restored=await restoreLoggedInUser();
+  document.body.classList.remove('session-booting');
+
   if(!restored){
     renderNav();
     renderDashboard();
     const login=document.getElementById('login');
     if(login) login.style.display='grid';
+  }else{
+    const login=document.getElementById('login');
+    if(login) login.style.display='none';
   }
 })();
 </script>
