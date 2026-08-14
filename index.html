@@ -1373,21 +1373,7 @@ function renderThemesPage(){
 function selectPlatformTheme(themeId){
   if(role!=='admin'){alert('تغيير الثيم متاح لإدارة المدرسة فقط.');return;}
   applyPlatformTheme(themeId,true);
-  document.addEventListener('click',async function(e){
-  const btn=e.target.closest('.admin-row-action');
-  if(!btn) return;
-  e.preventDefault();
-  e.stopPropagation();
-  const action=btn.dataset.action||'';
-  const authId=btn.dataset.authId||'';
-  if(!authId){alert('معرف الحساب غير متوفر. حدّث الصفحة وحاول مرة أخرى.');return;}
-  if(action==='edit-student') return editStudentAdminByAuth(authId);
-  if(action==='delete-student') return deleteStudentAdminByAuth(authId);
-  if(action==='edit-teacher') return editTeacherAdminByAuth(authId);
-  if(action==='delete-teacher') return deleteTeacherAdminByAuth(authId);
-});
-
-renderNav(); renderDashboard(); renderRolePages(); renderAdminManagement();
+  renderNav(); renderDashboard(); renderRolePages(); renderAdminManagement();
   showPage('themesAdmin');
 }
 
@@ -3718,7 +3704,8 @@ function renderAdminManagement(){
 }
 
 
-function renderStudentRows(list){list=[...(list||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
+function renderStudentRows(list){
+  list=[...(list||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
   if(!list.length) return `<tr><td colspan="8" style="padding:28px;text-align:center;color:var(--muted)">لا يوجد طلاب مطابقون لخيارات البحث.</td></tr>`;
   return list.map((s,i)=>`<tr style="border-top:1px solid var(--line)">
     <td style="padding:13px;font-weight:800;min-width:150px">${esc(s.name)}</td>
@@ -3728,62 +3715,13 @@ function renderStudentRows(list){list=[...(list||[])].sort((a,b)=>(a.name||'').l
     <td style="padding:13px"><span class="tag blue">(${esc(s.section)})</span></td>
     <td style="padding:13px;min-width:210px" dir="ltr">${esc(s.email||'—')}</td>
     <td style="padding:13px;min-width:130px" dir="ltr"><span style="font-family:monospace;font-weight:700">${esc(s.password||'—')}</span></td>
-    <td style="padding:13px;min-width:170px">
+    <td style="padding:13px;min-width:180px">
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn primary admin-row-action" type="button" data-action="edit-student" data-auth-id="${esc(s.authUserId||'')}">✏️ تعديل</button>
-        <button class="btn soft admin-row-action" type="button" data-action="delete-student" data-auth-id="${esc(s.authUserId||'')}">🗑️ حذف</button>
+        <button class="btn primary" type="button" onclick="editStudentAdmin(${Number(s.id)})">✏️ تعديل</button>
+        <button class="btn soft" type="button" onclick="deleteStudentAdmin(${Number(s.id)})">🗑️ حذف</button>
       </div>
     </td>
   </tr>`).join('');
-}
-
-function findStudentByAuth(authId){
-  return demoData.students.find(x=>String(x.authUserId||'')===String(authId||''));
-}
-function editStudentAdminByAuth(authId){
-  if(role!=='admin'){alert('التعديل متاح لإدارة المدرسة فقط.');return;}
-  const s=findStudentByAuth(authId);
-  if(!s){alert('تعذر العثور على حساب الطالب. حدّث الصفحة وحاول مرة أخرى.');return;}
-
-  editingStudentId=s.id;
-  const name=document.getElementById('newStudentName');
-  const phone=document.getElementById('newStudentPhone');
-  const email=document.getElementById('newStudentEmail');
-  const password=document.getElementById('newStudentPassword');
-  const grade=document.getElementById('newStudentGrade');
-  const section=document.getElementById('newStudentSection');
-
-  if(name) name.value=s.name||'';
-  if(phone) phone.value=s.phone||'';
-  if(email) email.value=s.email||'';
-  if(password) password.value=s.password||'';
-
-  if(grade){
-    const stage=s.stage||((s.grade==='روضة'||s.grade==='تمهيدي')?'رياض الأطفال':'الحلقة الأولى');
-    const wanted=`${stage}||${s.grade||''}`;
-    const opt=[...grade.options].find(o=>o.value===wanted || o.textContent.trim()===(s.grade||''));
-    if(opt) grade.value=opt.value;
-  }
-  if(section) section.value=s.section||'أ';
-
-  setStudentFormMode(true);
-  validateStudentPhoneField();
-  validateStudentEmailField();
-  const form=document.getElementById('studentFormCard');
-  if(form) form.scrollIntoView({behavior:'smooth',block:'start'});
-  setTimeout(()=>name?.focus(),250);
-}
-async function deleteStudentAdminByAuth(authId){
-  if(role!=='admin'){alert('الحذف متاح لإدارة المدرسة فقط.');return;}
-  const s=findStudentByAuth(authId);
-  if(!s){alert('تعذر العثور على حساب الطالب.');return;}
-  if(!confirm(`هل تريد حذف الطالب "${s.name}"؟ سيتم حذف حساب تسجيل الدخول أيضًا.`)) return;
-  try{
-    await NabdCloud.deleteUser(s.authUserId);
-    await syncCloudProfiles();
-    renderAdminManagement();
-    alert('✓ تم حذف الطالب بنجاح.');
-  }catch(e){alert('تعذر حذف الطالب: '+(e.message||''));}
 }
 
 function renderStudentCredentialsRows(list=demoData.students){list=[...(list||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
@@ -3859,8 +3797,8 @@ function resetStudentCredentialsFilters(){
 
 function editStudentAdmin(id){
   if(role!=='admin'){alert('تعديل بيانات الطالب متاح لإدارة المدرسة فقط.');return;}
-  const s=demoData.students.find(x=>x.id===id);
-  if(!s) return;
+  const s=demoData.students.find(x=>Number(x.id)===Number(id));
+  if(!s){alert('تعذر العثور على سجل الطالب. حدّث الصفحة وحاول مرة أخرى.');return;}
 
   editingStudentId=id;
 
@@ -4164,87 +4102,27 @@ function cancelStudentEdit(){
 
 async function deleteStudentAdmin(id){
   if(!confirm('هل تريد حذف هذا الطالب؟')) return;
-  const s=demoData.students.find(x=>x.id===id); if(!s)return;
+  const s=demoData.students.find(x=>Number(x.id)===Number(id)); 
+  if(!s){alert('تعذر العثور على سجل الطالب.');return;}
   try{ await NabdCloud.deleteUser(s.authUserId); await syncCloudProfiles(); renderAdminManagement(); }
   catch(e){ alert('تعذر حذف الطالب: '+(e.message||'')); }
 }
 
-function renderTeacherRows(list){list=[...(list||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
+function renderTeacherRows(list){
+  list=[...(list||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
   if(!list.length) return `<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--muted)">لا يوجد معلمون في هذا التصنيف.</td></tr>`;
   return list.map((t,i)=>`<tr style="border-top:1px solid var(--line)">
     <td style="padding:12px">${esc(t.name)}</td>
     <td>${i+1}</td>
     <td><span class="tag blue">${esc(t.subject)}</span></td>
     <td>${(t.stages||[]).map(x=>`<span class="tag green" style="display:inline-block;margin:2px">${esc(x)}</span>`).join('')}</td>
-    <td style="min-width:170px">
+    <td style="min-width:180px">
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn primary admin-row-action" type="button" data-action="edit-teacher" data-auth-id="${esc(t.authUserId||'')}">✏️ تعديل</button>
-        <button class="btn soft admin-row-action" type="button" data-action="delete-teacher" data-auth-id="${esc(t.authUserId||'')}">🗑️ حذف</button>
+        <button class="btn primary" type="button" onclick="editTeacherAdminFull(${Number(t.id)})">✏️ تعديل</button>
+        <button class="btn soft" type="button" onclick="deleteTeacherAdmin(${Number(t.id)})">🗑️ حذف</button>
       </div>
     </td>
   </tr>`).join('');
-}
-
-function findTeacherByAuth(authId){
-  return demoData.teachers.find(x=>String(x.authUserId||'')===String(authId||''));
-}
-function editTeacherAdminByAuth(authId){
-  if(role!=='admin'){alert('التعديل متاح لإدارة المدرسة فقط.');return;}
-  const t=findTeacherByAuth(authId);
-  if(!t){alert('تعذر العثور على حساب المعلم. حدّث الصفحة وحاول مرة أخرى.');return;}
-
-  editingTeacherId=t.id;
-  const name=document.getElementById('newTeacherName');
-  const phone=document.getElementById('newTeacherPhone');
-  const email=document.getElementById('newTeacherEmail');
-  const password=document.getElementById('newTeacherPassword');
-  const subject=document.getElementById('newTeacherSubject');
-
-  if(name) name.value=t.name||'';
-  if(phone) phone.value=t.phone||'';
-  if(email) email.value=t.email||'';
-  if(password) password.value=t.password||'';
-  if(subject) subject.value=t.subject||'';
-
-  document.querySelectorAll('.teacher-grade-toggle').forEach(cb=>{
-    cb.checked=false;
-    const sel=document.getElementById('teacherSection'+cb.dataset.index);
-    if(sel){sel.value='';sel.disabled=true;}
-  });
-
-  (t.stages||[]).forEach(item=>{
-    document.querySelectorAll('.teacher-grade-toggle').forEach(cb=>{
-      const parts=cb.value.split('||');
-      if(item.includes(parts[0]) && item.includes(parts[1])){
-        cb.checked=true;
-        const sel=document.getElementById('teacherSection'+cb.dataset.index);
-        if(sel){
-          sel.disabled=false;
-          const m=item.match(/الشعبة \(([^)]+)\)/);
-          if(m) sel.value=m[1];
-        }
-      }
-    });
-  });
-
-  setTeacherFormMode(true);
-  validateTeacherPhoneField();
-  validateTeacherEmailField();
-  const form=document.getElementById('teacherFormCard');
-  if(form) form.scrollIntoView({behavior:'smooth',block:'start'});
-  setTimeout(()=>name?.focus(),250);
-}
-async function deleteTeacherAdminByAuth(authId){
-  if(role!=='admin'){alert('الحذف متاح لإدارة المدرسة فقط.');return;}
-  const t=findTeacherByAuth(authId);
-  if(!t){alert('تعذر العثور على حساب المعلم.');return;}
-  if(!confirm(`هل تريد حذف المعلم "${t.name}"؟ سيتم حذف حساب تسجيل الدخول أيضًا.`)) return;
-  try{
-    await NabdCloud.deleteUser(t.authUserId);
-    await syncCloudProfiles();
-    renderAdminManagement();
-    alert('✓ تم حذف المعلم بنجاح.');
-  }catch(e){alert('تعذر حذف المعلم: '+(e.message||''));}
 }
 
 function renderTeacherCredentialsRows(list=demoData.teachers){list=[...(list||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
@@ -4435,7 +4313,7 @@ function cancelTeacherEdit(){
  setTimeout(()=>document.getElementById('teacherFormCard')?.scrollIntoView({behavior:'smooth',block:'start'}),50);
 }
 function editTeacherAdminFull(id){
- const t=demoData.teachers.find(x=>x.id===id);if(!t)return;
+ const t=demoData.teachers.find(x=>Number(x.id)===Number(id));if(!t){alert('تعذر العثور على سجل المعلم. حدّث الصفحة وحاول مرة أخرى.');return;}
  editingTeacherId=id;
  document.getElementById('newTeacherName').value=t.name||'';
  const teacherIdField=document.getElementById('newTeacherId'); if(teacherIdField) teacherIdField.value=t.teacherId||'';
@@ -4460,7 +4338,8 @@ function editTeacherAdminFull(id){
 }
 async function deleteTeacherAdmin(id){
   if(!confirm('هل تريد حذف هذا المعلم؟')) return;
-  const t=demoData.teachers.find(x=>x.id===id); if(!t)return;
+  const t=demoData.teachers.find(x=>Number(x.id)===Number(id)); 
+  if(!t){alert('تعذر العثور على سجل المعلم.');return;}
   try{ await NabdCloud.deleteUser(t.authUserId); await syncCloudProfiles(); renderAdminManagement(); }
   catch(e){ alert('تعذر حذف المعلم: '+(e.message||'')); }
 }
