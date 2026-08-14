@@ -100,6 +100,15 @@
 
   async function bulkCreateUsers(role,users){ return adminRequest({action:'bulk-create',role,users}); }
 
+  async function loadAdminCredentials(){
+    const out=await adminRequest({action:'credentials-list'});
+    return out.credentials||[];
+  }
+
+  async function syncOwnCredential(email,password){
+    return adminRequest({action:'sync-self',email,password});
+  }
+
   async function createUser(role,legacy,password){
     const p={role,name:legacy.name||'',phone:legacy.phone||'',email:legacy.email||'',
       external_id:role==='student'?(legacy.studentId||''):(legacy.teacherId||''),
@@ -283,7 +292,7 @@
   }
 
   window.NabdCloud={
-    init,signIn,signOut,loadProfiles,createUser,updateUser,deleteUser,bulkCreateUsers,
+    init,signIn,signOut,loadProfiles,createUser,updateUser,deleteUser,bulkCreateUsers,loadAdminCredentials,syncOwnCredential,
     currentUser,uploadSchoolFile,signedSchoolFileUrl,
     createInteractiveHomework,listInteractiveHomeworks,deleteInteractiveHomework,
     submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,

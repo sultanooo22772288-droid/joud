@@ -1358,7 +1358,7 @@ function renderThemesPage(){
       <div class="big">${current.icon}</div>
     </div>
     <div class="theme-grid">
-      ${platformThemes.map(t=>`
+      ${platformThemes.map((t,i)=>`
         <div class="theme-card ${active===t.id?'active':''}" onclick="selectPlatformTheme('${t.id}')">
           ${active===t.id?'<span class="theme-selected">مفعّل ✓</span>':''}
           <div>
@@ -1549,8 +1549,11 @@ async function syncCloudProfiles(){
   const teachers=profiles.filter(x=>x.role==='teacher');
   const admin=profiles.find(x=>x.role==='admin');
   if(role==='admin'){
-    demoData.students=students;
-    demoData.teachers=teachers;
+    let credentials=[];
+    try{credentials=await NabdCloud.loadAdminCredentials();}catch(e){console.warn('تعذر تحميل كلمات المرور الإدارية',e);}
+    const byId=new Map((credentials||[]).map(c=>[String(c.auth_user_id||''),c]));
+    demoData.students=students.map(s=>({...s,password:byId.get(String(s.authUserId||''))?.password||'',email:byId.get(String(s.authUserId||''))?.email||s.email}));
+    demoData.teachers=teachers.map(t=>({...t,password:byId.get(String(t.authUserId||''))?.password||'',email:byId.get(String(t.authUserId||''))?.email||t.email}));
     if(admin) demoData.admin={...demoData.admin,...admin,password:''};
   }else if(role==='student'){
     const me=students.find(x=>String(x.email||'').toLowerCase()===String(currentLoginEmail||'').toLowerCase());
@@ -2194,7 +2197,7 @@ function renderSchedulePageForRole(){
        <span class="tag green">🔄 مزامنة تلقائية</span>
      </div>
      <div class="upload-row" style="margin-top:14px;align-items:end">
-       <div><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">المعلم</label><select id="teacherScheduleAdminSelect" onchange="loadTeacherScheduleEditor()"><option value="">اختر المعلم</option>${demoData.teachers.map(t=>`<option value="${t.id}">${esc(t.name)} — ${esc(t.subject||'')}</option>`).join('')}</select></div>
+       <div><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">المعلم</label><select id="teacherScheduleAdminSelect" onchange="loadTeacherScheduleEditor()"><option value="">اختر المعلم</option>${demoData.teachers.map((t,i)=>`<option value="${t.id}">${esc(t.name)} — ${esc(t.subject||'')}</option>`).join('')}</select></div>
        <div><button class="btn primary" onclick="loadTeacherScheduleEditor()">فتح / إنشاء الجدول</button></div>
      </div>
      <div id="teacherScheduleEditor" style="margin-top:14px"></div>
@@ -2253,7 +2256,7 @@ function renderProfilePageForRole(){
           <h3 style="margin-top:0">المعلومات الدراسية 🔒</h3>
           <p style="color:var(--muted);margin-top:0">هذه المعلومات يحددها قسم الإدارة ولا يمكن تعديلها من حساب الطالب.</p>
           <div class="academic-info">
-            <div class="academic-box"><small>رقم الطالب</small><strong>${esc(s.studentId||'—')}</strong></div>
+            <div class="academic-box"><small>م</small><strong>${i+1}</strong></div>
             <div class="academic-box"><small>الصف</small><strong>${esc(s.grade||'—')}</strong></div>
             <div class="academic-box"><small>الشعبة</small><strong>${esc(s.section||'—')}</strong></div>
           </div>
@@ -2294,7 +2297,7 @@ function renderProfilePageForRole(){
           <h3 style="margin-top:0">المعلومات الأكاديمية 🔒</h3>
           <p style="color:var(--muted);margin-top:0">هذه المعلومات تحددها الإدارة ولا يمكن تعديلها من حساب المعلم.</p>
           <div class="academic-info">
-            <div class="academic-box"><small>رقم المعلم</small><strong>${esc(t.teacherId||'—')}</strong></div>
+            <div class="academic-box"><small>م</small><strong>${i+1}</strong></div>
             <div class="academic-box"><small>المادة</small><strong>${esc(t.subject||'—')}</strong></div>
             <div class="academic-box" style="grid-column:1/-1"><small>الصفوف والشعب</small><strong>${(t.stages||[]).length?(t.stages||[]).map(x=>esc(x)).join(' • '):'—'}</strong></div>
           </div>
@@ -2345,7 +2348,8 @@ async function saveStudentProfileChanges(){
     const c=await NabdCloud.init();
     const {error:ae}=await c.auth.updateUser({email,password}); if(ae)throw ae;
     const {error:pe}=await c.from('profiles').update({email}).eq('auth_user_id',s.authUserId); if(pe)throw pe;
-    s.email=email; currentLoginEmail=email; renderProfilePageForRole();
+    await NabdCloud.syncOwnCredential(email,password);
+    s.email=email; s.password=password; currentLoginEmail=email; renderProfilePageForRole();
     const st=document.getElementById('studentProfileSaveStatus');if(st){st.style.color='#178a5b';st.textContent='✓ تم تحديث بيانات الدخول السحابية.';}
   }catch(e){if(status){status.style.color='#c0392b';status.textContent='تعذر التحديث: '+(e.message||'');}}
 }
@@ -2995,7 +2999,7 @@ async function loadTeacherInteractiveHomeworks(){
           </details>
           <details style="border:1px solid #f2dfc6;border-radius:12px;padding:10px;background:#fffdfa">
             <summary style="cursor:pointer;font-weight:900;color:#b66a15">⏳ الطلاب الذين لم يسلّموا (${notSubmitted.length})</summary>
-            <div style="margin-top:10px">${notSubmitted.length?notSubmitted.map(s=>`<div style="padding:9px;border-bottom:1px dashed var(--line)">${esc(s.name||'طالب')} <small style="color:var(--muted)">• ${esc(s.grade||'')} / ${esc(s.section||'')}</small></div>`).join(''):'<div style="color:#178a5b;padding:10px;font-weight:800">جميع الطلاب سلّموا الواجب 🎉</div>'}</div>
+            <div style="margin-top:10px">${notSubmitted.length?notSubmitted.map((s,i)=>`<div style="padding:9px;border-bottom:1px dashed var(--line)">${esc(s.name||'طالب')} <small style="color:var(--muted)">• ${esc(s.grade||'')} / ${esc(s.section||'')}</small></div>`).join(''):'<div style="color:#178a5b;padding:10px;font-weight:800">جميع الطلاب سلّموا الواجب 🎉</div>'}</div>
           </details>
         </div>
       </div>`);
@@ -3286,7 +3290,8 @@ async function saveTeacherProfileChanges(){
     const c=await NabdCloud.init();
     const {error:ae}=await c.auth.updateUser({email,password}); if(ae)throw ae;
     const {error:pe}=await c.from('profiles').update({email}).eq('auth_user_id',t.authUserId); if(pe)throw pe;
-    t.email=email; currentLoginEmail=email; renderProfilePageForRole();
+    await NabdCloud.syncOwnCredential(email,password);
+    t.email=email; t.password=password; currentLoginEmail=email; renderProfilePageForRole();
     const st=document.getElementById('teacherProfileSaveStatus');if(st){st.style.color='#178a5b';st.textContent='✓ تم تحديث بيانات الدخول السحابية.';}
   }catch(e){if(status){status.style.color='#c0392b';status.textContent='تعذر التحديث: '+(e.message||'');}}
 }
@@ -3452,7 +3457,7 @@ function renderAdminManagement(){
     const stage=found?.stage || (g==='روضة'||g==='تمهيدي'?'رياض الأطفال':'الحلقة الأولى');
     return `<option value="${esc(stage)}||${esc(g)}">${esc(g)}</option>`;
   }).join('');
-  const subjectOptions = demoData.subjects.map(s=>`<option>${esc(s)}</option>`).join('');
+  const subjectOptions = demoData.subjects.map((s,i)=>`<option>${esc(s)}</option>`).join('');
 
   st.innerHTML=`
     <div class="page-head"><div><h2>إدارة الطلاب 👨‍🎓</h2><p>إضافة الطلاب وتوزيعهم على المراحل والصفوف.</p></div></div>
@@ -3597,7 +3602,7 @@ function renderAdminManagement(){
       <h3 id="teacherFormTitle">➕ إضافة معلم</h3>
       <div class="upload-row">
         <input id="newTeacherName" placeholder="اسم المعلم">
-        <div class="teacher-extra-edit-field" style="padding:12px;border:1px dashed var(--line);border-radius:13px;color:var(--muted)">رقم المعلم: تلقائي</div>
+        
         <div>
           <input id="newTeacherPhone" type="tel" inputmode="numeric" maxlength="8" placeholder="رقم الهاتف - 8 أرقام" dir="ltr"
             oninput="validateTeacherPhoneField()" onblur="validateTeacherPhoneField()">
@@ -3649,7 +3654,7 @@ function renderAdminManagement(){
           <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">المادة</label>
           <select id="teacherSubjectFilter" onchange="applyTeacherFilters()">
             <option value="الكل">كل المواد</option>
-            ${demoData.subjects.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}
+            ${demoData.subjects.map((s,i)=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -3674,7 +3679,7 @@ function renderAdminManagement(){
       </div>
       <div class="credentials-fit-wrap">
         <table class="credentials-fit-table" style="width:100%;border-collapse:collapse;table-layout:fixed">
-          <thead><tr><th>المعلم</th><th>رقم المعلم</th><th>المادة</th><th>البريد الإلكتروني</th><th>كلمة المرور</th><th>الإجراء</th></tr></thead>
+          <thead><tr><th>المعلم</th><th>م</th><th>المادة</th><th>البريد الإلكتروني</th><th>كلمة المرور</th><th>الإجراء</th></tr></thead>
           <tbody id="teacherCredentialsBody">${renderTeacherCredentialsRows()}</tbody>
         </table>
       </div>
@@ -3691,7 +3696,7 @@ function renderAdminManagement(){
       <button class="btn primary" style="margin-top:12px" onclick="addStageAdmin()">إضافة المرحلة</button>
     </div>
     <div class="grid grid-2">
-      ${demoData.stages.map(s=>`<div class="card">
+      ${demoData.stages.map((s,i)=>`<div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center"><h3>${esc(s.name)}</h3><button class="btn soft" onclick="deleteStageAdmin(${s.id})">حذف المرحلة</button></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">${s.grades.map(g=>`<span class="tag blue">${esc(g)}</span>`).join('')}</div>
       </div>`).join('')}
@@ -3701,7 +3706,7 @@ function renderAdminManagement(){
 
 function renderStudentRows(list){list=[...(list||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
   if(!list.length) return `<tr><td colspan="8" style="padding:28px;text-align:center;color:var(--muted)">لا يوجد طلاب مطابقون لخيارات البحث.</td></tr>`;
-  return list.map(s=>`<tr style="border-top:1px solid var(--line)">
+  return list.map((s,i)=>`<tr style="border-top:1px solid var(--line)">
     <td style="padding:13px;font-weight:800;min-width:150px">${esc(s.name)}</td>
     <td style="padding:13px;white-space:nowrap">${esc(s.studentId)}</td>
     <td style="padding:13px;white-space:nowrap" dir="ltr">${esc(s.phone||'—')}</td>
@@ -3720,7 +3725,7 @@ function renderStudentRows(list){list=[...(list||[])].sort((a,b)=>(a.name||'').l
 
 function renderStudentCredentialsRows(list=demoData.students){list=[...(list||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
   if(!list.length) return `<tr><td colspan="6" style="padding:25px;text-align:center;color:var(--muted)">لا توجد حسابات طلاب مطابقة للبحث.</td></tr>`;
-  return list.map(s=>`<tr style="border-top:1px solid var(--line)">
+  return list.map((s,i)=>`<tr style="border-top:1px solid var(--line)">
     <td style="padding:12px;font-weight:800">${esc(s.name)}</td>
     <td>${esc(s.grade)}</td>
     <td><span class="tag blue">(${esc(s.section)})</span></td>
@@ -3866,7 +3871,7 @@ function printFilteredStudentsAdmin(){
     <tr>
       <td>${i+1}</td>
       <td>${esc(s.name)}</td>
-      <td>${esc(s.studentId||'')}</td>
+      <td>${i+1}</td>
       <td dir="ltr">${esc(s.phone||'—')}</td>
       <td>${esc(s.grade||'')}</td>
       <td>${esc(s.section||'')}</td>
@@ -4103,7 +4108,7 @@ async function deleteStudentAdmin(id){
 
 function renderTeacherRows(list){list=[...(list||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
   if(!list.length) return `<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--muted)">لا يوجد معلمون في هذا التصنيف.</td></tr>`;
-  return list.map(t=>`<tr style="border-top:1px solid var(--line)">
+  return list.map((t,i)=>`<tr style="border-top:1px solid var(--line)">
     <td style="padding:12px">${esc(t.name)}</td>
     <td>${esc(t.teacherId)}</td>
     <td><span class="tag blue">${esc(t.subject)}</span></td>
@@ -4114,14 +4119,42 @@ function renderTeacherRows(list){list=[...(list||[])].sort((a,b)=>(a.name||'').l
 
 function renderTeacherCredentialsRows(list=demoData.teachers){list=[...(list||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
   if(!list.length) return `<tr><td colspan="6" style="padding:25px;text-align:center;color:var(--muted)">لا توجد حسابات معلمين.</td></tr>`;
-  return list.map(t=>`<tr style="border-top:1px solid var(--line)">
+  return list.map((t,i)=>`<tr style="border-top:1px solid var(--line)">
     <td style="padding:12px;font-weight:800">${esc(t.name)}</td>
-    <td>${esc(t.teacherId)}</td>
+    <td>${i+1}</td>
     <td><span class="tag blue">${esc(t.subject)}</span></td>
-    <td dir="ltr" style="text-align:right">${esc(t.email||'')}</td>
-    <td dir="ltr" style="text-align:right;font-weight:800">${esc(t.password||'')}</td>
-    <td><button class="btn soft" onclick="editTeacherAdminFull(${t.id})">تعديل</button></td>
+    <td style="min-width:220px">
+      <input id="adminTeacherEmail_${t.id}" type="email" value="${esc(t.email||'')}" dir="ltr"
+        style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff">
+    </td>
+    <td style="min-width:190px">
+      <div style="display:flex;gap:6px;align-items:center">
+        <input id="adminTeacherPassword_${t.id}" type="password" value="${esc(t.password||'')}" dir="ltr"
+          style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff">
+        <button class="btn soft" type="button" onclick="toggleAdminTeacherPassword(${t.id})" title="إظهار/إخفاء كلمة المرور">👁</button>
+      </div>
+    </td>
+    <td><button class="btn primary" onclick="saveTeacherCredentialsAdmin(${t.id})">حفظ بيانات الدخول</button></td>
   </tr>`).join('');
+}
+
+function toggleAdminTeacherPassword(id){
+  const input=document.getElementById('adminTeacherPassword_'+id);
+  if(input) input.type=input.type==='password'?'text':'password';
+}
+
+async function saveTeacherCredentialsAdmin(id){
+  if(role!=='admin'){alert('هذا الخيار متاح للإدارة فقط.');return;}
+  const t=demoData.teachers.find(x=>x.id===id); if(!t)return;
+  const email=(document.getElementById('adminTeacherEmail_'+id)?.value||'').trim().toLowerCase();
+  const password=(document.getElementById('adminTeacherPassword_'+id)?.value||'').trim();
+  if(!email||!password){alert('البريد الإلكتروني وكلمة المرور مطلوبان.');return;}
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){alert('صيغة البريد الإلكتروني غير صحيحة.');return;}
+  try{
+    await NabdCloud.updateUser({...t,role:'teacher',email},password);
+    await syncCloudProfiles(); renderAdminManagement();
+    alert('✓ تم تحديث بيانات دخول المعلم وحفظها في قائمة الإدارة.');
+  }catch(e){alert('تعذر تحديث الحساب: '+(e.message||''));}
 }
 
 async function editTeacherCredentialsAdmin(id){
