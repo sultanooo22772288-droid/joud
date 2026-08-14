@@ -94,6 +94,14 @@
   async function deleteTeacherContent(type,id){
     return contentRequest({action:'teacher-delete',type,id});
   }
+  async function createTeacherHomework(item){
+    const out=await contentRequest({action:'teacher-create-homework',item});
+    return out.item;
+  }
+  async function listTeacherHomeworks(){
+    const out=await contentRequest({action:'teacher-list-homeworks'});
+    return out.items||[];
+  }
   async function deleteTeacherHomework(id){
     return contentRequest({action:'teacher-delete-homework',id});
   }
@@ -351,7 +359,7 @@
     submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,
     setHomeworkScoreVisibility,listClassStudents,
     saveStudentReport,myStudentReports,myStudentReportBundle,getTeacherStudentReport,
-    createTeacherContent,listTeacherContent,deleteTeacherContent,deleteTeacherHomework,adminAllTeacherContent,
+    createTeacherContent,listTeacherContent,deleteTeacherContent,createTeacherHomework,listTeacherHomeworks,deleteTeacherHomework,adminAllTeacherContent,
     get config(){return cfg;}
   };
 })();

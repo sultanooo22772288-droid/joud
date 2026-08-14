@@ -3047,8 +3047,7 @@ async function publishSmartHomework(){
   try{
     if(status) status.textContent='جاري النشر في السحابة...';
     const teacher=demoData.teachers.find(x=>String(x.email||'').toLowerCase()===String(currentLoginEmail||'').toLowerCase());
-    await NabdCloud.createInteractiveHomework({
-      teacher_name:teacher?.name||'معلم',
+    await NabdCloud.createTeacherHomework({
       title,description,grade,section,due_at:due,questions,mode,attachment,
       max_score:questions.reduce((s,q)=>s+(Number(q.points)||1),0)
     });
@@ -3075,9 +3074,7 @@ async function loadTeacherInteractiveHomeworks(){
   if(role!=='teacher')return;
   const box=document.getElementById('teacherInteractiveHomeworkList'); if(!box)return;
   try{
-    const user=await NabdCloud.currentUser();
-    const all=await NabdCloud.listInteractiveHomeworks();
-    const list=all.filter(h=>h.teacher_id===user?.id);
+    const list=await NabdCloud.listTeacherHomeworks();
     if(!list.length){
       box.innerHTML='<div style="text-align:center;color:var(--muted);padding:22px">لم تنشر واجبات سحابية بعد.</div>';
       return;
