@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { randomUUID } from 'node:crypto';
 
 export default async function handler(req,res){
   if(req.method!=='POST') return res.status(405).json({error:'Method not allowed'});
@@ -27,7 +28,7 @@ export default async function handler(req,res){
       const item=b.item||{};
       if(!String(item.title||'').trim()) return res.status(400).json({error:'العنوان مطلوب.'});
 
-      const id=crypto.randomUUID();
+      const id=randomUUID();
       const value={
         id,type,
         teacher_id:uid,
@@ -68,6 +69,40 @@ export default async function handler(req,res){
       const {error}=await sb.from('school_kv').delete().eq('key',keyName);
       if(error) throw error;
       return res.status(200).json({ok:true});
+    }
+
+    if(action==='teacher-create-homework'){
+      if(p.role!=='teacher') return res.status(403).json({error:'هذه العملية للمعلم فقط.'});
+      const item=b.item||{};
+      const title=String(item.title||'').trim();
+      if(!title) return res.status(400).json({error:'عنوان الواجب مطلوب.'});
+      if(!item.due_at) return res.status(400).json({error:'موعد التسليم مطلوب.'});
+
+      const row={
+        teacher_id:uid,
+        teacher_name:p.name||'معلم',
+        title,
+        description:item.description||'',
+        grade:item.grade||'',
+        section:item.section||'',
+        due_at:item.due_at,
+        questions:Array.isArray(item.questions)?item.questions:[],
+        mode:item.mode||'online',
+        attachment:item.attachment||null,
+        max_score:Number(item.max_score)||null,
+        updated_at:new Date().toISOString()
+      };
+      const {data,error}=await sb.from('homeworks').insert(row).select('*').single();
+      if(error) throw error;
+      return res.status(200).json({item:data});
+    }
+
+    if(action==='teacher-list-homeworks'){
+      if(p.role!=='teacher') return res.status(403).json({error:'هذه العملية للمعلم فقط.'});
+      const {data,error}=await sb.from('homeworks')
+        .select('*').eq('teacher_id',uid).order('created_at',{ascending:false});
+      if(error) throw error;
+      return res.status(200).json({items:data||[]});
     }
 
     if(action==='teacher-delete-homework'){
