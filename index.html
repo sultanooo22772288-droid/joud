@@ -3708,19 +3708,38 @@ function renderStudentRows(list){list=[...(list||[])].sort((a,b)=>(a.name||'').l
   if(!list.length) return `<tr><td colspan="8" style="padding:28px;text-align:center;color:var(--muted)">لا يوجد طلاب مطابقون لخيارات البحث.</td></tr>`;
   return list.map((s,i)=>`<tr style="border-top:1px solid var(--line)">
     <td style="padding:13px;font-weight:800;min-width:150px">${esc(s.name)}</td>
-    <td style="padding:13px;white-space:nowrap">${esc(s.studentId)}</td>
+    <td style="padding:13px;white-space:nowrap">${i+1}</td>
     <td style="padding:13px;white-space:nowrap" dir="ltr">${esc(s.phone||'—')}</td>
     <td style="padding:13px;white-space:nowrap">${esc(s.grade)}</td>
     <td style="padding:13px"><span class="tag blue">(${esc(s.section)})</span></td>
     <td style="padding:13px;min-width:210px" dir="ltr">${esc(s.email||'—')}</td>
     <td style="padding:13px;min-width:130px" dir="ltr"><span style="font-family:monospace;font-weight:700">${esc(s.password||'—')}</span></td>
-    <td style="padding:13px;min-width:150px">
+    <td style="padding:13px;min-width:170px">
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn primary" onclick="editStudentAdmin(${s.id})">تعديل</button>
-        <button class="btn soft" onclick="deleteStudentAdmin(${s.id})">حذف</button>
+        <button class="btn primary" type="button" onclick="editStudentAdminByAuth('${encodeURIComponent(s.authUserId||'')}')">✏️ تعديل</button>
+        <button class="btn soft" type="button" onclick="deleteStudentAdminByAuth('${encodeURIComponent(s.authUserId||'')}')">🗑️ حذف</button>
       </div>
     </td>
   </tr>`).join('');
+}
+
+function editStudentAdminByAuth(authEnc){
+  const authId=decodeURIComponent(authEnc||'');
+  const s=demoData.students.find(x=>String(x.authUserId||'')===authId);
+  if(!s){alert('تعذر العثور على حساب الطالب.');return;}
+  editStudentAdmin(s.id);
+}
+async function deleteStudentAdminByAuth(authEnc){
+  const authId=decodeURIComponent(authEnc||'');
+  const s=demoData.students.find(x=>String(x.authUserId||'')===authId);
+  if(!s){alert('تعذر العثور على حساب الطالب.');return;}
+  if(!confirm(`هل تريد حذف الطالب "${s.name}"؟ سيتم حذف حساب تسجيل الدخول أيضًا.`)) return;
+  try{
+    await NabdCloud.deleteUser(authId);
+    await syncCloudProfiles();
+    renderAdminManagement();
+    alert('✓ تم حذف الطالب بنجاح.');
+  }catch(e){alert('تعذر حذف الطالب: '+(e.message||''));}
 }
 
 function renderStudentCredentialsRows(list=demoData.students){list=[...(list||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
@@ -4110,11 +4129,35 @@ function renderTeacherRows(list){list=[...(list||[])].sort((a,b)=>(a.name||'').l
   if(!list.length) return `<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--muted)">لا يوجد معلمون في هذا التصنيف.</td></tr>`;
   return list.map((t,i)=>`<tr style="border-top:1px solid var(--line)">
     <td style="padding:12px">${esc(t.name)}</td>
-    <td>${esc(t.teacherId)}</td>
+    <td>${i+1}</td>
     <td><span class="tag blue">${esc(t.subject)}</span></td>
     <td>${(t.stages||[]).map(x=>`<span class="tag green" style="display:inline-block;margin:2px">${esc(x)}</span>`).join('')}</td>
-    <td><button class="btn soft" onclick="deleteTeacherAdmin(${t.id})">حذف</button></td>
+    <td style="min-width:170px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn primary" type="button" onclick="editTeacherAdminByAuth('${encodeURIComponent(t.authUserId||'')}')">✏️ تعديل</button>
+        <button class="btn soft" type="button" onclick="deleteTeacherAdminByAuth('${encodeURIComponent(t.authUserId||'')}')">🗑️ حذف</button>
+      </div>
+    </td>
   </tr>`).join('');
+}
+
+function editTeacherAdminByAuth(authEnc){
+  const authId=decodeURIComponent(authEnc||'');
+  const t=demoData.teachers.find(x=>String(x.authUserId||'')===authId);
+  if(!t){alert('تعذر العثور على حساب المعلم.');return;}
+  editTeacherAdminFull(t.id);
+}
+async function deleteTeacherAdminByAuth(authEnc){
+  const authId=decodeURIComponent(authEnc||'');
+  const t=demoData.teachers.find(x=>String(x.authUserId||'')===authId);
+  if(!t){alert('تعذر العثور على حساب المعلم.');return;}
+  if(!confirm(`هل تريد حذف المعلم "${t.name}"؟ سيتم حذف حساب تسجيل الدخول أيضًا.`)) return;
+  try{
+    await NabdCloud.deleteUser(authId);
+    await syncCloudProfiles();
+    renderAdminManagement();
+    alert('✓ تم حذف المعلم بنجاح.');
+  }catch(e){alert('تعذر حذف المعلم: '+(e.message||''));}
 }
 
 function renderTeacherCredentialsRows(list=demoData.teachers){list=[...(list||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
@@ -4279,7 +4322,8 @@ async function saveTeacherAdminForm(){
  try{
    if(editingTeacherId){
      const t=demoData.teachers.find(x=>x.id===editingTeacherId); if(!t)return;
-     await NabdCloud.updateUser({...t,role:'teacher',name,phone,email,subject,stages:t.stages||[]},password);
+     const updatedStages=stages.length?stages:(t.stages||[]);
+     await NabdCloud.updateUser({...t,role:'teacher',name,phone,email,subject,stages:updatedStages},password);
      editingTeacherId=null; await syncCloudProfiles(); renderAdminManagement();
      setTimeout(()=>document.getElementById('teacherFormCard')?.scrollIntoView({behavior:'smooth',block:'start'}),50); return;
    }
@@ -4296,8 +4340,8 @@ function setTeacherFormMode(editing){
  document.querySelectorAll('.teacher-extra-edit-field').forEach(el=>el.style.display=editing?'none':'');
  const assignments=document.getElementById('teacherAssignmentsBlock');
  const note=document.getElementById('teacherAssignmentsNote');
- if(assignments)assignments.style.display=editing?'none':'';
- if(note)note.style.display=editing?'none':'';
+ if(assignments)assignments.style.display='';
+ if(note)note.style.display='';
 }
 function cancelTeacherEdit(){
  editingTeacherId=null;renderAdminManagement();
