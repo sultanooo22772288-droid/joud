@@ -70,6 +70,37 @@
   }
 
 
+
+  async function contentRequest(payload){
+    const token=await getAccessToken();
+    const r=await fetch('/api/content',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body:JSON.stringify(payload)
+    });
+    const out=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(out.error||'تعذر تنفيذ عملية المحتوى.');
+    return out;
+  }
+
+  async function createTeacherContent(type,item){
+    const out=await contentRequest({action:'teacher-create',type,item});
+    return out.item;
+  }
+  async function listTeacherContent(type){
+    const out=await contentRequest({action:'teacher-list',type});
+    return out.items||[];
+  }
+  async function deleteTeacherContent(type,id){
+    return contentRequest({action:'teacher-delete',type,id});
+  }
+  async function deleteTeacherHomework(id){
+    return contentRequest({action:'teacher-delete-homework',id});
+  }
+  async function adminAllTeacherContent(){
+    return contentRequest({action:'admin-list-all'});
+  }
+
   async function reportRequest(payload){
     const token=await getAccessToken();
     const r=await fetch('/api/report',{
@@ -320,6 +351,7 @@
     submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,
     setHomeworkScoreVisibility,listClassStudents,
     saveStudentReport,myStudentReports,myStudentReportBundle,getTeacherStudentReport,
+    createTeacherContent,listTeacherContent,deleteTeacherContent,deleteTeacherHomework,adminAllTeacherContent,
     get config(){return cfg;}
   };
 })();

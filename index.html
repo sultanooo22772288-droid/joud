@@ -2544,7 +2544,7 @@ function renderRolePages(){
       <div id="teacherInteractiveHomeworkList" class="card">
         <div style="text-align:center;color:var(--muted);padding:18px">جاري تحميل الواجبات السحابية...</div>
       </div>`; 
-    homeworkQuestionDraft=[]; setTimeout(()=>{addHomeworkQuestion('mcq');toggleHomeworkModeBuilder();loadTeacherInteractiveHomeworks();},0);
+    homeworkQuestionDraft=[]; setTimeout(()=>{addHomeworkQuestion('mcq');toggleHomeworkModeBuilder();loadTeacherInteractiveHomeworks();loadMyTeacherLessons();loadMyTeacherQuizzes();},0);
   }
   else if(role==='student'){
     subjects.innerHTML=`
@@ -2596,34 +2596,55 @@ function renderRolePages(){
       <div class="grid grid-3" id="adminSubjectsGrid">
         ${renderAdminSubjects()}
       </div>`;
-    lessons.innerHTML=`<div class="page-head"><div><h2>متابعة الدروس 🎓</h2><p>عرض الدروس المنشورة على مستوى المدرسة.</p></div></div><div class="card">${task('🎓','درس الجهاز الدوري','المعلم: محمد • الصف السابع','منشور','green')}${task('🎓','المعادلات الخطية','المعلم: خالد • الصف السابع','منشور','green')}</div>`;
+    lessons.innerHTML=`
+      <div class="page-head"><div><h2>متابعة الدروس 🎓</h2><p>عرض جميع الدروس التي نشرها المعلمون.</p></div></div>
+      <div id="adminAllLessons" class="card"><div style="text-align:center;color:var(--muted);padding:18px">جاري تحميل الدروس المنشورة...</div></div>`;
     assignments.innerHTML=`
-      <div class="page-head"><div><h2>الواجبات المنشورة 📝</h2><p>عرض جميع الواجبات المنشورة مع تاريخ النشر وموعد التسليم والحالة.</p></div></div>
-      <div class="card" style="margin-bottom:14px">
-        <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">حالة الواجب</label>
-        <select id="adminHomeworkStatusFilter" onchange="refreshAdminPublishedView('homework')" style="max-width:260px">
-          <option value="all">كل الواجبات</option>
-          <option value="active">الواجبات النشطة</option>
-          <option value="upcoming">الواجبات القادمة</option>
-          <option value="ended">الواجبات المنتهية</option>
-        </select>
-      </div>
-      <div id="adminHomeworksPublishedList">${renderAdminPublishedItems('homework','all')}</div>`;
+      <div class="page-head"><div><h2>متابعة الواجبات 📝</h2><p>عرض جميع الواجبات التي نشرها المعلمون.</p></div></div>
+      <div id="adminAllHomeworks" class="card"><div style="text-align:center;color:var(--muted);padding:18px">جاري تحميل الواجبات المنشورة...</div></div>`;
 
     document.getElementById('quizzes').innerHTML=`
-      <div class="page-head"><div><h2>الاختبارات المنشورة ✅</h2><p>عرض جميع الاختبارات مع تاريخ النشر وموعد الاختبار والحالة.</p></div></div>
-      <div class="card" style="margin-bottom:14px">
-        <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">حالة الاختبار</label>
-        <select id="adminQuizStatusFilter" onchange="refreshAdminPublishedView('quiz')" style="max-width:260px">
-          <option value="all">كل الاختبارات</option>
-          <option value="upcoming">الاختبارات القادمة</option>
-          <option value="ended">الاختبارات السابقة</option>
-        </select>
-      </div>
-      <div id="adminQuizzesPublishedList">${renderAdminPublishedItems('quiz','all')}</div>`;
+      <div class="page-head"><div><h2>متابعة الاختبارات ✅</h2><p>عرض جميع الاختبارات التي نشرها المعلمون.</p></div></div>
+      <div id="adminAllQuizzes" class="card"><div style="text-align:center;color:var(--muted);padding:18px">جاري تحميل الاختبارات المنشورة...</div></div>`;
+    setTimeout(loadAdminTeacherPublishedContent,0);
   }
 }
 
+
+async function loadAdminTeacherPublishedContent(){
+  if(role!=='admin')return;
+  try{
+    const data=await NabdCloud.adminAllTeacherContent();
+
+    const lessons=document.getElementById('adminAllLessons');
+    if(lessons) lessons.innerHTML=(data.lessons||[]).length?(data.lessons||[]).map(x=>`
+      <div class="lesson-item">
+        <div class="lesson-num">🎓</div>
+        <div><b>${esc(x.title||'درس')}</b><small>المعلم: ${esc(x.teacher_name||'')} • المادة: ${esc(x.subject||'')} • ${formatSchoolDateTime(x.created_at)}</small></div>
+        <span class="tag green">منشور</span>
+      </div>`).join(''):'<div style="padding:20px;text-align:center;color:var(--muted)">لا توجد دروس منشورة.</div>';
+
+    const homeworks=document.getElementById('adminAllHomeworks');
+    if(homeworks) homeworks.innerHTML=(data.homeworks||[]).length?(data.homeworks||[]).map(x=>`
+      <div class="task">
+        <div class="dot">📝</div>
+        <div><strong>${esc(x.title||'واجب')}</strong><small>المعلم: ${esc(x.teacher_name||'')} • ${esc(x.grade||'')} / ${esc(x.section||'')} • التسليم: ${formatHomeworkDue(x.due_at)}</small></div>
+        <span class="tag blue">منشور</span>
+      </div>`).join(''):'<div style="padding:20px;text-align:center;color:var(--muted)">لا توجد واجبات منشورة.</div>';
+
+    const quizzes=document.getElementById('adminAllQuizzes');
+    if(quizzes) quizzes.innerHTML=(data.quizzes||[]).length?(data.quizzes||[]).map(x=>`
+      <div class="task">
+        <div class="dot">✅</div>
+        <div><strong>${esc(x.title||'اختبار')}</strong><small>المعلم: ${esc(x.teacher_name||'')} • ${esc(x.grade||'')} / ${esc(x.section||'')} • ${formatSchoolDateTime(x.scheduled_at)}</small></div>
+        <span class="tag green">منشور</span>
+      </div>`).join(''):'<div style="padding:20px;text-align:center;color:var(--muted)">لا توجد اختبارات منشورة.</div>';
+  }catch(e){
+    ['adminAllLessons','adminAllHomeworks','adminAllQuizzes'].forEach(id=>{
+      const el=document.getElementById(id);if(el)el.innerHTML='<div style="color:#c0392b;padding:16px">تعذر تحميل المحتوى: '+esc(e.message||'')+'</div>';
+    });
+  }
+}
 
 const teacherReportDemoStudents = [
   {name:'أحمد محمد', grade:'الصف الأول', section:'أ'},
@@ -2758,74 +2779,53 @@ async function loadStudentOwnReportsCloud(){
 }
 
 
-function currentTeacherStorageId(){
-  const t=getCurrentTeacher();
-  return String(t?.authUserId||currentLoginEmail||'teacher');
-}
-function teacherLessonsStorageKey(){
-  return 'nabdTeacherLessons:'+currentTeacherStorageId();
-}
-function getCurrentTeacherLessons(){
+async function addLessonDemo(){
+  if(role!=='teacher'){alert('إضافة الدروس متاحة للمعلم فقط.');return;}
+  const title=document.getElementById('lessonTitle')?.value.trim()||'';
+  const subject=document.getElementById('lessonSubject')?.value||'';
+  const description=document.getElementById('lessonDesc')?.value.trim()||'';
+  const file=document.getElementById('lessonFile')?.files?.[0]||null;
+  const video=document.getElementById('lessonVideo')?.files?.[0]||null;
+  if(!title){alert('اكتب عنوان الدرس أولاً.');return;}
+
   try{
-    const rows=JSON.parse(localStorage.getItem(teacherLessonsStorageKey())||'[]');
-    return Array.isArray(rows)?rows:[];
-  }catch(e){return [];}
-}
-function saveCurrentTeacherLessons(rows){
-  try{localStorage.setItem(teacherLessonsStorageKey(),JSON.stringify(rows||[]));}catch(e){}
-}
-function renderCurrentTeacherLessons(){
-  const target=document.getElementById('teacherLessons');
-  if(!target)return;
-  const rows=getCurrentTeacherLessons().sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
-  target.innerHTML=rows.length?rows.map((x,i)=>`
-    <div class="lesson-item">
-      <div class="lesson-num">${i+1}</div>
-      <div><b>${esc(x.title||'درس')}</b><small>${esc(x.subject||'')} • ${x.hasVideo?'فيديو ':''}${x.hasFile?'+ ملف مرفق ':''}• منشور بواسطتك</small></div>
-      <button class="btn soft" type="button" onclick="deleteOwnTeacherLesson('${String(x.id)}')">حذف</button>
-    </div>`).join(''):'<div style="padding:20px;text-align:center;color:var(--muted)">لم تضف أي دروس بعد.</div>';
-}
-function deleteOwnTeacherLesson(id){
-  const rows=getCurrentTeacherLessons().filter(x=>String(x.id)!==String(id));
-  saveCurrentTeacherLessons(rows);
-  renderCurrentTeacherLessons();
-}
-function renderCurrentTeacherQuizzes(){
-  const target=document.getElementById('teacherQuizzes');
-  if(!target)return;
-  const me=currentTeacherStorageId();
-  const data=getPublishedSchoolContent();
-  const rows=(data.quizzes||[]).filter(x=>String(x.teacher_id||'')===me)
-    .sort((a,b)=>String(b.publishedAt||'').localeCompare(String(a.publishedAt||'')));
-  target.innerHTML=rows.length?rows.map(x=>`
-    <div class="task">
-      <div class="dot">✅</div>
-      <div><strong>${esc(x.title||'اختبار')}</strong><small>${esc(x.grade||'')} / ${esc(x.section||'')} • ${esc(x.questions||'')} أسئلة</small></div>
-      <span class="tag green">منشور</span>
-    </div>`).join(''):'<div style="padding:20px;text-align:center;color:var(--muted)">لم تنشر أي اختبارات بعد.</div>';
+    let attachment=null, videoAttachment=null;
+    if(file) attachment=await NabdCloud.uploadSchoolFile(file,'lessons');
+    if(video) videoAttachment=await NabdCloud.uploadSchoolFile(video,'lessons-video');
+
+    await NabdCloud.createTeacherContent('lesson',{
+      title,subject,description,attachment,video:videoAttachment
+    });
+    document.getElementById('lessonTitle').value='';
+    document.getElementById('lessonDesc').value='';
+    if(document.getElementById('lessonFile')) document.getElementById('lessonFile').value='';
+    if(document.getElementById('lessonVideo')) document.getElementById('lessonVideo').value='';
+    await loadMyTeacherLessons();
+    alert('✅ تم نشر الدرس بنجاح.');
+  }catch(e){alert('تعذر نشر الدرس: '+(e.message||''));}
 }
 
-function addLessonDemo(){
-  const title=document.getElementById('lessonTitle')?.value.trim() || '';
-  const subject=document.getElementById('lessonSubject')?.value || '';
-  const file=document.getElementById('lessonFile')?.files?.[0];
-  const video=document.getElementById('lessonVideo')?.files?.[0];
-  if(!title){alert('اكتب عنوان الدرس أولاً.');return;}
-  const rows=getCurrentTeacherLessons();
-  rows.push({
-    id:Date.now(),
-    teacher_id:currentTeacherStorageId(),
-    title,subject,
-    hasFile:!!file,
-    hasVideo:!!video,
-    createdAt:new Date().toISOString()
-  });
-  saveCurrentTeacherLessons(rows);
-  renderCurrentTeacherLessons();
-  document.getElementById('lessonTitle').value='';
-  if(document.getElementById('lessonFile')) document.getElementById('lessonFile').value='';
-  if(document.getElementById('lessonVideo')) document.getElementById('lessonVideo').value='';
-  alert('تم نشر الدرس في قائمة دروسك.');
+async function loadMyTeacherLessons(){
+  if(role!=='teacher')return;
+  const box=document.getElementById('teacherLessons'); if(!box)return;
+  try{
+    const rows=await NabdCloud.listTeacherContent('lesson');
+    box.innerHTML=rows.length?rows.map((x,i)=>`
+      <div class="lesson-item">
+        <div class="lesson-num">${i+1}</div>
+        <div><b>${esc(x.title||'درس')}</b><small>${esc(x.subject||'')} • منشور بواسطتك</small></div>
+        <button class="btn soft" type="button" onclick="deleteMyTeacherLesson('${esc(x.id||'')}')">🗑️ حذف</button>
+      </div>`).join(''):'<div style="padding:20px;text-align:center;color:var(--muted)">لم تضف أي دروس بعد.</div>';
+  }catch(e){box.innerHTML='<div style="color:#c0392b;padding:16px">تعذر تحميل دروسك: '+esc(e.message||'')+'</div>';}
+}
+
+async function deleteMyTeacherLesson(id){
+  if(!confirm('هل تريد حذف هذا الدرس؟'))return;
+  try{
+    await NabdCloud.deleteTeacherContent('lesson',id);
+    await loadMyTeacherLessons();
+    alert('✅ تم حذف الدرس بنجاح.');
+  }catch(e){alert('تعذر حذف الدرس: '+(e.message||''));}
 }
 
 function parsePublishedClassLabel(cls){
@@ -3096,6 +3096,7 @@ async function loadTeacherInteractiveHomeworks(){
           <div style="display:flex;gap:7px;flex-wrap:wrap">
             <span class="tag green">✅ سلّموا: ${subs.length}</span>
             <span class="tag orange">⏳ لم يسلّموا: ${notSubmitted.length}</span>
+            <button class="btn soft" type="button" onclick="deleteMyTeacherHomework(${h.id})">🗑️ حذف الواجب</button>
           </div>
         </div>
 
@@ -3115,6 +3116,15 @@ async function loadTeacherInteractiveHomeworks(){
   }catch(e){
     box.innerHTML='<div style="color:#c0392b;padding:16px">تعذر تحميل الواجبات: '+esc(e.message||'')+'</div>';
   }
+}
+
+async function deleteMyTeacherHomework(id){
+  if(!confirm('هل تريد حذف هذا الواجب؟ سيتم حذف تسليماته أيضًا.'))return;
+  try{
+    await NabdCloud.deleteTeacherHomework(id);
+    await loadTeacherInteractiveHomeworks();
+    alert('✅ تم حذف الواجب بنجاح.');
+  }catch(e){alert('تعذر حذف الواجب: '+(e.message||''));}
 }
 
 function renderTeacherSubmission(hw,s){
@@ -3326,36 +3336,52 @@ function addHomeworkDemo(){
   alert('تم نشر الواجب، وسيظهر تلقائيًا في واجهة إدارة المدرسة.');
 }
 
-function addQuizDemo(){
-  const title=document.getElementById('quizTitle')?.value.trim();
-  const cls=document.getElementById('quizClass')?.value || '';
-  const count=document.getElementById('quizQuestions')?.value || '10';
+async function addQuizDemo(){
+  if(role!=='teacher'){alert('إضافة الاختبارات متاحة للمعلم فقط.');return;}
+  const title=document.getElementById('quizTitle')?.value.trim()||'';
+  const cls=document.getElementById('quizClass')?.value||'';
+  const count=document.getElementById('quizQuestions')?.value||'10';
   const scheduled=document.getElementById('quizDate')?.value||'';
-  if(!title){ alert('اكتب عنوان الاختبار أولاً'); document.getElementById('quizTitle')?.focus(); return; }
-  if(!scheduled){ alert('حدد موعد الاختبار أولاً'); document.getElementById('quizDate')?.focus(); return; }
-
+  const description=document.getElementById('quizDesc')?.value.trim()||'';
+  if(!title){alert('اكتب عنوان الاختبار أولاً.');return;}
+  if(!scheduled){alert('حدد موعد الاختبار أولاً.');return;}
   const info=parsePublishedClassLabel(cls);
-  const data=getPublishedSchoolContent();
-  data.quizzes.push({
-    id:Date.now(),
-    teacher_id:currentTeacherStorageId(),
-    title,
-    teacher:getCurrentTeacherNameForPublish(),
-    stage:info.stage,
-    grade:info.grade,
-    section:info.section,
-    questions:count,
-    publishedAt:new Date().toISOString(),
-    scheduledAt:scheduled
-  });
-  savePublishedSchoolContent(data);
-
-  renderCurrentTeacherQuizzes();
-  document.getElementById('quizTitle').value='';
-  document.getElementById('quizDesc').value='';
-  alert('تم نشر الاختبار، وسيظهر تلقائيًا في واجهة إدارة المدرسة.');
+  try{
+    await NabdCloud.createTeacherContent('quiz',{
+      title,description,grade:info.grade,section:info.section,
+      scheduled_at:scheduled,questions_count:Number(count)||10
+    });
+    document.getElementById('quizTitle').value='';
+    document.getElementById('quizDesc').value='';
+    await loadMyTeacherQuizzes();
+    alert('✅ تم نشر الاختبار بنجاح.');
+  }catch(e){alert('تعذر نشر الاختبار: '+(e.message||''));}
 }
 
+async function loadMyTeacherQuizzes(){
+  if(role!=='teacher')return;
+  const box=document.getElementById('teacherQuizzes'); if(!box)return;
+  try{
+    const rows=await NabdCloud.listTeacherContent('quiz');
+    box.innerHTML=rows.length?rows.map(x=>`
+      <div class="task">
+        <div class="dot">✅</div>
+        <div><strong>${esc(x.title||'اختبار')}</strong>
+          <small>${esc(x.grade||'')} / ${esc(x.section||'')} • ${esc(x.questions_count||'')} أسئلة • ${formatSchoolDateTime(x.scheduled_at)}</small>
+        </div>
+        <button class="btn soft" type="button" onclick="deleteMyTeacherQuiz('${esc(x.id||'')}')">🗑️ حذف</button>
+      </div>`).join(''):'<div style="padding:20px;text-align:center;color:var(--muted)">لم تنشر أي اختبارات بعد.</div>';
+  }catch(e){box.innerHTML='<div style="color:#c0392b;padding:16px">تعذر تحميل اختباراتك: '+esc(e.message||'')+'</div>';}
+}
+
+async function deleteMyTeacherQuiz(id){
+  if(!confirm('هل تريد حذف هذا الاختبار؟'))return;
+  try{
+    await NabdCloud.deleteTeacherContent('quiz',id);
+    await loadMyTeacherQuizzes();
+    alert('✅ تم حذف الاختبار بنجاح.');
+  }catch(e){alert('تعذر حذف الاختبار: '+(e.message||''));}
+}
 
 
 function getStudentOwnReportHtml(){
