@@ -1269,6 +1269,8 @@ body[data-theme] .app-shell,body[data-theme] .login-screen{position:relative;z-i
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="cloud.js"></script>
 <script>
 const navByRole = {
@@ -3454,6 +3456,15 @@ function renderAdminManagement(){
 
   st.innerHTML=`
     <div class="page-head"><div><h2>إدارة الطلاب 👨‍🎓</h2><p>إضافة الطلاب وتوزيعهم على المراحل والصفوف.</p></div></div>
+    <div class="card" style="margin-bottom:16px">
+      <h3 style="margin-top:0">📥 استيراد الطلاب دفعة واحدة</h3>
+      <p style="color:var(--muted);font-size:13px">ارفع Excel أو PDF يحتوي على الاسم، الهاتف، البريد الإلكتروني، كلمة المرور، الصف، الشعبة.</p>
+      <label class="btn primary" style="cursor:pointer">اختيار ملف Excel / PDF
+        <input id="studentBulkFile" type="file" accept=".xlsx,.xls,.pdf" hidden onchange="previewBulkImport('student',this.files?.[0])">
+      </label>
+      <a href="templates/student_import_template.xlsx" download style="margin-right:10px">تحميل نموذج Excel</a>
+      <div id="studentBulkPreview" style="margin-top:12px"></div>
+    </div>
     <div class="teacher-tool" id="studentFormCard">
       <h3 id="studentFormTitle">➕ إضافة طالب</h3>
       <div class="upload-row">
@@ -3573,11 +3584,20 @@ function renderAdminManagement(){
   te.innerHTML=`
     <div class="page-head"><div><h2>إدارة المعلمين 👨‍🏫</h2><p>إضافة المعلم وربطه بالمادة وبأكثر من مرحلة أو صف في نفس الوقت.</p></div></div>
 
+    <div class="card" style="margin-bottom:16px">
+      <h3 style="margin-top:0">📥 استيراد المعلمين دفعة واحدة</h3>
+      <p style="color:var(--muted);font-size:13px">ارفع Excel أو PDF يحتوي على الاسم، الهاتف، البريد الإلكتروني، كلمة المرور، المادة، الصفوف/الشعب.</p>
+      <label class="btn primary" style="cursor:pointer">اختيار ملف Excel / PDF
+        <input id="teacherBulkFile" type="file" accept=".xlsx,.xls,.pdf" hidden onchange="previewBulkImport('teacher',this.files?.[0])">
+      </label>
+      <a href="templates/teacher_import_template.xlsx" download style="margin-right:10px">تحميل نموذج Excel</a>
+      <div id="teacherBulkPreview" style="margin-top:12px"></div>
+    </div>
     <div class="teacher-tool" id="teacherFormCard">
       <h3 id="teacherFormTitle">➕ إضافة معلم</h3>
       <div class="upload-row">
         <input id="newTeacherName" placeholder="اسم المعلم">
-        <input id="newTeacherId" class="teacher-extra-edit-field" placeholder="رقم المعلم">
+        <div class="teacher-extra-edit-field" style="padding:12px;border:1px dashed var(--line);border-radius:13px;color:var(--muted)">رقم المعلم: تلقائي</div>
         <div>
           <input id="newTeacherPhone" type="tel" inputmode="numeric" maxlength="8" placeholder="رقم الهاتف - 8 أرقام" dir="ltr"
             oninput="validateTeacherPhoneField()" onblur="validateTeacherPhoneField()">
@@ -3679,7 +3699,7 @@ function renderAdminManagement(){
 }
 
 
-function renderStudentRows(list){
+function renderStudentRows(list){list=[...(list||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
   if(!list.length) return `<tr><td colspan="8" style="padding:28px;text-align:center;color:var(--muted)">لا يوجد طلاب مطابقون لخيارات البحث.</td></tr>`;
   return list.map(s=>`<tr style="border-top:1px solid var(--line)">
     <td style="padding:13px;font-weight:800;min-width:150px">${esc(s.name)}</td>
@@ -3698,7 +3718,7 @@ function renderStudentRows(list){
   </tr>`).join('');
 }
 
-function renderStudentCredentialsRows(list=demoData.students){
+function renderStudentCredentialsRows(list=demoData.students){list=[...(list||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
   if(!list.length) return `<tr><td colspan="6" style="padding:25px;text-align:center;color:var(--muted)">لا توجد حسابات طلاب مطابقة للبحث.</td></tr>`;
   return list.map(s=>`<tr style="border-top:1px solid var(--line)">
     <td style="padding:12px;font-weight:800">${esc(s.name)}</td>
@@ -4016,6 +4036,22 @@ function setStudentFormMode(editing){
   if(status) status.textContent='';
 }
 
+
+const bulkImportState={student:[],teacher:[]};
+function normH(v){return String(v||'').trim().toLowerCase().replace(/\s+/g,' ').replace(/[أإآ]/g,'ا')}
+function pv(row,aliases){for(const k of Object.keys(row||{})){if(aliases.map(normH).includes(normH(k)))return String(row[k]??'').trim()}return ''}
+function nr(role,row){
+ if(role==='student')return {name:pv(row,['الاسم','اسم الطالب','name']),phone:pv(row,['رقم الهاتف','الهاتف','phone']),email:pv(row,['البريد الإلكتروني','الايميل','email']),password:pv(row,['كلمة المرور','الرقم السري','password']),grade:pv(row,['الصف','grade']),section:pv(row,['الشعبة','section']),stage:pv(row,['المرحلة','stage'])};
+ return {name:pv(row,['الاسم','اسم المعلم','name']),phone:pv(row,['رقم الهاتف','الهاتف','phone']),email:pv(row,['البريد الإلكتروني','الايميل','email']),password:pv(row,['كلمة المرور','الرقم السري','password']),subject:pv(row,['المادة','subject']),stagesRaw:pv(row,['الصفوف والشعب','الصفوف','stages','classes'])};
+}
+function verr(role,r){const e=[];if(!r.name)e.push('الاسم مفقود');if(!/^\d{8}$/.test(r.phone||''))e.push('الهاتف 8 أرقام');if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email||''))e.push('البريد غير صحيح');if(!r.password||r.password.length<6)e.push('كلمة المرور قصيرة');if(role==='student'){if(!['روضة','تمهيدي','الصف الأول','الصف الثاني','الصف الثالث','الصف الرابع'].includes(r.grade))e.push('الصف غير صحيح');if(!['أ','ب','ج','د'].includes(r.section))e.push('الشعبة غير صحيحة');if(!r.stage)r.stage=(r.grade==='روضة'||r.grade==='تمهيدي')?'رياض الأطفال':'الحلقة الأولى'}else if(!r.subject)e.push('المادة مفقودة');return e}
+async function readX(file){const b=await file.arrayBuffer(),wb=XLSX.read(b,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];return XLSX.utils.sheet_to_json(ws,{defval:''})}
+async function readP(file){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise,lines=[];for(let n=1;n<=pdf.numPages;n++){const p=await pdf.getPage(n),tc=await p.getTextContent(),g={};tc.items.forEach(i=>{const y=Math.round((i.transform?.[5]||0)/3)*3;(g[y]||(g[y]=[])).push({x:i.transform?.[4]||0,t:i.str||''})});Object.keys(g).sort((a,b)=>b-a).forEach(y=>lines.push(g[y].sort((a,b)=>a.x-b.x).map(x=>x.t.trim()).filter(Boolean).join(' | ')))}if(lines.length<2)return[];const sp=l=>l.split(/\s*\|\s*|\t+|\s{3,}/).filter(Boolean),h=sp(lines[0]);return lines.slice(1).map(l=>{const v=sp(l),o={};h.forEach((x,i)=>o[x]=v[i]||'');return o})}
+async function previewBulkImport(role,file){const box=document.getElementById(role==='student'?'studentBulkPreview':'teacherBulkPreview');if(!file||!box)return;box.innerHTML='جاري قراءة الملف...';try{const raw=/\.pdf$/i.test(file.name)?await readP(file):await readX(file),seen=new Set();bulkImportState[role]=raw.map(nr.bind(null,role)).map((r,i)=>{const e=verr(role,r),k=(r.email||'').toLowerCase();if(k&&seen.has(k))e.push('البريد مكرر');if(k)seen.add(k);return {...r,_row:i+2,_errors:e}}).filter(r=>r.name||r.email);renderBulkPreview(role)}catch(e){box.innerHTML='<span style="color:#c0392b">تعذر القراءة: '+esc(e.message||'')+'</span>'}}
+function renderBulkPreview(role){const box=document.getElementById(role==='student'?'studentBulkPreview':'teacherBulkPreview'),rows=bulkImportState[role]||[],ok=rows.filter(r=>!r._errors.length);if(!rows.length){box.innerHTML='لا توجد بيانات.';return}box.innerHTML=`<div style="margin-bottom:10px"><span class="tag blue">الإجمالي ${rows.length}</span> <span class="tag green">صحيحة ${ok.length}</span> <button class="btn primary" onclick="confirmBulkImport('${role}')" ${ok.length?'':'disabled'}>إضافة الجميع</button></div><div style="overflow:auto;max-height:350px"><table style="width:100%;min-width:850px;border-collapse:collapse"><thead><tr><th>#</th><th>الاسم</th><th>الهاتف</th><th>البريد</th><th>${role==='student'?'الصف':'المادة'}</th><th>الحالة</th></tr></thead><tbody>${rows.map(r=>`<tr style="border-top:1px solid var(--line)"><td>${r._row}</td><td>${esc(r.name)}</td><td>${esc(r.phone)}</td><td>${esc(r.email)}</td><td>${esc(role==='student'?r.grade:r.subject)}</td><td>${r._errors.length?'<span style="color:#c0392b">'+esc(r._errors.join('، '))+'</span>':'<span style="color:#178a5b">جاهز ✓</span>'}</td></tr>`).join('')}</tbody></table></div>`}
+function parseStages(v){return String(v||'').split(/[،,;|]+/).map(x=>x.trim()).filter(Boolean)}
+async function confirmBulkImport(role){const rows=(bulkImportState[role]||[]).filter(r=>!r._errors.length);if(!rows.length)return;if(!confirm(`إضافة ${rows.length} حسابًا الآن؟`))return;try{const users=rows.map(r=>role==='student'?{password:r.password,profile:{role:'student',name:r.name,phone:r.phone,email:r.email,external_id:'',stage:r.stage,grade:r.grade,section:r.section,subject:'',stages:[]}}:{password:r.password,profile:{role:'teacher',name:r.name,phone:r.phone,email:r.email,external_id:'',stage:'',grade:'',section:'',subject:r.subject,stages:parseStages(r.stagesRaw)}});const res=await NabdCloud.bulkCreateUsers(role,users);await syncCloudProfiles();renderAdminManagement();alert(`تمت إضافة ${res.created?.length||0} بنجاح${res.errors?.length?`، وتعذر ${res.errors.length}`:''}.`)}catch(e){alert('تعذر الاستيراد: '+(e.message||''))}}
+
 async function saveStudentAdminForm(){
   if(role!=='admin'){alert('هذا الخيار متاح لإدارة المدرسة فقط.');return;}
   const v=getStudentFormValues();
@@ -4041,8 +4077,7 @@ async function saveStudentAdminForm(){
       setTimeout(()=>{const st=document.getElementById('studentFormStatus');if(st){st.style.color='#178a5b';st.textContent='✓ تم حفظ التعديلات سحابيًا.';}},50);
       return;
     }
-    const sid='ST-'+Date.now().toString().slice(-6);
-    await NabdCloud.createUser('student',{name:v.name,phone:v.phone,email:v.email,studentId:sid,stage:v.stage,grade:v.grade,section:v.section},v.password);
+    await NabdCloud.createUser('student',{name:v.name,phone:v.phone,email:v.email,studentId:'',stage:v.stage,grade:v.grade,section:v.section},v.password);
     await syncCloudProfiles(); renderAdminManagement();
     setTimeout(()=>{const st=document.getElementById('studentFormStatus');if(st){st.style.color='#178a5b';st.textContent='✓ تمت إضافة الطالب وحسابه السحابي بنجاح.';}},50);
   }catch(e){
@@ -4066,7 +4101,7 @@ async function deleteStudentAdmin(id){
   catch(e){ alert('تعذر حذف الطالب: '+(e.message||'')); }
 }
 
-function renderTeacherRows(list){
+function renderTeacherRows(list){list=[...(list||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
   if(!list.length) return `<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--muted)">لا يوجد معلمون في هذا التصنيف.</td></tr>`;
   return list.map(t=>`<tr style="border-top:1px solid var(--line)">
     <td style="padding:12px">${esc(t.name)}</td>
@@ -4077,7 +4112,7 @@ function renderTeacherRows(list){
   </tr>`).join('');
 }
 
-function renderTeacherCredentialsRows(list=demoData.teachers){
+function renderTeacherCredentialsRows(list=demoData.teachers){list=[...(list||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
   if(!list.length) return `<tr><td colspan="6" style="padding:25px;text-align:center;color:var(--muted)">لا توجد حسابات معلمين.</td></tr>`;
   return list.map(t=>`<tr style="border-top:1px solid var(--line)">
     <td style="padding:12px;font-weight:800">${esc(t.name)}</td>
@@ -4198,7 +4233,7 @@ function validateTeacherEmailField(){
 
 async function saveTeacherAdminForm(){
  const name=document.getElementById('newTeacherName').value.trim();
- const tid=document.getElementById('newTeacherId').value.trim()||('T-'+Date.now().toString().slice(-3));
+ const tid='';
  const phone=document.getElementById('newTeacherPhone').value.trim();
  const email=document.getElementById('newTeacherEmail').value.trim().toLowerCase();
  const password=document.getElementById('newTeacherPassword').value.trim();
@@ -4239,7 +4274,7 @@ function editTeacherAdminFull(id){
  const t=demoData.teachers.find(x=>x.id===id);if(!t)return;
  editingTeacherId=id;
  document.getElementById('newTeacherName').value=t.name||'';
- document.getElementById('newTeacherId').value=t.teacherId||'';
+ const teacherIdField=document.getElementById('newTeacherId'); if(teacherIdField) teacherIdField.value=t.teacherId||'';
  document.getElementById('newTeacherPhone').value=t.phone||'';
  document.getElementById('newTeacherEmail').value=t.email||'';
  document.getElementById('newTeacherPassword').value=t.password||'';
