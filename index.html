@@ -2337,7 +2337,7 @@ function renderProfilePageForRole(){
           <h3 style="margin-top:0">المعلومات الدراسية 🔒</h3>
           <p style="color:var(--muted);margin-top:0">هذه المعلومات يحددها قسم الإدارة ولا يمكن تعديلها من حساب الطالب.</p>
           <div class="academic-info">
-            <div class="academic-box"><small>م</small><strong>${i+1}</strong></div>
+            <div class="academic-box"><small>الرقم</small><strong>${esc(s.studentId||'—')}</strong></div>
             <div class="academic-box"><small>الصف</small><strong>${esc(s.grade||'—')}</strong></div>
             <div class="academic-box"><small>الشعبة</small><strong>${esc(s.section||'—')}</strong></div>
           </div>
@@ -2378,7 +2378,7 @@ function renderProfilePageForRole(){
           <h3 style="margin-top:0">المعلومات الأكاديمية 🔒</h3>
           <p style="color:var(--muted);margin-top:0">هذه المعلومات تحددها الإدارة ولا يمكن تعديلها من حساب المعلم.</p>
           <div class="academic-info">
-            <div class="academic-box"><small>م</small><strong>${i+1}</strong></div>
+            <div class="academic-box"><small>الرقم</small><strong>${esc(t.teacherId||'—')}</strong></div>
             <div class="academic-box"><small>المادة</small><strong>${esc(t.subject||'—')}</strong></div>
             <div class="academic-box" style="grid-column:1/-1"><small>الصفوف والشعب</small><strong>${(t.stages||[]).length?(t.stages||[]).map(x=>esc(x)).join(' • '):'—'}</strong></div>
           </div>
