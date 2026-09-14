@@ -1564,10 +1564,8 @@ function loadRememberedLogin(){
     const saved=JSON.parse(localStorage.getItem('nabdRememberedLogin')||'null');
     if(!saved) return;
     const email=document.getElementById('loginEmail');
-    const password=document.getElementById('loginPassword');
     const remember=document.getElementById('rememberLogin');
     if(email) email.value=saved.email||'';
-    if(password) password.value=saved.password||'';
     if(remember) remember.checked=true;
   }catch(e){}
 }
@@ -1575,7 +1573,7 @@ function loadRememberedLogin(){
 function saveRememberedLogin(email,password){
   const remember=document.getElementById('rememberLogin');
   if(remember?.checked){
-    localStorage.setItem('nabdRememberedLogin',JSON.stringify({email,password}));
+    localStorage.setItem('nabdRememberedLogin',JSON.stringify({email}));
   }else{
     localStorage.removeItem('nabdRememberedLogin');
   }
@@ -2429,8 +2427,7 @@ async function saveStudentProfileChanges(){
     const c=await NabdCloud.init();
     const {error:ae}=await c.auth.updateUser({email,password}); if(ae)throw ae;
     const {error:pe}=await c.from('profiles').update({email}).eq('auth_user_id',s.authUserId); if(pe)throw pe;
-    await NabdCloud.syncOwnCredential(email,password);
-    s.email=email; s.password=password; currentLoginEmail=email; renderProfilePageForRole();
+    s.email=email; s.password=''; currentLoginEmail=email; renderProfilePageForRole();
     const st=document.getElementById('studentProfileSaveStatus');if(st){st.style.color='#178a5b';st.textContent='✓ تم تحديث بيانات الدخول السحابية.';}
   }catch(e){if(status){status.style.color='#c0392b';status.textContent='تعذر التحديث: '+(e.message||'');}}
 }
@@ -3451,8 +3448,7 @@ async function saveTeacherProfileChanges(){
     const c=await NabdCloud.init();
     const {error:ae}=await c.auth.updateUser({email,password}); if(ae)throw ae;
     const {error:pe}=await c.from('profiles').update({email}).eq('auth_user_id',t.authUserId); if(pe)throw pe;
-    await NabdCloud.syncOwnCredential(email,password);
-    t.email=email; t.password=password; currentLoginEmail=email; renderProfilePageForRole();
+    t.email=email; t.password=''; currentLoginEmail=email; renderProfilePageForRole();
     const st=document.getElementById('teacherProfileSaveStatus');if(st){st.style.color='#178a5b';st.textContent='✓ تم تحديث بيانات الدخول السحابية.';}
   }catch(e){if(status){status.style.color='#c0392b';status.textContent='تعذر التحديث: '+(e.message||'');}}
 }
@@ -3897,7 +3893,7 @@ function renderStudentCredentialsRows(list=demoData.students){list=[...(list||[]
     </td>
     <td style="min-width:180px">
       <div style="display:flex;gap:6px;align-items:center">
-        <input id="adminStudentPassword_${s.id}" type="password" value="${esc(s.password||'')}" dir="ltr"
+        <input id="adminStudentPassword_${s.id}" type="password" value="" placeholder="أدخل كلمة مرور جديدة" dir="ltr"
           style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff">
         <button class="btn soft" type="button" onclick="toggleAdminStudentPassword('${esc(s.id||'')}')" title="إظهار/إخفاء كلمة المرور">👁</button>
       </div>
@@ -4317,7 +4313,7 @@ function renderTeacherCredentialsRows(list=demoData.teachers){list=[...(list||[]
     </td>
     <td style="min-width:190px">
       <div style="display:flex;gap:6px;align-items:center">
-        <input id="adminTeacherPassword_${t.id}" type="password" value="${esc(t.password||'')}" dir="ltr"
+        <input id="adminTeacherPassword_${t.id}" type="password" value="" placeholder="أدخل كلمة مرور جديدة" dir="ltr"
           style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff">
         <button class="btn soft" type="button" onclick="toggleAdminTeacherPassword('${esc(t.id||'')}')" title="إظهار/إخفاء كلمة المرور">👁</button>
       </div>
@@ -4341,7 +4337,7 @@ async function saveTeacherCredentialsAdmin(id){
   try{
     await NabdCloud.updateUser({...t,role:'teacher',email},password);
     await syncCloudProfiles(); renderAdminManagement();
-    alert('✓ تم تحديث بيانات دخول المعلم وحفظها في قائمة الإدارة.');
+    alert('✓ تم تحديث بيانات دخول المعلم في Supabase Auth.');
   }catch(e){alert('تعذر تحديث الحساب: '+(e.message||''));}
 }
 
