@@ -1,12 +1,33 @@
 (function(){
   let client=null, cfg=null;
 
+  async function ensureSupabaseLibrary(){
+    if(window.supabase?.createClient) return;
+    await new Promise((resolve,reject)=>{
+      const existing=document.querySelector('script[data-joud-supabase]');
+      if(existing){
+        if(window.supabase?.createClient){ resolve(); return; }
+        existing.addEventListener('load',resolve,{once:true});
+        existing.addEventListener('error',()=>reject(new Error('تعذر تحميل مكتبة Supabase.')),{once:true});
+        return;
+      }
+      const s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js';
+      s.async=true;
+      s.dataset.joudSupabase='1';
+      s.onload=resolve;
+      s.onerror=()=>reject(new Error('تعذر تحميل مكتبة Supabase.'));
+      document.head.appendChild(s);
+    });
+    if(!window.supabase?.createClient) throw new Error('مكتبة Supabase غير محملة.');
+  }
+
   async function init(){
     if(client) return client;
     const r=await fetch('/api/config',{cache:'no-store'});
     if(!r.ok) throw new Error('تعذر تحميل إعدادات Supabase من Vercel.');
     cfg=await r.json();
-    if(!window.supabase?.createClient) throw new Error('مكتبة Supabase غير محملة.');
+    await ensureSupabaseLibrary();
     client=window.supabase.createClient(cfg.url,cfg.anonKey);
     return client;
   }
@@ -36,10 +57,7 @@
     return {session:data.session,user:data.user,profile:toLegacyProfile(profile)};
   }
 
-  async function signOut(){
-    const c=await init();
-    await c.auth.signOut();
-  }
+  async function signOut(){ const c=await init(); await c.auth.signOut(); }
 
   async function restoreSession(){
     const c=await init();
@@ -47,20 +65,10 @@
     if(sessionError) throw sessionError;
     const session=sessionData?.session;
     if(!session?.user) return null;
-
-    const {data:profile,error:profileError}=await c.from('profiles')
-      .select('*')
-      .eq('auth_user_id',session.user.id)
-      .maybeSingle();
-
+    const {data:profile,error:profileError}=await c.from('profiles').select('*').eq('auth_user_id',session.user.id).maybeSingle();
     if(profileError) throw profileError;
     if(!profile) return null;
-
-    return {
-      session,
-      user:session.user,
-      profile:toLegacyProfile(profile)
-    };
+    return {session,user:session.user,profile:toLegacyProfile(profile)};
   }
 
   async function getAccessToken(){
@@ -69,84 +77,36 @@
     return data.session?.access_token||'';
   }
 
-
-
   async function contentRequest(payload){
     const token=await getAccessToken();
-    const r=await fetch('/api/content',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
-      body:JSON.stringify(payload)
-    });
+    const r=await fetch('/api/content',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
     const out=await r.json().catch(()=>({}));
     if(!r.ok) throw new Error(out.error||'تعذر تنفيذ عملية المحتوى.');
     return out;
   }
-
-  async function createTeacherContent(type,item){
-    const out=await contentRequest({action:'teacher-create',type,item});
-    return out.item;
-  }
-  async function listTeacherContent(type){
-    const out=await contentRequest({action:'teacher-list',type});
-    return out.items||[];
-  }
-  async function deleteTeacherContent(type,id){
-    return contentRequest({action:'teacher-delete',type,id});
-  }
-  async function createTeacherHomework(item){
-    const out=await contentRequest({action:'teacher-create-homework',item});
-    return out.item;
-  }
-  async function listTeacherHomeworks(){
-    const out=await contentRequest({action:'teacher-list-homeworks'});
-    return out.items||[];
-  }
-  async function deleteTeacherHomework(id){
-    return contentRequest({action:'teacher-delete-homework',id});
-  }
-  async function adminAllTeacherContent(){
-    return contentRequest({action:'admin-list-all'});
-  }
+  async function createTeacherContent(type,item){ const out=await contentRequest({action:'teacher-create',type,item}); return out.item; }
+  async function listTeacherContent(type){ const out=await contentRequest({action:'teacher-list',type}); return out.items||[]; }
+  async function deleteTeacherContent(type,id){ return contentRequest({action:'teacher-delete',type,id}); }
+  async function createTeacherHomework(item){ const out=await contentRequest({action:'teacher-create-homework',item}); return out.item; }
+  async function listTeacherHomeworks(){ const out=await contentRequest({action:'teacher-list-homeworks'}); return out.items||[]; }
+  async function deleteTeacherHomework(id){ return contentRequest({action:'teacher-delete-homework',id}); }
+  async function adminAllTeacherContent(){ return contentRequest({action:'admin-list-all'}); }
 
   async function reportRequest(payload){
     const token=await getAccessToken();
-    const r=await fetch('/api/report',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
-      body:JSON.stringify(payload)
-    });
+    const r=await fetch('/api/report',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
     const out=await r.json().catch(()=>({}));
     if(!r.ok) throw new Error(out.error||'تعذر تنفيذ عملية التقرير.');
     return out;
   }
-
-  async function saveStudentReport(payload){
-    const out=await reportRequest({action:'save',...payload});
-    return out.report;
-  }
-
-  async function myStudentReports(){
-    const out=await reportRequest({action:'list-my'});
-    return out.reports||[];
-  }
-
-  async function myStudentReportBundle(){
-    const out=await reportRequest({action:'list-my'});
-    return {profile:out.profile||null,reports:out.reports||[]};
-  }
-
-  async function getTeacherStudentReport(studentAuthId,subject){
-    const out=await reportRequest({action:'get-for-teacher',student_auth_id:studentAuthId,subject});
-    return out.report||null;
-  }
+  async function saveStudentReport(payload){ const out=await reportRequest({action:'save',...payload}); return out.report; }
+  async function myStudentReports(){ const out=await reportRequest({action:'list-my'}); return out.reports||[]; }
+  async function myStudentReportBundle(){ const out=await reportRequest({action:'list-my'}); return {profile:out.profile||null,reports:out.reports||[]}; }
+  async function getTeacherStudentReport(studentAuthId,subject){ const out=await reportRequest({action:'get-for-teacher',student_auth_id:studentAuthId,subject}); return out.report||null; }
 
   async function adminRequest(payload){
     const token=await getAccessToken();
-    const r=await fetch('/api/admin-user',{
-      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
-      body:JSON.stringify(payload)
-    });
+    const r=await fetch('/api/admin-user',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
     const out=await r.json().catch(()=>({}));
     if(!r.ok) throw new Error(out.error||'تعذر تنفيذ العملية السحابية.');
     return out;
@@ -158,199 +118,73 @@
     if(error) throw error;
     return (data||[]).map(toLegacyProfile).sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
   }
-
   async function bulkCreateUsers(role,users){ return adminRequest({action:'bulk-create',role,users}); }
-
-  async function loadAdminCredentials(){
-    const out=await adminRequest({action:'credentials-list'});
-    return out.credentials||[];
-  }
-
-  async function syncOwnCredential(email,password){
-    return adminRequest({action:'sync-self',email,password});
-  }
+  async function loadAdminCredentials(){ const out=await adminRequest({action:'credentials-list'}); return out.credentials||[]; }
+  async function syncOwnCredential(email,password){ return adminRequest({action:'sync-self',email,password}); }
 
   async function createUser(role,legacy,password){
-    const p={role,name:legacy.name||'',phone:legacy.phone||'',email:legacy.email||'',
-      external_id:role==='student'?(legacy.studentId||''):(legacy.teacherId||''),
-      stage:legacy.stage||'',grade:legacy.grade||'',section:legacy.section||'',subject:legacy.subject||'',stages:legacy.stages||[]};
+    const p={role,name:legacy.name||'',phone:legacy.phone||'',email:legacy.email||'',external_id:role==='student'?(legacy.studentId||''):(legacy.teacherId||''),stage:legacy.stage||'',grade:legacy.grade||'',section:legacy.section||'',subject:legacy.subject||'',stages:legacy.stages||[]};
     const out=await adminRequest({action:'create',profile:p,password});
     return toLegacyProfile(out.profile);
   }
-
   async function updateUser(legacy,password){
-    const p={auth_user_id:legacy.authUserId,name:legacy.name||'',phone:legacy.phone||'',email:legacy.email||'',
-      external_id:legacy.role==='student'?(legacy.studentId||''):(legacy.teacherId||''),
-      stage:legacy.stage||'',grade:legacy.grade||'',section:legacy.section||'',subject:legacy.subject||'',stages:legacy.stages||[]};
+    const p={auth_user_id:legacy.authUserId,name:legacy.name||'',phone:legacy.phone||'',email:legacy.email||'',external_id:legacy.role==='student'?(legacy.studentId||''):(legacy.teacherId||''),stage:legacy.stage||'',grade:legacy.grade||'',section:legacy.section||'',subject:legacy.subject||'',stages:legacy.stages||[]};
     const out=await adminRequest({action:'update',profile:p,password:password||''});
     return toLegacyProfile(out.profile);
   }
-
   async function deleteUser(authUserId){ return adminRequest({action:'delete',auth_user_id:authUserId}); }
 
-
-  async function currentUser(){
-    const c=await init();
-    const {data,error}=await c.auth.getUser();
-    if(error) throw error;
-    return data.user||null;
-  }
-
-  function safeFileName(name){
-    return String(name||'file').replace(/[^\p{L}\p{N}._-]+/gu,'_').slice(-140);
-  }
+  async function currentUser(){ const c=await init(); const {data,error}=await c.auth.getUser(); if(error) throw error; return data.user||null; }
+  function safeFileName(name){ return String(name||'file').replace(/[^\p{L}\p{N}._-]+/gu,'_').slice(-140); }
 
   async function uploadSchoolFile(file,folder='homeworks'){
-    const c=await init();
-    const user=await currentUser();
+    const c=await init(); const user=await currentUser();
     if(!user) throw new Error('يجب تسجيل الدخول أولاً.');
     const path=`${folder}/${user.id}/${Date.now()}_${safeFileName(file.name)}`;
-    const {error}=await c.storage.from('school-files').upload(path,file,{
-      upsert:false,
-      contentType:file.type||undefined
-    });
+    const {error}=await c.storage.from('school-files').upload(path,file,{upsert:false,contentType:file.type||undefined});
     if(error) throw error;
     return {path,name:file.name,size:file.size,type:file.type||'',uploadedAt:new Date().toISOString()};
   }
-
   async function signedSchoolFileUrl(path,expires=3600){
-    const c=await init();
-    const {data,error}=await c.storage.from('school-files').createSignedUrl(path,expires);
-    if(error) throw error;
-    return data.signedUrl;
+    const c=await init(); const {data,error}=await c.storage.from('school-files').createSignedUrl(path,expires);
+    if(error) throw error; return data.signedUrl;
   }
 
   async function createInteractiveHomework(payload){
-    const c=await init();
-    const user=await currentUser();
+    const c=await init(); const user=await currentUser();
     if(!user) throw new Error('يجب تسجيل الدخول أولاً.');
-    const row={
-      teacher_id:user.id,
-      teacher_name:payload.teacher_name||'معلم',
-      title:payload.title||'واجب',
-      description:payload.description||'',
-      grade:payload.grade||'',
-      section:payload.section||'',
-      due_at:payload.due_at||null,
-      questions:Array.isArray(payload.questions)?payload.questions:[],
-      mode:payload.mode||'online',
-      attachment:payload.attachment||null,
-      max_score:Number(payload.max_score)||null,
-      updated_at:new Date().toISOString()
-    };
+    const row={teacher_id:user.id,teacher_name:payload.teacher_name||'معلم',title:payload.title||'واجب',description:payload.description||'',grade:payload.grade||'',section:payload.section||'',due_at:payload.due_at||null,questions:Array.isArray(payload.questions)?payload.questions:[],mode:payload.mode||'online',attachment:payload.attachment||null,max_score:Number(payload.max_score)||null,updated_at:new Date().toISOString()};
     const {data,error}=await c.from('homeworks').insert(row).select('*').single();
-    if(error) throw error;
-    return data;
+    if(error) throw error; return data;
   }
-
-  async function listInteractiveHomeworks(){
-    const c=await init();
-    const {data,error}=await c.from('homeworks').select('*').order('created_at',{ascending:false});
-    if(error) throw error;
-    return data||[];
-  }
-
-  async function deleteInteractiveHomework(id){
-    const c=await init();
-    const {error}=await c.from('homeworks').delete().eq('id',id);
-    if(error) throw error;
-  }
+  async function listInteractiveHomeworks(){ const c=await init(); const {data,error}=await c.from('homeworks').select('*').order('created_at',{ascending:false}); if(error) throw error; return data||[]; }
+  async function deleteInteractiveHomework(id){ const c=await init(); const {error}=await c.from('homeworks').delete().eq('id',id); if(error) throw error; }
 
   async function submitInteractiveHomework(homeworkId,answers,studentName){
-    const c=await init();
-    const user=await currentUser();
+    const c=await init(); const user=await currentUser();
     if(!user) throw new Error('يجب تسجيل الدخول أولاً.');
-    const {data:existing,error:ee}=await c.from('homework_submissions')
-      .select('id').eq('homework_id',homeworkId).eq('student_id',user.id).maybeSingle();
-    if(ee) throw ee;
-    if(existing) throw new Error('تم تسليم هذا الواجب مسبقًا.');
-
+    const {data:existing,error:ee}=await c.from('homework_submissions').select('id').eq('homework_id',homeworkId).eq('student_id',user.id).maybeSingle();
+    if(ee) throw ee; if(existing) throw new Error('تم تسليم هذا الواجب مسبقًا.');
     const {data:hw,error:he}=await c.from('homeworks').select('questions,max_score').eq('id',homeworkId).single();
     if(he) throw he;
-    const questions=Array.isArray(hw?.questions)?hw.questions:[];
-    let autoScore=0;
-    const details={};
-    let hasEssay=false;
+    const questions=Array.isArray(hw?.questions)?hw.questions:[]; let autoScore=0; const details={}; let hasEssay=false;
     for(const q of questions){
       const pts=Number(q.points)||1;
       if(q.type==='mcq'){
-        const correctText=(q.options||[])[Number(q.correct)]??'';
-        const given=answers?.[q.id]??'';
-        const correct=String(given)===String(correctText);
-        if(correct) autoScore+=pts;
-        details[q.id]={type:'mcq',correct,points:pts,earned:correct?pts:0};
-      }else{
-        hasEssay=true;
-        details[q.id]={type:'essay',correct:null,points:pts,earned:null};
-      }
+        const correctText=(q.options||[])[Number(q.correct)]??''; const given=answers?.[q.id]??''; const correct=String(given)===String(correctText);
+        if(correct) autoScore+=pts; details[q.id]={type:'mcq',correct,points:pts,earned:correct?pts:0};
+      }else{ hasEssay=true; details[q.id]={type:'essay',correct:null,points:pts,earned:null}; }
     }
     const maxScore=Number(hw?.max_score)||questions.reduce((s,q)=>s+(Number(q.points)||1),0);
-    const initialScore=hasEssay?autoScore:autoScore;
-
-    const {data,error}=await c.from('homework_submissions').insert({
-      homework_id:homeworkId,
-      student_id:user.id,
-      student_name:studentName||'طالب',
-      answers:answers||{},
-      submitted_at:new Date().toISOString(),
-      auto_score:autoScore,
-      max_score:maxScore,
-      score:initialScore,
-      grading_details:details,
-      score_visible:false,
-      graded_at:hasEssay?null:new Date().toISOString()
-    }).select('*').single();
-    if(error) throw error;
-    return data;
+    const {data,error}=await c.from('homework_submissions').insert({homework_id:homeworkId,student_id:user.id,student_name:studentName||'طالب',answers:answers||{},submitted_at:new Date().toISOString(),auto_score:autoScore,max_score:maxScore,score:autoScore,grading_details:details,score_visible:false,graded_at:hasEssay?null:new Date().toISOString()}).select('*').single();
+    if(error) throw error; return data;
   }
 
-  async function myInteractiveSubmission(homeworkId){
-    const c=await init();
-    const user=await currentUser();
-    if(!user) return null;
-    const {data,error}=await c.from('homework_submissions').select('*')
-      .eq('homework_id',homeworkId).eq('student_id',user.id).maybeSingle();
-    if(error) throw error;
-    return data||null;
-  }
-
-  async function teacherHomeworkSubmissions(homeworkId){
-    const c=await init();
-    const {data,error}=await c.from('homework_submissions').select('*')
-      .eq('homework_id',homeworkId).order('submitted_at',{ascending:false});
-    if(error) throw error;
-    return data||[];
-  }
-
-  async function gradeHomeworkSubmission(id,score,feedback){
-    const c=await init();
-    const {data,error}=await c.from('homework_submissions').update({
-      score:score===''||score==null?null:Number(score),
-      feedback:feedback||'',
-      graded_at:new Date().toISOString()
-    }).eq('id',id).select('*').single();
-    if(error) throw error;
-    return data;
-  }
-
-  async function setHomeworkScoreVisibility(id,visible){
-    const c=await init();
-    const {data,error}=await c.from('homework_submissions').update({
-      score_visible:!!visible
-    }).eq('id',id).select('*').single();
-    if(error) throw error;
-    return data;
-  }
-
-  async function listClassStudents(grade,section){
-    const c=await init();
-    let q=c.from('profiles').select('id,auth_user_id,name,email,grade,section,role').eq('role','student');
-    if(grade) q=q.eq('grade',grade);
-    if(section) q=q.eq('section',section);
-    const {data,error}=await q.order('name',{ascending:true});
-    if(error) throw error;
-    return data||[];
-  }
+  async function myInteractiveSubmission(homeworkId){ const c=await init(); const user=await currentUser(); if(!user) return null; const {data,error}=await c.from('homework_submissions').select('*').eq('homework_id',homeworkId).eq('student_id',user.id).maybeSingle(); if(error) throw error; return data||null; }
+  async function teacherHomeworkSubmissions(homeworkId){ const c=await init(); const {data,error}=await c.from('homework_submissions').select('*').eq('homework_id',homeworkId).order('submitted_at',{ascending:false}); if(error) throw error; return data||[]; }
+  async function gradeHomeworkSubmission(id,score,feedback){ const c=await init(); const {data,error}=await c.from('homework_submissions').update({score:score===''||score==null?null:Number(score),feedback:feedback||'',graded_at:new Date().toISOString()}).eq('id',id).select('*').single(); if(error) throw error; return data; }
+  async function setHomeworkScoreVisibility(id,visible){ const c=await init(); const {data,error}=await c.from('homework_submissions').update({score_visible:!!visible}).eq('id',id).select('*').single(); if(error) throw error; return data; }
+  async function listClassStudents(grade,section){ const c=await init(); let q=c.from('profiles').select('id,auth_user_id,name,email,grade,section,role').eq('role','student'); if(grade) q=q.eq('grade',grade); if(section) q=q.eq('section',section); const {data,error}=await q.order('name',{ascending:true}); if(error) throw error; return data||[]; }
 
   window.NabdCloud={
     init,signIn,signOut,restoreSession,loadProfiles,createUser,updateUser,deleteUser,bulkCreateUsers,loadAdminCredentials,syncOwnCredential,
