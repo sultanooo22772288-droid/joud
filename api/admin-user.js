@@ -20,35 +20,10 @@ module.exports = async function handler(req, res) {
   const admin = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data: callerProfile } = await admin.from('profiles').select('role,name,email').eq('auth_user_id', caller.id).maybeSingle();
 
-  async function saveCredentialRecord(authUserId, role, name, email, password, preservePassword=false) {
-    const key=`login_credential:${authUserId}`;
-    let previousPassword='';
-    if(preservePassword){
-      const {data:old}=await admin.from('school_kv').select('value').eq('key',key).maybeSingle();
-      previousPassword=old?.value?.password||'';
-    }
-    const value={
-      auth_user_id:authUserId,
-      role:role||'',
-      name:name||'',
-      email:email||'',
-      password:password || previousPassword || '',
-      updated_at:new Date().toISOString()
-    };
-    const {error}=await admin.from('school_kv').upsert({
-      key,value,updated_by:caller.id,updated_at:new Date().toISOString()
-    },{onConflict:'key'});
-    if(error) throw error;
-    return value;
-  }
-
   const preBody = req.body || {};
-  if(preBody.action==='sync-self'){
-    if(!callerProfile) return res.status(403).json({error:'Profile not found'});
-    const email=String(preBody.email||caller.email||callerProfile.email||'').trim().toLowerCase();
-    const password=String(preBody.password||'');
-    await saveCredentialRecord(caller.id,callerProfile.role,callerProfile.name,email,password,!password);
-    return res.status(200).json({ok:true});
+  if (preBody.action === 'sync-self') {
+    if (!callerProfile) return res.status(403).json({ error: 'Profile not found' });
+    return res.status(200).json({ ok: true });
   }
 
   const isAdmin = callerProfile?.role === 'admin' || (adminEmail && (caller.email || '').toLowerCase() === adminEmail);
@@ -66,9 +41,20 @@ module.exports = async function handler(req, res) {
 
   try {
     if (action === 'credentials-list') {
-      const {data,error}=await admin.from('school_kv').select('key,value').like('key','login_credential:%');
-      if(error) throw error;
-      return res.status(200).json({credentials:(data||[]).map(x=>x.value)});
+      const { data, error } = await admin
+        .from('profiles')
+        .select('auth_user_id,role,name,email')
+        .in('role',['student','teacher']);
+      if (error) throw error;
+      return res.status(200).json({
+        credentials:(data||[]).map(x=>({
+          auth_user_id:x.auth_user_id,
+          role:x.role,
+          name:x.name||'',
+          email:x.email||'',
+          password:''
+        }))
+      });
     }
 
     if (action === 'bootstrap-self') {
@@ -100,10 +86,8 @@ module.exports = async function handler(req, res) {
         await admin.auth.admin.deleteUser(created.user.id);
         throw profileError;
       }
-      await saveCredentialRecord(created.user.id,p.role,p.name||'',email,String(body.password||''),false);
       return res.status(200).json({ profile });
     }
-
 
     if (action === 'bulk-create') {
       const role=body.role, users=Array.isArray(body.users)?body.users:[];
@@ -128,7 +112,6 @@ module.exports = async function handler(req, res) {
           const row={auth_user_id:authId,role,name:p.name||'',phone:p.phone||'',email,external_id:String(next++),stage:p.stage||'',grade:p.grade||'',section:p.section||'',subject:p.subject||'',stages:Array.isArray(p.stages)?p.stages:[]};
           const {data:saved,error:se}=await admin.from('profiles').insert(row).select().single();
           if(se){await admin.auth.admin.deleteUser(authId);throw se}
-          await saveCredentialRecord(authId,role,p.name||'',email,password,false);
           emails.add(email);created.push(saved);
         }catch(e){errors.push({index:i,email,error:e?.message||String(e)})}
       }
@@ -152,14 +135,6 @@ module.exports = async function handler(req, res) {
       };
       const { data: profile, error } = await admin.from('profiles').update(row).eq('auth_user_id', p.auth_user_id).select().single();
       if (error) throw error;
-      await saveCredentialRecord(
-        p.auth_user_id,
-        profile.role||p.role||'',
-        profile.name||p.name||'',
-        profile.email||p.email||'',
-        String(body.password||''),
-        !body.password
-      );
       return res.status(200).json({ profile });
     }
 
