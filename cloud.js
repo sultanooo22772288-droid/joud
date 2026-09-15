@@ -1,5 +1,13 @@
 (function(){
-  let client=null, cfg=null;
+  let client=null, cfg=null, directSession=null;
+
+  async function getConfig(){
+    if(cfg) return cfg;
+    const r=await fetch('/api/config',{cache:'force-cache'});
+    if(!r.ok) throw new Error('تعذر تحميل إعدادات Supabase من Vercel.');
+    cfg=await r.json();
+    return cfg;
+  }
 
   async function ensureSupabaseLibrary(){
     if(window.supabase?.createClient) return;
@@ -24,13 +32,11 @@
 
   async function init(){
     if(client) return client;
-    const [r] = await Promise.all([
-      fetch('/api/config'),
-      ensureSupabaseLibrary()
-    ]);
-    if(!r.ok) throw new Error('تعذر تحميل إعدادات Supabase من Vercel.');
-    cfg=await r.json();
+    await Promise.all([getConfig(),ensureSupabaseLibrary()]);
     client=window.supabase.createClient(cfg.url,cfg.anonKey);
+    if(directSession?.access_token && directSession?.refresh_token){
+      try{await client.auth.setSession({access_token:directSession.access_token,refresh_token:directSession.refresh_token});}catch(_e){}
+    }
     return client;
   }
 
@@ -46,20 +52,52 @@
   }
 
   async function signIn(email,password){
-    const c=await init();
-    const {data,error}=await c.auth.signInWithPassword({email,password});
-    if(error) throw error;
-    let {data:profile,error:pe}=await c.from('profiles').select('*').eq('auth_user_id',data.user.id).maybeSingle();
-    if(pe) throw pe;
-    if(!profile && cfg.adminEmail && (data.user.email||'').toLowerCase()===cfg.adminEmail){
-      const x=await adminRequest({action:'bootstrap-self'});
-      profile=x.profile;
+    const conf=await getConfig();
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),12000);
+    try{
+      const authRes=await fetch(conf.url+'/auth/v1/token?grant_type=password',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':conf.anonKey},
+        body:JSON.stringify({email,password}),
+        signal:controller.signal
+      });
+      const auth=await authRes.json().catch(()=>({}));
+      if(!authRes.ok) throw new Error(auth.error_description||auth.msg||auth.error||'بيانات الدخول غير صحيحة.');
+      if(!auth?.user?.id || !auth?.access_token) throw new Error('تعذر استلام جلسة تسجيل الدخول.');
+
+      directSession=auth;
+
+      const profileRes=await fetch(
+        conf.url+'/rest/v1/profiles?auth_user_id=eq.'+encodeURIComponent(auth.user.id)+'&select=*',
+        {headers:{'apikey':conf.anonKey,'Authorization':'Bearer '+auth.access_token},signal:controller.signal}
+      );
+      const profiles=await profileRes.json().catch(()=>[]);
+      if(!profileRes.ok) throw new Error(profiles?.message||'تعذر تحميل بيانات الحساب.');
+      let profile=Array.isArray(profiles)?profiles[0]:null;
+
+      if(!profile && conf.adminEmail && (auth.user.email||'').toLowerCase()===conf.adminEmail){
+        // حالة استثنائية فقط: إنشاء ملف المدير إذا لم يكن موجودًا.
+        try{
+          const x=await adminRequest({action:'bootstrap-self'});
+          profile=x.profile;
+        }catch(_e){}
+      }
+      if(!profile) throw new Error('الحساب موجود في المصادقة لكن لا توجد له بيانات مستخدم في المنصة.');
+
+      return {session:auth,user:auth.user,profile:toLegacyProfile(profile)};
+    }catch(e){
+      if(e?.name==='AbortError') throw new Error('الاتصال بالخادم استغرق وقتًا طويلًا. حاول مرة أخرى.');
+      throw e;
+    }finally{
+      clearTimeout(timer);
     }
-    if(!profile) throw new Error('الحساب موجود في المصادقة لكن لا توجد له بيانات مستخدم في المنصة.');
-    return {session:data.session,user:data.user,profile:toLegacyProfile(profile)};
   }
 
-  async function signOut(){ const c=await init(); await c.auth.signOut(); }
+  async function signOut(){
+    directSession=null;
+    if(client){ try{await client.auth.signOut();}catch(_e){} }
+  }
 
   async function restoreSession(){
     const c=await init();
@@ -74,6 +112,7 @@
   }
 
   async function getAccessToken(){
+    if(directSession?.access_token) return directSession.access_token;
     const c=await init();
     const {data}=await c.auth.getSession();
     return data.session?.access_token||'';
