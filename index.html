@@ -1352,11 +1352,11 @@ body[data-theme] .app-shell,body[data-theme] .login-screen{position:relative;z-i
 
   </style>
 </head>
-<body class="session-booting">
+<body>
 <div id="deleteSuccessToast" class="success-toast"></div>
 <div id="themeScenery" class="theme-scenery" aria-hidden="true"></div>
 
-<div class="session-loader" id="sessionLoader"><div class="session-loader-box">جاري فتح حسابك...</div></div>
+</div>
 <div id="login" class="login-overlay">
   <div class="login-card login-approved-design">
     <div class="login-form">
@@ -4744,20 +4744,11 @@ function sendAI(){
 renderAnnouncementTicker();
 loadRememberedLogin();
 
-(async function(){
-  const restored=await restoreLoggedInUser();
-  document.body.classList.remove('session-booting');
-
-  if(!restored){
-    renderNav();
-    renderDashboard();
-    const login=document.getElementById('login');
-    if(login) login.style.display='grid';
-  }else{
-    const login=document.getElementById('login');
-    if(login) login.style.display='none';
-  }
-})();
+// عند فتح الرابط: اعرض تسجيل الدخول مباشرة دائمًا.
+renderNav();
+renderDashboard();
+const login=document.getElementById('login');
+if(login) login.style.display='grid';
 </script>
 </body>
 </html>
