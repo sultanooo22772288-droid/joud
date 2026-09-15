@@ -1753,7 +1753,13 @@ function registerVisitorLogin(loginRole){
 }
 function updateVisitorCounter(){
   const e=document.getElementById('visitorCounterValue');
-  if(e) e.textContent=getVisitorStats().total;
+  if(!e) return;
+  if(role==='admin'){
+    e.textContent='—';
+    setTimeout(loadDemoVisitorStats,0);
+  }else{
+    e.textContent=getVisitorStats().total;
+  }
 }
 
 async function loadDemoVisitorStats(){
@@ -1763,8 +1769,16 @@ async function loadDemoVisitorStats(){
     const unique=document.getElementById('demoVisitorsUnique');
     const total=document.getElementById('demoVisitorsTotal');
     const last=document.getElementById('demoVisitorsLast');
-    if(unique) unique.textContent=Number(s.unique)||0;
-    if(total) total.textContent=Number(s.total)||0;
+    const topBadge=document.getElementById('visitorCounterValue');
+    const adminWelcome=document.getElementById('adminDemoVisitorsTotal');
+    const adminMain=document.getElementById('adminDemoVisitorsMain');
+    const uniqueValue=Number(s.unique)||0;
+    const totalValue=Number(s.total)||0;
+    if(unique) unique.textContent=uniqueValue;
+    if(total) total.textContent=totalValue;
+    if(topBadge) topBadge.textContent=uniqueValue;
+    if(adminWelcome) adminWelcome.textContent=uniqueValue;
+    if(adminMain) adminMain.textContent=uniqueValue;
     if(last){
       last.textContent=s.last_visit
         ? new Date(s.last_visit).toLocaleString('ar-OM',{timeZone:'Asia/Muscat',dateStyle:'short',timeStyle:'short'})
@@ -2037,13 +2051,13 @@ function renderDashboard(){
       <div class="welcome-mini-stats">
         <div class="welcome-mini-stat"><b>${demoData.students.length}</b><span>طالب مسجل</span></div>
         <div class="welcome-mini-stat"><b>${demoData.teachers.length}</b><span>معلم مسجل</span></div>
-        <div class="welcome-mini-stat"><b>${vs.total}</b><span>زيارة للمنصة</span></div>
+        <div class="welcome-mini-stat"><b id="adminDemoVisitorsTotal">—</b><span>زائر للديمو</span></div>
       </div>
     </div>
   </div>
-  <div class="section-title"><h3>عداد الزوار</h3><span>يُحتسب عند كل تسجيل دخول ناجح</span></div>
+  <div class="section-title"><h3>عداد زوار الديمو</h3><span>يُحتسب عند فتح رابط الديمو</span></div>
   <div class="grid grid-4" style="margin-bottom:18px">
-    ${stat('👥','#eaf4ff',vs.total,'إجمالي الزيارات')}
+    <div class="card stat"><div class="stat-ico" style="background:#eaf4ff">👥</div><div><b id="adminDemoVisitorsMain">—</b><small>زوار الديمو</small></div></div>
     ${stat('🎓','#e8fff5',vs.student,'دخول الطلاب')}
     ${stat('👨‍🏫','#fff2df',vs.teacher,'دخول المعلمين')}
     ${stat('🛡️','#f2eaff',vs.admin,'دخول الإدارة')}
