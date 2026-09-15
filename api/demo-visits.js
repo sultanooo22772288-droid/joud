@@ -54,6 +54,29 @@ export default async function handler(req,res){
       return res.status(200).json({ok:true});
     }
 
+    if(action==='exclude-admin'){
+      const token=(req.headers.authorization||'').replace(/^Bearer\s+/i,'');
+      if(!token) return res.status(401).json({error:'غير مصرح.'});
+
+      const {data:authData,error:authError}=await sb.auth.getUser(token);
+      if(authError||!authData?.user) return res.status(401).json({error:'جلسة الدخول غير صالحة.'});
+
+      const uid=authData.user.id;
+      const {data:profile,error:profileError}=await sb.from('profiles')
+        .select('role').eq('auth_user_id',uid).maybeSingle();
+      if(profileError||!profile||profile.role!=='admin'){
+        return res.status(403).json({error:'هذه العملية للإدارة فقط.'});
+      }
+
+      const raw=String(body.visitor_id||'').trim();
+      const visitorId=raw.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,80);
+      if(visitorId){
+        const {error}=await sb.from('school_kv').delete().eq('key','demo_visitor:'+visitorId);
+        if(error) throw error;
+      }
+      return res.status(200).json({ok:true});
+    }
+
     if(action==='stats'){
       const token=(req.headers.authorization||'').replace(/^Bearer\s+/i,'');
       if(!token) return res.status(401).json({error:'غير مصرح.'});
