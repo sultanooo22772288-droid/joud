@@ -1814,16 +1814,29 @@ async function enterDemo(){
   const oldText=btn?.textContent;
   if(btn){btn.disabled=true;btn.textContent='جاري تسجيل الدخول...';}
   try{
-    // Prevent a previous student/admin session from leaking into a teacher login.
-    try{await NabdCloud.signOut();}catch(_e){}
     const result=await NabdCloud.signIn(enteredEmail,enteredPassword);
+    if(!result?.profile) throw new Error('تعذر تحميل بيانات الحساب.');
+
     role=normalizeAccountRole(result.profile.role);
     currentLoginEmail=(result.profile.email||enteredEmail).toLowerCase();
     saveRememberedLogin(enteredEmail,enteredPassword);
-    await syncCloudProfiles();
+
+    // افتح الواجهة فور نجاح تسجيل الدخول.
+    if(role==='student') demoData.students=[result.profile];
+    if(role==='teacher') demoData.teachers=[result.profile];
+    if(role==='admin') demoData.admin={...demoData.admin,...result.profile,password:''};
+
     registerVisitorLogin(role);
     document.getElementById('login').style.display='none';
     renderNav(); renderDashboard(); renderRolePages(); renderAdminManagement(); updateVisitorCounter(); showPage('dashboard');
+
+    // مزامنة بقية البيانات بالخلفية بدون تأخير الدخول.
+    setTimeout(async()=>{
+      try{
+        await syncCloudProfiles();
+        renderDashboard(); renderRolePages(); renderAdminManagement(); updateVisitorCounter();
+      }catch(e){ console.warn('تعذر تحديث البيانات بعد الدخول:',e); }
+    },0);
   }catch(e){
     console.error(e);
     currentLoginEmail='';
