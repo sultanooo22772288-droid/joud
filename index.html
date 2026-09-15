@@ -1756,6 +1756,25 @@ function updateVisitorCounter(){
   if(e) e.textContent=getVisitorStats().total;
 }
 
+async function loadDemoVisitorStats(){
+  if(role!=='admin' || !window.NabdCloud?.demoVisitStats) return;
+  try{
+    const s=await NabdCloud.demoVisitStats();
+    const unique=document.getElementById('demoVisitorsUnique');
+    const total=document.getElementById('demoVisitorsTotal');
+    const last=document.getElementById('demoVisitorsLast');
+    if(unique) unique.textContent=Number(s.unique)||0;
+    if(total) total.textContent=Number(s.total)||0;
+    if(last){
+      last.textContent=s.last_visit
+        ? new Date(s.last_visit).toLocaleString('ar-OM',{timeZone:'Asia/Muscat',dateStyle:'short',timeStyle:'short'})
+        : 'لا توجد زيارات';
+    }
+  }catch(e){
+    console.warn('تعذر تحميل عداد الديمو:',e);
+  }
+}
+
 function toggleLoginPassword(){
   const input=document.getElementById('loginPassword');
   if(!input) return;
@@ -2029,10 +2048,17 @@ function renderDashboard(){
     ${stat('👨‍🏫','#fff2df',vs.teacher,'دخول المعلمين')}
     ${stat('🛡️','#f2eaff',vs.admin,'دخول الإدارة')}
   </div>
+  <div class="section-title"><h3>زوار رابط الديمو</h3><span>يبدأ العد من تاريخ إضافة العداد</span></div>
+  <div class="grid grid-3" style="margin-bottom:18px">
+    <div class="card stat"><div class="stat-ico" style="background:#eaf4ff">👀</div><div><b id="demoVisitorsUnique">—</b><small>أشخاص مختلفون</small></div></div>
+    <div class="card stat"><div class="stat-ico" style="background:#e8fff5">🔗</div><div><b id="demoVisitorsTotal">—</b><small>إجمالي فتحات الديمو</small></div></div>
+    <div class="card stat"><div class="stat-ico" style="background:#fff2df">🕒</div><div><b id="demoVisitorsLast" style="font-size:14px">—</b><small>آخر زيارة</small></div></div>
+  </div>
   <div class="section-title"><h3>مؤشرات المدرسة</h3></div>
   <div class="grid grid-4">${stat('👨‍🎓','#eaf4ff','1,245','طالب')}${stat('👨‍🏫','#e8fff5','85','معلم')}${stat('👨‍👩‍👦','#fff2df','980','ولي أمر')}${stat('📚','#f2eaff','36','مادة')}</div>
   <div class="grid grid-2"><div><div class="section-title"><h3>نشاط المنصة</h3></div><div class="card"><div class="chart">${[55,67,61,74,83,78,89].map((x,i)=>`<div class="bar" style="height:${x}%"><span>أ${i+1}</span></div>`).join('')}</div></div></div><div><div class="section-title"><h3>مؤشرات الأداء</h3></div><div class="card">${task('📈','متوسط أداء الطلاب','تحسن 6% هذا الشهر','84%','green')}${task('✅','نسبة إكمال الواجبات','على مستوى المدرسة','91%','green')}${task('💻','النشاط داخل المنصة','مستخدمون نشطون أسبوعيًا','76%','blue')}</div></div></div>`;
  }
+ if(role==='admin') setTimeout(loadDemoVisitorStats,0);
 }
 
 function teacherQuickAction(action){
