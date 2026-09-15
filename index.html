@@ -4265,30 +4265,6 @@ function printFilteredStudentsAdmin(){
       <tbody>${rows}</tbody>
     </table>
     <script>window.onload=()=>{window.print();};<\/script>
-  
-<button id="mobileMenuToggle" class="mobile-menu-toggle" type="button" aria-label="فتح القائمة" aria-expanded="false">☰</button>
-<div id="mobileMenuBackdrop" class="mobile-menu-backdrop" aria-hidden="true"></div>
-<script>
-(function(){
-  const btn=document.getElementById('mobileMenuToggle');
-  const backdrop=document.getElementById('mobileMenuBackdrop');
-  const sidebar=document.querySelector('.sidebar');
-  if(!btn||!backdrop||!sidebar)return;
-  function setMenu(open){
-    document.body.classList.toggle('mobile-menu-open',open);
-    btn.setAttribute('aria-expanded',open?'true':'false');
-    btn.textContent=open?'✕':'☰';
-  }
-  btn.addEventListener('click',()=>setMenu(!document.body.classList.contains('mobile-menu-open')));
-  backdrop.addEventListener('click',()=>setMenu(false));
-  sidebar.addEventListener('click',e=>{
-    if(e.target.closest('button,a')) setMenu(false);
-  });
-  window.addEventListener('resize',()=>{if(window.innerWidth>760)setMenu(false)});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape')setMenu(false)});
-})();
-</script>
-
 </body>
   </html>`);
   w.document.close();
@@ -4761,6 +4737,29 @@ renderNav();
 renderDashboard();
 const login=document.getElementById('login');
 if(login) login.style.display='grid';
+</script>
+
+<button id="mobileMenuToggle" class="mobile-menu-toggle" type="button" aria-label="فتح القائمة" aria-expanded="false">☰</button>
+<div id="mobileMenuBackdrop" class="mobile-menu-backdrop" aria-hidden="true"></div>
+<script>
+(function(){
+  const btn=document.getElementById('mobileMenuToggle');
+  const backdrop=document.getElementById('mobileMenuBackdrop');
+  const sidebar=document.querySelector('.sidebar');
+  if(!btn||!backdrop||!sidebar)return;
+  function setMenu(open){
+    document.body.classList.toggle('mobile-menu-open',open);
+    btn.setAttribute('aria-expanded',open?'true':'false');
+    btn.textContent=open?'✕':'☰';
+  }
+  btn.addEventListener('click',()=>setMenu(!document.body.classList.contains('mobile-menu-open')));
+  backdrop.addEventListener('click',()=>setMenu(false));
+  sidebar.addEventListener('click',e=>{
+    if(e.target.closest('button,a')) setMenu(false);
+  });
+  window.addEventListener('resize',()=>{if(window.innerWidth>760)setMenu(false)});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')setMenu(false)});
+})();
 </script>
 </body>
 </html>
