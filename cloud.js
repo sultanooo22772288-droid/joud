@@ -24,10 +24,12 @@
 
   async function init(){
     if(client) return client;
-    const r=await fetch('/api/config',{cache:'no-store'});
+    const [r] = await Promise.all([
+      fetch('/api/config'),
+      ensureSupabaseLibrary()
+    ]);
     if(!r.ok) throw new Error('تعذر تحميل إعدادات Supabase من Vercel.');
     cfg=await r.json();
-    await ensureSupabaseLibrary();
     client=window.supabase.createClient(cfg.url,cfg.anonKey);
     return client;
   }
