@@ -1789,6 +1789,24 @@ async function loadDemoVisitorStats(){
   }
 }
 
+async function excludeAdminFromDemoCounter(){
+  if(role!=='admin') return;
+  try{
+    const visitorId=localStorage.getItem('joudDemoVisitorId')||'';
+    if(!visitorId) return;
+    const token=await NabdCloud.getAccessToken?.();
+    if(!token) return;
+    await fetch('/api/demo-visits',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body:JSON.stringify({action:'exclude-admin',visitor_id:visitorId})
+    });
+    await loadDemoVisitorStats();
+  }catch(e){
+    console.warn('تعذر استثناء دخول الإدارة من عداد الديمو:',e);
+  }
+}
+
 function toggleLoginPassword(){
   const input=document.getElementById('loginPassword');
   if(!input) return;
@@ -1921,6 +1939,7 @@ async function enterDemo(){
     if(role==='admin') demoData.admin={...demoData.admin,...result.profile,password:''};
 
     registerVisitorLogin(role);
+    if(role==='admin') setTimeout(excludeAdminFromDemoCounter,0);
     document.getElementById('login').style.display='none';
     renderNav(); renderDashboard(); renderRolePages(); renderAdminManagement(); updateVisitorCounter(); showPage('dashboard');
 
