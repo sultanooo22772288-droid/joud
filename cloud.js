@@ -153,6 +153,18 @@
     return out;
   }
 
+  async function demoVisitStats(){
+    const token=await getAccessToken();
+    const r=await fetch('/api/demo-visits',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body:JSON.stringify({action:'stats'})
+    });
+    const out=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(out.error||'تعذر تحميل إحصاءات الديمو.');
+    return out;
+  }
+
   async function loadProfiles(){
     const c=await init();
     const {data,error}=await c.from('profiles').select('*').order('id',{ascending:true});
@@ -235,6 +247,7 @@
     setHomeworkScoreVisibility,listClassStudents,
     saveStudentReport,myStudentReports,myStudentReportBundle,getTeacherStudentReport,
     createTeacherContent,listTeacherContent,deleteTeacherContent,createTeacherHomework,listTeacherHomeworks,deleteTeacherHomework,adminAllTeacherContent,
+    demoVisitStats,
     get config(){return cfg;}
   };
 })();
