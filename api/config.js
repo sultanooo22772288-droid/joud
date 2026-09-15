@@ -8,7 +8,7 @@ export default function handler(req, res) {
     });
   }
 
-  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800');
 
   return res.status(200).json({
     url,
