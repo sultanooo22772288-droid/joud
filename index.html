@@ -1165,12 +1165,12 @@ body[data-theme] .app-shell,body[data-theme] .login-screen{position:relative;z-i
 
 
     body.session-booting #login{display:none !important}
-    body.session-booting .app{visibility:visible}
+    body.session-booting .app{visibility:hidden}
     .session-loader{
       position:fixed;inset:0;z-index:9999;display:none;place-items:center;
       background:linear-gradient(180deg,#f9fbff 0,#f4f7ff 100%);
     }
-    body.session-booting .session-loader{display:none}
+    body.session-booting .session-loader{display:grid}
     .session-loader-box{
       background:#fff;border:1px solid var(--line);border-radius:22px;
       padding:22px 28px;box-shadow:var(--shadow);font-weight:800;color:var(--text);
@@ -1760,69 +1760,52 @@ function normalizeAccountRole(value){
   return 'student';
 }
 
-function saveFastSession(profile,email){
-  try{
-    if(!profile) return;
-    localStorage.setItem('joudFastSession',JSON.stringify({
-      role:normalizeAccountRole(profile.role),
-      email:(email||profile.email||'').toLowerCase(),
-      profile:{...profile,password:''}
-    }));
-  }catch(e){}
-}
-function getFastSession(){
-  try{return JSON.parse(localStorage.getItem('joudFastSession')||'null');}catch(e){return null;}
-}
-function clearFastSession(){
-  try{localStorage.removeItem('joudFastSession');}catch(e){}
-}
-function applyFastSession(fast){
-  if(!fast?.profile) return false;
-  role=normalizeAccountRole(fast.role||fast.profile.role);
-  currentLoginEmail=String(fast.email||fast.profile.email||'').toLowerCase();
-  if(role==='student') demoData.students=[fast.profile];
-  if(role==='teacher') demoData.teachers=[fast.profile];
-  if(role==='admin') demoData.admin={...demoData.admin,...fast.profile,password:''};
-  const login=document.getElementById('login');
-  if(login) login.style.display='none';
-  renderNav();
-  renderDashboard();
-  renderRolePages();
-  renderAdminManagement();
-  updateVisitorCounter();
-  showPage('dashboard');
-  return true;
-}
-
 async function restoreLoggedInUser(){
   try{
-    const result=await NabdCloud.restoreSession();
+    const result=await Promise.race([
+      NabdCloud.restoreSession(),
+      new Promise(resolve=>setTimeout(()=>resolve(null),2500))
+    ]);
     if(!result?.profile) return false;
 
     role=normalizeAccountRole(result.profile.role);
     currentLoginEmail=(result.profile.email||result.user?.email||'').toLowerCase();
-    saveFastSession(result.profile,currentLoginEmail);
 
+    // افتح الواجهة فورًا من بيانات الجلسة بدل انتظار مزامنة كل الحسابات.
     if(role==='student') demoData.students=[result.profile];
     if(role==='teacher') demoData.teachers=[result.profile];
     if(role==='admin') demoData.admin={...demoData.admin,...result.profile,password:''};
 
     const login=document.getElementById('login');
     if(login) login.style.display='none';
-    renderNav(); renderDashboard(); renderRolePages(); renderAdminManagement(); updateVisitorCounter(); showPage('dashboard');
 
+    renderNav();
+    renderDashboard();
+    renderRolePages();
+    renderAdminManagement();
+    updateVisitorCounter();
+    showPage('dashboard');
+
+    // مزامنة البيانات في الخلفية بدون حجز شاشة الفتح.
     setTimeout(async()=>{
       try{
         await syncCloudProfiles();
-        renderDashboard(); renderRolePages(); renderAdminManagement(); updateVisitorCounter();
-      }catch(e){ console.warn('تعذر تحديث البيانات في الخلفية:',e); }
-    },50);
+        renderDashboard();
+        renderRolePages();
+        renderAdminManagement();
+        updateVisitorCounter();
+      }catch(e){
+        console.warn('تعذر تحديث البيانات في الخلفية:',e);
+      }
+    },0);
+
     return true;
   }catch(e){
     console.warn('تعذر استعادة جلسة المستخدم:',e);
     return false;
   }
 }
+
 async function enterDemo(){
   const enteredEmail=(document.getElementById('loginEmail')?.value||'').trim().toLowerCase();
   const enteredPassword=(document.getElementById('loginPassword')?.value||'').trim();
@@ -1837,14 +1820,10 @@ async function enterDemo(){
     role=normalizeAccountRole(result.profile.role);
     currentLoginEmail=(result.profile.email||enteredEmail).toLowerCase();
     saveRememberedLogin(enteredEmail,enteredPassword);
-    saveFastSession(result.profile,currentLoginEmail);
-    if(role==='student') demoData.students=[result.profile];
-    if(role==='teacher') demoData.teachers=[result.profile];
-    if(role==='admin') demoData.admin={...demoData.admin,...result.profile,password:''};
+    await syncCloudProfiles();
+    registerVisitorLogin(role);
     document.getElementById('login').style.display='none';
     renderNav(); renderDashboard(); renderRolePages(); renderAdminManagement(); updateVisitorCounter(); showPage('dashboard');
-    setTimeout(async()=>{try{await syncCloudProfiles();renderDashboard();renderRolePages();renderAdminManagement();}catch(e){console.warn(e)}},0);
-    registerVisitorLogin(role);
   }catch(e){
     console.error(e);
     currentLoginEmail='';
@@ -1859,7 +1838,6 @@ async function enterDemo(){
 async function logoutDemo(){
   try{await NabdCloud.signOut();}catch(e){}
   currentLoginEmail='';
-  clearFastSession();
   document.getElementById('login').style.display='grid';
 }
 function changeRole(v){ role=v; renderNav(); renderDashboard(); renderRolePages(); renderAdminManagement(); showPage('dashboard'); }
@@ -4766,30 +4744,18 @@ function sendAI(){
 renderAnnouncementTicker();
 loadRememberedLogin();
 
-(function(){
-  const fast=getFastSession();
-
-  // لا نحجز الشاشة أثناء الاتصال بالسحابة: نظهر الواجهة فورًا.
+(async function(){
+  const restored=await restoreLoggedInUser();
   document.body.classList.remove('session-booting');
 
-  if(fast && applyFastSession(fast)){
-    // تحقق من الجلسة بالخلفية فقط.
-    setTimeout(async()=>{
-      const restored=await restoreLoggedInUser();
-      if(!restored){
-        clearFastSession();
-        const login=document.getElementById('login');
-        if(login) login.style.display='grid';
-      }
-    },0);
-  }else{
+  if(!restored){
     renderNav();
     renderDashboard();
     const login=document.getElementById('login');
     if(login) login.style.display='grid';
-
-    // إذا كانت هناك جلسة Supabase سابقة، استعدها بالخلفية بدون شاشة انتظار.
-    setTimeout(()=>restoreLoggedInUser(),0);
+  }else{
+    const login=document.getElementById('login');
+    if(login) login.style.display='none';
   }
 })();
 </script>
