@@ -1199,7 +1199,122 @@ body[data-theme] .app-shell,body[data-theme] .login-screen{position:relative;z-i
       top:34px;
     }
 
-</style>
+
+    /* ===== Responsive Joud: laptop + mobile ===== */
+    html,body{max-width:100%;overflow-x:hidden}
+    img,svg,video,canvas{max-width:100%;height:auto}
+    .main,.content,.card,.page,.teacher-tool{min-width:0}
+    table{max-width:100%}
+    .schedule,.table-wrap,[style*="overflow-x:auto"]{max-width:100%;-webkit-overflow-scrolling:touch}
+
+    /* Laptop / small desktop */
+    @media (min-width:761px) and (max-width:1366px){
+      .sidebar{width:210px;padding:18px 12px}
+      .main{margin-right:210px;width:calc(100% - 210px)}
+      .topbar{height:68px;padding:0 18px}
+      .content{padding:20px;max-width:1180px}
+      .search{min-width:220px;max-width:320px}
+      .grid{gap:13px}
+      .grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .card{padding:15px}
+      .hero{padding:22px;border-radius:24px}
+      .hero h1{font-size:clamp(24px,2.4vw,31px)}
+      .mascot{font-size:76px}
+      .theme-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .login-card{width:min(860px,94vw);max-height:92vh}
+      .login-form,.login-visual{padding:32px}
+    }
+
+    /* Mobile / tablet portrait */
+    @media (max-width:760px){
+      body{font-size:14px}
+      .app{display:block}
+      .sidebar{display:none!important}
+      .main{margin-right:0!important;width:100%!important;min-width:0}
+      .topbar{
+        height:auto;min-height:62px;padding:10px 12px;gap:8px;
+        flex-wrap:wrap;align-items:center
+      }
+      .topbar .search,.search{order:3;width:100%!important;min-width:0!important;max-width:none}
+      .top-actions{gap:7px}
+      .icon-btn{width:38px;height:38px;border-radius:12px}
+      .avatar{width:38px;height:38px;font-size:19px}
+      .content{padding:14px 12px 88px!important;width:100%;max-width:none}
+      .page-head{align-items:flex-start;gap:10px;flex-wrap:wrap}
+      .page-head>div,.section-title>div{min-width:0}
+      .page-head h2{font-size:21px}
+      .section-title{gap:8px;flex-wrap:wrap}
+      .hero{
+        grid-template-columns:1fr!important;padding:20px 16px!important;
+        border-radius:22px!important;text-align:center
+      }
+      .hero h1{font-size:24px!important}
+      .hero p{font-size:13px;line-height:1.7}
+      .mascot{font-size:58px!important;text-align:center!important;margin-top:10px}
+      .grid,.grid-4,.grid-3,.grid-2,.upload-row,
+      .student-profile-grid,.academic-info,.submission-lists{
+        grid-template-columns:1fr!important
+      }
+      .card{padding:14px;border-radius:18px!important}
+      .stat{gap:10px}
+      .stat .bubble{width:44px;height:44px}
+      .subject-top{height:88px;font-size:38px}
+      .badge-wrap{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+      .task{align-items:flex-start;flex-wrap:wrap}
+      .task .tag{margin-right:0}
+      .lesson-item{align-items:flex-start;flex-wrap:wrap;padding:12px}
+      .lesson-item button{margin-right:0;width:100%}
+      .btn{min-height:42px;white-space:normal}
+      .field input,.upload-row input,.upload-row textarea,.upload-row select,select,textarea{
+        font-size:16px
+      }
+      .chat{height:52vh}
+      .msg{max-width:90%}
+      .chat-input{flex-wrap:wrap}
+      .chat-input input{min-width:0}
+      .login-overlay{
+        position:fixed;overflow-y:auto;align-items:flex-start;
+        padding:12px
+      }
+      .login-card{
+        width:100%!important;max-width:520px;grid-template-columns:1fr!important;
+        border-radius:22px!important;margin:auto;max-height:none
+      }
+      .login-visual{padding:20px 16px!important}
+      .login-visual .kid{font-size:58px!important}
+      .login-form{padding:22px 18px!important}
+      .login-form h1{font-size:24px}
+      .teacher-tool{padding:14px}
+      .theme-grid{grid-template-columns:1fr!important}
+      .theme-card{min-height:155px;padding:15px}
+      .occasion-banner{align-items:flex-start;flex-wrap:wrap}
+      .mobile-nav{
+        display:flex!important;padding:7px max(8px,env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))
+      }
+      .mobile-nav button{min-width:54px;min-height:44px}
+      .schedule,div[style*="overflow:auto"],div[style*="overflow-x:auto"]{
+        overflow-x:auto!important;-webkit-overflow-scrolling:touch
+      }
+      table{min-width:620px}
+    }
+
+    /* Small phones */
+    @media (max-width:420px){
+      .content{padding-left:10px!important;padding-right:10px!important}
+      .topbar{padding-left:10px;padding-right:10px}
+      .hero{padding:18px 13px!important}
+      .hero h1{font-size:21px!important}
+      .card{padding:12px}
+      .badge-wrap{gap:8px}
+      .badge{padding:10px 6px}
+      .login-form{padding:20px 15px!important}
+      .login-visual{padding:17px 14px!important}
+      .page-head h2{font-size:19px}
+      .btn{padding:10px 12px}
+    }
+
+  </style>
 </head>
 <body class="session-booting">
 <div id="deleteSuccessToast" class="success-toast"></div>
