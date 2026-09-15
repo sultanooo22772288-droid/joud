@@ -1762,13 +1762,19 @@ function normalizeAccountRole(value){
 
 async function restoreLoggedInUser(){
   try{
-    const result=await NabdCloud.restoreSession();
+    const result=await Promise.race([
+      NabdCloud.restoreSession(),
+      new Promise(resolve=>setTimeout(()=>resolve(null),2500))
+    ]);
     if(!result?.profile) return false;
 
     role=normalizeAccountRole(result.profile.role);
     currentLoginEmail=(result.profile.email||result.user?.email||'').toLowerCase();
 
-    await syncCloudProfiles();
+    // افتح الواجهة فورًا من بيانات الجلسة بدل انتظار مزامنة كل الحسابات.
+    if(role==='student') demoData.students=[result.profile];
+    if(role==='teacher') demoData.teachers=[result.profile];
+    if(role==='admin') demoData.admin={...demoData.admin,...result.profile,password:''};
 
     const login=document.getElementById('login');
     if(login) login.style.display='none';
@@ -1779,6 +1785,20 @@ async function restoreLoggedInUser(){
     renderAdminManagement();
     updateVisitorCounter();
     showPage('dashboard');
+
+    // مزامنة البيانات في الخلفية بدون حجز شاشة الفتح.
+    setTimeout(async()=>{
+      try{
+        await syncCloudProfiles();
+        renderDashboard();
+        renderRolePages();
+        renderAdminManagement();
+        updateVisitorCounter();
+      }catch(e){
+        console.warn('تعذر تحديث البيانات في الخلفية:',e);
+      }
+    },0);
+
     return true;
   }catch(e){
     console.warn('تعذر استعادة جلسة المستخدم:',e);
