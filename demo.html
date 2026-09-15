@@ -79,7 +79,26 @@ p{margin:0;color:#6f7f91;line-height:1.9;font-size:16px}
     }
   }
 
+  async function registerDemoVisit(){
+    try{
+      let visitorId=localStorage.getItem('joudDemoVisitorId')||'';
+      if(!visitorId){
+        visitorId=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():
+          ('v_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2));
+        localStorage.setItem('joudDemoVisitorId',visitorId);
+      }
+      await fetch('/api/demo-visits',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'visit',visitor_id:visitorId})
+      });
+    }catch(e){
+      console.warn('تعذر تسجيل زيارة الديمو',e);
+    }
+  }
+
   apply();
+  if(Date.now()<expiry) registerDemoVisit();
   setInterval(apply,1000);
 })();
 </script>
