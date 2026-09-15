@@ -81,6 +81,7 @@ p{margin:0;color:#6f7f91;line-height:1.9;font-size:16px}
 
   async function registerDemoVisit(){
     try{
+      if(localStorage.getItem('joudDemoOwner')==='1') return;
       let visitorId=localStorage.getItem('joudDemoVisitorId')||'';
       if(!visitorId){
         visitorId=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():
@@ -97,8 +98,33 @@ p{margin:0;color:#6f7f91;line-height:1.9;font-size:16px}
     }
   }
 
+  async function markOwnerDevice(){
+    const params=new URLSearchParams(location.search);
+    if(params.get('owner')!=='JoudOwner_9m4Qx7L2pA6v') return false;
+
+    let visitorId=localStorage.getItem('joudDemoVisitorId')||'';
+    localStorage.setItem('joudDemoOwner','1');
+
+    try{
+      if(visitorId){
+        await fetch('/api/demo-visits',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({action:'exclude-owner',visitor_id:visitorId,owner_token:'JoudOwner_9m4Qx7L2pA6v'})
+        });
+      }
+    }catch(e){
+      console.warn('تعذر حذف زيارة المالك السابقة',e);
+    }
+
+    history.replaceState({},'',location.pathname);
+    return true;
+  }
+
   apply();
-  if(Date.now()<expiry) registerDemoVisit();
+  markOwnerDevice().then(isOwner=>{
+    if(!isOwner && Date.now()<expiry) registerDemoVisit();
+  });
   setInterval(apply,1000);
 })();
 </script>
