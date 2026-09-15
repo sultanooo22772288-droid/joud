@@ -240,7 +240,7 @@
   async function listClassStudents(grade,section){ const c=await init(); let q=c.from('profiles').select('id,auth_user_id,name,email,grade,section,role').eq('role','student'); if(grade) q=q.eq('grade',grade); if(section) q=q.eq('section',section); const {data,error}=await q.order('name',{ascending:true}); if(error) throw error; return data||[]; }
 
   window.NabdCloud={
-    init,signIn,signOut,restoreSession,loadProfiles,createUser,updateUser,deleteUser,bulkCreateUsers,loadAdminCredentials,syncOwnCredential,
+    init,signIn,signOut,restoreSession,getAccessToken,loadProfiles,createUser,updateUser,deleteUser,bulkCreateUsers,loadAdminCredentials,syncOwnCredential,
     currentUser,uploadSchoolFile,signedSchoolFileUrl,
     createInteractiveHomework,listInteractiveHomeworks,deleteInteractiveHomework,
     submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,
