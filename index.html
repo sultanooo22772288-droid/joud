@@ -2720,8 +2720,12 @@ async function renderAttendancePage(){
   document.getElementById('attendanceAdminList').innerHTML=`
    <div class="grid grid-4" style="margin-bottom:18px">${stat('🔴','#ffe8e8',absent,'إجمالي الغياب')}${stat('🟢','#e8fff5',present,'إجمالي الحضور')}${stat('✅','#e8fff5',todayRows.length,'الشعب المحضّرة')}${stat('⏳','#fff2df',pending,'بانتظار التحضير')}</div>
    <div class="card" style="margin-bottom:16px"><div class="section-title" style="margin:0 0 12px"><h3>🔎 عرض الغياب حسب الصف والشعبة</h3></div><div class="upload-row"><select id="adminAttGrade" onchange="adminAttendanceFilterChanged()"><option value="">كل الصفوف</option>${grades.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('')}</select><select id="adminAttSection" onchange="renderAdminAttendanceFiltered()"><option value="">كل الشعب</option></select></div></div>
-   <div class="card"><div id="adminAttendanceSummary"></div></div>`;
+   <div class="card"><div id="adminAttendanceSummary"></div></div>
+   <div class="card" style="margin-top:16px"><div class="section-title" style="margin:0 0 10px"><h3>📊 تقارير الغياب المتكرر</h3><span>آخر 30 يومًا</span></div><div id="attendanceRepeatReport">جاري تحميل التقرير...</div></div>
+   <div class="card" style="margin-top:16px"><div class="section-title" style="margin:0 0 10px"><h3>🔄 السجلات الجاهزة للمزامنة</h3><span>السجلات المعتمدة فقط</span></div><div id="attendanceSyncQueue"></div></div>
+   <div class="card" style="margin-top:16px"><div class="section-title" style="margin:0 0 10px"><h3>🗂️ سجل التحضير</h3><span>آخر 30 يومًا</span></div><div id="attendanceHistoryLog">جاري التحميل...</div></div>`;
   renderAdminAttendanceFiltered();
+  setTimeout(()=>renderAttendanceReports(rows),0);
  }catch(e){document.getElementById('attendanceAdminList').textContent='تعذر تحميل السجلات: '+e.message;}
 }
 function adminAttendanceFilterChanged(){
@@ -2738,6 +2742,42 @@ function renderAdminAttendanceFiltered(){
  box.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px"><span class="tag blue">إجمالي الطلاب: ${total}</span><span class="tag green">الحضور: ${total-abs.length}</span><span class="tag red">الغياب: ${abs.length}</span></div>
  ${sessionsHtml}
  ${abs.length?`<div style="overflow:auto"><table style="width:100%"><thead><tr><th>الطالب الغائب</th><th>الصف</th><th>الشعبة</th><th>المعلم</th><th>وقت التسجيل</th></tr></thead><tbody>${abs.map(x=>`<tr><td><b>${esc(x.student_name)}</b></td><td>${esc(x.grade)}</td><td>${esc(x.section)}</td><td>${esc(x.teacher||'معلم')}</td><td>${new Date(x.time).toLocaleTimeString('ar-OM',{hour:'2-digit',minute:'2-digit'})}</td></tr>`).join('')}</tbody></table></div>`:'<div style="text-align:center;padding:26px;color:#178a5b;font-weight:700">✓ لا يوجد طلاب غائبون ضمن الاختيار الحالي</div>'}`;
+}
+async function renderAttendanceReports(rows){
+ const repeatBox=document.getElementById('attendanceRepeatReport');
+ const syncBox=document.getElementById('attendanceSyncQueue');
+ const historyBox=document.getElementById('attendanceHistoryLog');
+ if(!repeatBox||!syncBox||!historyBox)return;
+ try{
+  const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-30);
+  const recent=(rows||[]).filter(x=>new Date(x.attendance_date+'T00:00:00')>=cutoff);
+  const approvedReady=(rows||[]).filter(x=>(x.approval_status||'pending')==='approved' && (x.sync_status||'not_ready')!=='synced');
+
+  syncBox.innerHTML=approvedReady.length
+   ? approvedReady.map(x=>`<div style="border:1px solid var(--line);border-radius:14px;padding:11px;margin:8px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>${esc(x.attendance_date)}</b><span>${esc(x.grade)} — الشعبة ${esc(x.section)}</span><span class="tag blue">جاهز للمزامنة</span><span style="color:var(--muted)">${esc(x.teacher_name||'معلم')}</span></div>`).join('')
+   : '<div style="padding:18px;text-align:center;color:var(--muted)">لا توجد سجلات معتمدة بانتظار المزامنة.</div>';
+
+  const history=[...recent].sort((a,b)=>String(b.attendance_date).localeCompare(String(a.attendance_date))).slice(0,80);
+  historyBox.innerHTML=history.length
+   ? `<div style="overflow:auto"><table style="width:100%;min-width:720px"><thead><tr><th>التاريخ</th><th>الصف</th><th>الشعبة</th><th>المعلم</th><th>الاعتماد</th><th>المزامنة</th></tr></thead><tbody>${history.map(x=>`<tr><td>${esc(x.attendance_date)}</td><td>${esc(x.grade)}</td><td>${esc(x.section)}</td><td>${esc(x.teacher_name||'معلم')}</td><td>${(x.approval_status||'pending')==='approved'?'معتمد':(x.approval_status==='rejected'?'مرفوض':'بانتظار الاعتماد')}</td><td>${x.sync_status==='synced'?'تمت':x.sync_status==='pending'?'جاهز':'غير جاهز'}</td></tr>`).join('')}</tbody></table></div>`
+   : '<div style="padding:18px;text-align:center;color:var(--muted)">لا توجد سجلات خلال آخر 30 يومًا.</div>';
+
+  const sample=recent.slice(0,60);
+  const detailRows=await Promise.all(sample.map(async s=>({session:s,records:await NabdCloud.getAttendanceRecords(s.id)})));
+  const counts=new Map();
+  detailRows.forEach(x=>x.records.filter(r=>r.status==='absent').forEach(r=>{
+    const key=String(r.student_id||r.student_name||'');
+    const cur=counts.get(key)||{name:r.student_name||'طالب',count:0,grade:x.session.grade,section:x.session.section};
+    cur.count++; cur.grade=x.session.grade; cur.section=x.session.section; counts.set(key,cur);
+  }));
+  const repeated=[...counts.values()].filter(x=>x.count>=2).sort((a,b)=>b.count-a.count);
+  repeatBox.innerHTML=repeated.length
+   ? `<div style="overflow:auto"><table style="width:100%"><thead><tr><th>الطالب</th><th>الصف</th><th>الشعبة</th><th>مرات الغياب</th></tr></thead><tbody>${repeated.map(x=>`<tr><td><b>${esc(x.name)}</b></td><td>${esc(x.grade)}</td><td>${esc(x.section)}</td><td><span class="tag red">${x.count}</span></td></tr>`).join('')}</tbody></table></div>`
+   : '<div style="padding:18px;text-align:center;color:#178a5b;font-weight:700">✓ لا يوجد غياب متكرر مرتين أو أكثر خلال آخر 30 يومًا</div>';
+ }catch(e){
+  if(repeatBox) repeatBox.textContent='تعذر تحميل التقرير: '+(e.message||'');
+  if(historyBox) historyBox.textContent='تعذر تحميل السجل.';
+ }
 }
 async function approveAttendanceSession(id){
  try{
