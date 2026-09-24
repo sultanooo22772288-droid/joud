@@ -1481,9 +1481,6 @@ body[data-theme] .app-shell,body[data-theme] .login-screen{position:relative;z-i
     <div class="topbar">
       <input class="search" placeholder="ابحث في المنصة...">
       <div class="top-actions">
-        <div id="visitorCounterBadge" class="card" style="padding:8px 12px;border-radius:14px;display:flex;align-items:center;gap:7px;font-weight:900;white-space:nowrap">
-          <span>👥</span><span>الزوار:</span><span id="visitorCounterValue">0</span>
-        </div>
         <button class="icon-btn" onclick="showPage('notifications')">🔔</button>
         <div class="avatar">🧒</div>
       </div>
@@ -1500,7 +1497,8 @@ body[data-theme] .app-shell,body[data-theme] .login-screen{position:relative;z-i
       <section id="schedule" class="page"></section>
       <section id="notifications" class="page"></section>
       <section id="ai" class="page"></section>
-      <section id="profile" class="page"></section>\n      <section id="attendance" class="page"></section>
+      <section id="profile" class="page"></section>
+      <section id="attendance" class="page"></section>
       <section id="themesAdmin" class="page"></section>
       <section id="announcementsAdmin" class="page"></section>
       <section id="studentsAdmin" class="page"></section>
@@ -1858,7 +1856,7 @@ async function restoreLoggedInUser(){
   try{
     const result=await Promise.race([
       NabdCloud.restoreSession(),
-      new Promise(resolve=>setTimeout(()=>resolve(null),2500))
+      new Promise(resolve=>setTimeout(()=>resolve(null),8000))
     ]);
     if(!result?.profile) return false;
 
@@ -2051,28 +2049,13 @@ function renderDashboard(){
       <div class="welcome-mini-stats">
         <div class="welcome-mini-stat"><b>${demoData.students.length}</b><span>طالب مسجل</span></div>
         <div class="welcome-mini-stat"><b>${demoData.teachers.length}</b><span>معلم مسجل</span></div>
-        <div class="welcome-mini-stat"><b id="adminDemoVisitorsTotal">—</b><span>زائر للديمو</span></div>
       </div>
     </div>
-  </div>
-  <div class="section-title"><h3>عداد زوار الديمو</h3><span>يُحتسب عند فتح رابط الديمو</span></div>
-  <div class="grid grid-4" style="margin-bottom:18px">
-    <div class="card stat"><div class="stat-ico" style="background:#eaf4ff">👥</div><div><b id="adminDemoVisitorsMain">—</b><small>زوار الديمو</small></div></div>
-    ${stat('🎓','#e8fff5',vs.student,'دخول الطلاب')}
-    ${stat('👨‍🏫','#fff2df',vs.teacher,'دخول المعلمين')}
-    ${stat('🛡️','#f2eaff',vs.admin,'دخول الإدارة')}
-  </div>
-  <div class="section-title"><h3>زوار رابط الديمو</h3><span>يبدأ العد من تاريخ إضافة العداد</span></div>
-  <div class="grid grid-3" style="margin-bottom:18px">
-    <div class="card stat"><div class="stat-ico" style="background:#eaf4ff">👀</div><div><b id="demoVisitorsUnique">—</b><small>أشخاص مختلفون</small></div></div>
-    <div class="card stat"><div class="stat-ico" style="background:#e8fff5">🔗</div><div><b id="demoVisitorsTotal">—</b><small>إجمالي فتحات الديمو</small></div></div>
-    <div class="card stat"><div class="stat-ico" style="background:#fff2df">🕒</div><div><b id="demoVisitorsLast" style="font-size:14px">—</b><small>آخر زيارة</small></div></div>
   </div>
   <div class="section-title"><h3>مؤشرات المدرسة</h3></div>
   <div class="grid grid-4">${stat('👨‍🎓','#eaf4ff','1,245','طالب')}${stat('👨‍🏫','#e8fff5','85','معلم')}${stat('👨‍👩‍👦','#fff2df','980','ولي أمر')}${stat('📚','#f2eaff','36','مادة')}</div>
   <div class="grid grid-2"><div><div class="section-title"><h3>نشاط المنصة</h3></div><div class="card"><div class="chart">${[55,67,61,74,83,78,89].map((x,i)=>`<div class="bar" style="height:${x}%"><span>أ${i+1}</span></div>`).join('')}</div></div></div><div><div class="section-title"><h3>مؤشرات الأداء</h3></div><div class="card">${task('📈','متوسط أداء الطلاب','تحسن 6% هذا الشهر','84%','green')}${task('✅','نسبة إكمال الواجبات','على مستوى المدرسة','91%','green')}${task('💻','النشاط داخل المنصة','مستخدمون نشطون أسبوعيًا','76%','blue')}</div></div></div>`;
  }
- if(role==='admin') setTimeout(loadDemoVisitorStats,0);
 }
 
 function teacherQuickAction(action){
@@ -4892,11 +4875,18 @@ function sendAI(){
 renderAnnouncementTicker();
 loadRememberedLogin();
 
-// عند فتح الرابط: اعرض تسجيل الدخول مباشرة دائمًا.
-renderNav();
-renderDashboard();
-const login=document.getElementById('login');
-if(login) login.style.display='grid';
+// عند فتح الرابط: استعد الجلسة أولاً، ولا تعرض تسجيل الدخول إلا إذا لم توجد جلسة صالحة.
+(async()=>{
+  const login=document.getElementById('login');
+  if(login) login.style.display='grid';
+  const restored=await restoreLoggedInUser();
+  if(!restored){
+    role='student';
+    renderNav();
+    renderDashboard();
+    if(login) login.style.display='grid';
+  }
+})();
 </script>
 
 <button id="mobileMenuToggle" class="mobile-menu-toggle" type="button" aria-label="فتح القائمة" aria-expanded="false">☰</button>
