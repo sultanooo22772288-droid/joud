@@ -1414,6 +1414,7 @@ body[data-theme] .app-shell,body[data-theme] .login-screen{position:relative;z-i
 
   </style>
   <link rel="stylesheet" href="joud-design.css">
+  <link rel="stylesheet" href="joud-themes.css">
 </head>
 <body>
 <div id="deleteSuccessToast" class="success-toast"></div>
@@ -1527,6 +1528,7 @@ body[data-theme] .app-shell,body[data-theme] .login-screen{position:relative;z-i
 <script defer src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="cloud.js"></script>
 <script src="joud-design.js"></script>
+<script src="joud-themes.js"></script>
 <script>
 const navByRole = {
   student:[
@@ -1557,7 +1559,7 @@ const platformThemes = [
   {id:'ocean',name:'عالم المحيط',icon:'🐳',desc:'ثيم أزرق منعش ومرح يناسب الأطفال ويعطي الواجهة حيوية.',colors:['#278fc5','#39b8a7','#f1fbff']},
   {id:'teacher',name:'يوم المعلم',icon:'👨‍🏫',desc:'ثيم دافئ للاحتفاء بالمعلمين والعطاء التعليمي.',colors:['#a56a15','#d49a34','#fffaf0']},
   {id:'tree',name:'يوم الشجرة',icon:'🌳',desc:'ألوان خضراء طبيعية تعكس البيئة والاستدامة.',colors:['#2f7d4a','#63a868','#f3fbf4']},
-  {id:'national',name:'العيد الوطني',icon:'🇴🇲',desc:'ثيم وطني متكامل بألوان علم سلطنة عُمان وصورة رسمية مدمجة للسلطان هيثم.',colors:['#b3182b','#1f7a4d','#ffffff']},
+  {id:'national',name:'العيد الوطني',icon:'🇴🇲',desc:'ألوان علم سلطنة عُمان، وقلعة نخل، وألعاب نارية احتفالًا بالعيد الوطني.',colors:['#b3182b','#1f7a4d','#ffffff']},
   {id:'sports',name:'اليوم الرياضي',icon:'🏃',desc:'ألوان حيوية ونشيطة تناسب الفعاليات الرياضية.',colors:['#0968c7','#18a57a','#f2f9ff']},
   {id:'ramadan',name:'رمضان',icon:'🌙',desc:'طابع هادئ وأنيق بالبنفسجي والذهبي.',colors:['#6741a5','#c69b36','#f8f5ff']},
   {id:'backtoschool',name:'العودة للمدارس',icon:'🎒',desc:'ثيم مبهج لبداية العام الدراسي واستقبال الطلاب.',colors:['#3867d6','#f0932b','#f5f9ff']},
@@ -1606,16 +1608,17 @@ function renderThemesPage(){
   const current=platformThemes.find(t=>t.id===active)||platformThemes[0];
   page.innerHTML=`
     <div class="page-head">
-      <div><h2>ثيمات المنصة 🎨</h2><p>اختر ثيم المناسبة ليتم تطبيقه على واجهات الإدارة والمعلمين والطلاب بالكامل.</p></div>
+      <div><h2>ثيمات المنصة 🎨</h2><p>اختر ثيم المناسبة، وسيتغيّر شكل المنصة بالكامل لدى الإدارة والمعلمين والطلاب: الألوان والخطوط والرسوم المتحركة وتحية المناسبة.</p></div>
     </div>
     <div class="occasion-banner">
       <div><b>الثيم المستخدم حاليًا: ${esc(current.name)}</b><div style="color:var(--muted);margin-top:4px">${esc(current.desc)}</div></div>
-      <div class="big">${current.icon}</div>
+      <div class="big">${window.jdThemeIcon&&jdThemeIcon(current.id)?jdThemeIcon(current.id):current.icon}</div>
     </div>
     <div class="theme-grid">
       ${platformThemes.map((t,i)=>`
         <div class="theme-card ${active===t.id?'active':''}" onclick="selectPlatformTheme('${t.id}')">
           ${active===t.id?'<span class="theme-selected">مفعّل ✓</span>':''}
+          ${window.jdThemePreview?jdThemePreview(t.id):''}
           <div>
             <div class="theme-icon">${t.icon}</div>
             <h3>${esc(t.name)}</h3>
@@ -1627,9 +1630,16 @@ function renderThemesPage(){
 }
 function selectPlatformTheme(themeId){
   if(role!=='admin'){alert('تغيير الثيم متاح لإدارة المدرسة فقط.');return;}
+  const previous=getPlatformTheme();
   applyPlatformTheme(themeId,true);
   renderNav(); renderDashboard(); renderRolePages(); renderAdminManagement();
   showPage('themesAdmin');
+  if(window.NabdCloud?.setSchoolTheme){
+    NabdCloud.setSchoolTheme(themeId).catch(e=>{
+      applyPlatformTheme(previous,true); showPage('themesAdmin');
+      alert('تعذر حفظ الثيم لجميع المستخدمين: '+(e.message||'حاول مرة أخرى.'));
+    });
+  }
 }
 
 
@@ -1884,6 +1894,7 @@ async function restoreLoggedInUser(){
     renderAdminManagement();
     updateVisitorCounter();
     showPage('dashboard');
+    if(window.jdSyncTheme) jdSyncTheme();
 
     // مزامنة البيانات في الخلفية بدون حجز شاشة الفتح.
     setTimeout(async()=>{
@@ -1928,6 +1939,7 @@ async function enterDemo(){
     registerVisitorLogin(role);
     document.getElementById('login').style.display='none';
     renderNav(); renderDashboard(); renderRolePages(); renderAdminManagement(); updateVisitorCounter(); showPage('dashboard');
+    if(window.jdSyncTheme) jdSyncTheme();
 
     // مزامنة بقية البيانات بالخلفية بدون تأخير الدخول.
     setTimeout(async()=>{

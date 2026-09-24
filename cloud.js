@@ -146,6 +146,8 @@
   async function listTeacherHomeworks(){ const out=await contentRequest({action:'teacher-list-homeworks'}); return out.items||[]; }
   async function deleteTeacherHomework(id){ return contentRequest({action:'teacher-delete-homework',id}); }
   async function adminAllTeacherContent(){ return contentRequest({action:'admin-list-all'}); }
+  async function getSchoolTheme(){ const out=await contentRequest({action:'theme-get'}); return out.theme||'default'; }
+  async function setSchoolTheme(theme){ const out=await contentRequest({action:'theme-set',theme}); return out.theme; }
 
   async function reportRequest(payload){
     const token=await getAccessToken();
@@ -414,7 +416,7 @@
     submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,
     setHomeworkScoreVisibility,listClassStudents,
     saveStudentReport,myStudentReports,myStudentReportBundle,getTeacherStudentReport,
-    createTeacherContent,listTeacherContent,deleteTeacherContent,createTeacherHomework,listTeacherHomeworks,deleteTeacherHomework,adminAllTeacherContent,
+    createTeacherContent,listTeacherContent,deleteTeacherContent,createTeacherHomework,listTeacherHomeworks,deleteTeacherHomework,adminAllTeacherContent,getSchoolTheme,setSchoolTheme,
     demoVisitStats,saveAttendanceSession,listAttendanceSessions,getAttendanceRecords,updateAttendanceApproval,prepareAttendanceNotifications,listAttendanceNotifications,markAttendanceNotificationSent,listAttendanceAudit,updateAttendanceSyncStatus,
     get config(){return cfg;}
   };

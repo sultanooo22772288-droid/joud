@@ -138,6 +138,23 @@ export default async function handler(req,res){
       });
     }
 
+    if(action==='theme-get'){
+      const {data,error}=await sb.from('school_kv').select('value').eq('key','platform_theme').maybeSingle();
+      if(error) throw error;
+      return res.status(200).json({theme:data?.value?.id||'default'});
+    }
+
+    if(action==='theme-set'){
+      if(p.role!=='admin') return res.status(403).json({error:'تغيير الثيم متاح لإدارة المدرسة فقط.'});
+      const allowed=['default','rainbow','space','garden','ocean','teacher','tree','national','sports','ramadan','backtoschool','children','book'];
+      const id=String(b.theme||'');
+      if(!allowed.includes(id)) return res.status(400).json({error:'الثيم غير معروف.'});
+      const now=new Date().toISOString();
+      const {error}=await sb.from('school_kv').upsert({key:'platform_theme',value:{id,updated_at:now},updated_by:uid,updated_at:now});
+      if(error) throw error;
+      return res.status(200).json({theme:id});
+    }
+
     return res.status(400).json({error:'عملية غير معروفة.'});
   }catch(e){
     console.error(e);
