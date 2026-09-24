@@ -2703,7 +2703,7 @@ async function saveStudentProfileChanges(){
 async function renderAttendancePage(){
  const page=document.getElementById('attendance'); if(!page)return;
  if(role==='teacher'){
-  const students=demoData.students||[],grades=[...new Set(students.map(s=>s.grade).filter(Boolean))];
+  const grades=['روضة','تمهيدي','الصف الأول','الصف الثاني','الصف الثالث','الصف الرابع'];
   page.innerHTML=`<div class="page-head"><div><h2>الحضور والغياب 📋</h2><p>اختر الصف والشعبة ثم حدد الطلاب الغائبين.</p></div></div><div class="card"><div class="upload-row"><select id="attGrade" onchange="attendanceGradeChanged()"><option value="">اختر الصف</option>${grades.map(g=>`<option>${esc(g)}</option>`).join('')}</select><select id="attSection" onchange="loadAttendanceStudents()"><option value="">اختر الشعبة</option></select></div><div id="attStudents" style="margin-top:16px"></div></div>`; return;
  }
  if(role!=='admin'){page.innerHTML='<div class="card">هذه الصفحة للمعلمين والإدارة.</div>';return;}
@@ -2768,7 +2768,7 @@ async function prepareGuardianNotifications(id){
 }
 function attendanceGradeChanged(){
  const g=document.getElementById('attGrade')?.value||''; const sel=document.getElementById('attSection'); if(!sel)return;
- const sections=[...new Set((demoData.students||[]).filter(s=>s.grade===g).map(s=>s.section).filter(Boolean))];
+ const sections=['1','2','3','4'];
  sel.innerHTML='<option value="">اختر الشعبة</option>'+sections.map(s=>`<option>${esc(s)}</option>`).join(''); document.getElementById('attStudents').innerHTML='';
 }
 async function loadAttendanceStudents(){
@@ -3987,10 +3987,11 @@ function renderAdminManagement(){
       <div class="upload-row">
         <input id="newStudentName" placeholder="اسم الطالب">
         <div>
-          <input id="newStudentPhone" type="tel" inputmode="numeric" maxlength="8" placeholder="رقم الهاتف - 8 أرقام" dir="ltr"
+          <input id="newStudentPhone" type="tel" inputmode="numeric" maxlength="8" placeholder="رقم هاتف الطالب - 8 أرقام" dir="ltr"
             oninput="validateStudentPhoneField()" onblur="validateStudentPhoneField()">
           <span id="newStudentPhoneError" class="student-field-error"></span>
         </div>
+        <input id="newGuardianPhone" type="tel" inputmode="numeric" maxlength="8" placeholder="رقم ولي الأمر - 8 أرقام" dir="ltr">
         <div>
           <input id="newStudentEmail" type="email" placeholder="example@email.com" dir="ltr"
             oninput="validateStudentEmailField()" onblur="validateStudentEmailField()">
@@ -3998,7 +3999,7 @@ function renderAdminManagement(){
         </div>
         <input id="newStudentPassword" type="password" placeholder="الرقم السري">
         <select id="newStudentGrade" aria-label="الصف">${gradeOptions}</select>
-        <select id="newStudentSection" aria-label="الشعبة"><option>أ</option><option>ب</option><option>ج</option><option>د</option></select>
+        <select id="newStudentSection" aria-label="الشعبة"><option>1</option><option>2</option><option>3</option><option>4</option></select>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
         <button id="studentFormSaveBtn" class="btn primary" onclick="saveStudentAdminForm()">إضافة الطالب</button>
@@ -4025,10 +4026,10 @@ function renderAdminManagement(){
           <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">الشعبة</label>
           <select id="studentSectionFilter" onchange="filterStudentsAdmin()">
             <option value="الكل">كل الشعب</option>
-            <option value="أ">الشعبة (أ)</option>
-            <option value="ب">الشعبة (ب)</option>
-            <option value="ج">الشعبة (ج)</option>
-            <option value="د">الشعبة (د)</option>
+            <option value="1">الشعبة 1</option>
+            <option value="2">الشعبة 2</option>
+            <option value="3">الشعبة 3</option>
+            <option value="4">الشعبة 4</option>
           </select>
         </div>
       </div>
@@ -4316,6 +4317,7 @@ function editStudentAdmin(id){
 
   const name=document.getElementById('newStudentName');
   const phone=document.getElementById('newStudentPhone');
+  const guardianPhone=document.getElementById('newGuardianPhone');
   const email=document.getElementById('newStudentEmail');
   const password=document.getElementById('newStudentPassword');
   const grade=document.getElementById('newStudentGrade');
@@ -4323,6 +4325,7 @@ function editStudentAdmin(id){
 
   if(name) name.value=s.name||'';
   if(phone) phone.value=s.phone||'';
+  if(guardianPhone) guardianPhone.value=s.guardianPhone||'';
   if(email) email.value=s.email||'';
   if(password) password.value=s.password||'';
 
@@ -4332,7 +4335,7 @@ function editStudentAdmin(id){
     if(exists) grade.value=wanted;
   }
 
-  if(section) section.value=s.section||'أ';
+  if(section) section.value=s.section||'1';
 
   setStudentFormMode(true);
   validateStudentPhoneField();
@@ -4519,20 +4522,21 @@ function validateStudentEmailField(){
 function getStudentFormValues(){
   const name=document.getElementById('newStudentName')?.value.trim()||'';
   const phone=document.getElementById('newStudentPhone')?.value.trim()||'';
+  const guardianPhone=(document.getElementById('newGuardianPhone')?.value||'').replace(/\D/g,'').slice(0,8);
   const email=(document.getElementById('newStudentEmail')?.value||'').trim().toLowerCase();
   const password=document.getElementById('newStudentPassword')?.value.trim()||'';
   const pair=(document.getElementById('newStudentGrade')?.value||'').split('||');
-  const section=document.getElementById('newStudentSection')?.value.trim()||'أ';
-  return {name,phone,email,password,stage:pair[0]||'',grade:pair[1]||'',section};
+  const section=document.getElementById('newStudentSection')?.value.trim()||'1';
+  return {name,phone,guardianPhone,email,password,stage:pair[0]||'',grade:pair[1]||'',section};
 }
 
 function clearStudentAdminForm(){
-  const ids=['newStudentName','newStudentPhone','newStudentEmail','newStudentPassword'];
+  const ids=['newStudentName','newStudentPhone','newGuardianPhone','newStudentEmail','newStudentPassword'];
   ids.forEach(id=>{const el=document.getElementById(id);if(el) el.value='';});
   const grade=document.getElementById('newStudentGrade');
   const section=document.getElementById('newStudentSection');
   if(grade) grade.selectedIndex=0;
-  if(section) section.value='أ';
+  if(section) section.value='1';
   ['newStudentPhone','newStudentEmail'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.classList.remove('field-invalid','field-valid');
@@ -4587,7 +4591,7 @@ async function saveStudentAdminForm(){
     if(editingStudentId){
       const s=demoData.students.find(x=>x.id===editingStudentId); if(!s)return;
       const oldEmail=(s.email||'').trim().toLowerCase();
-      const updated=await NabdCloud.updateUser({...s,role:'student',name:v.name,phone:v.phone,email:v.email,stage:v.stage,grade:v.grade,section:v.section},v.password);
+      const updated=await NabdCloud.updateUser({...s,role:'student',name:v.name,phone:v.phone,guardianPhone:v.guardianPhone,email:v.email,stage:v.stage,grade:v.grade,section:v.section},v.password);
       Object.assign(s,updated);
       if(currentLoginEmail && currentLoginEmail.toLowerCase()===oldEmail) currentLoginEmail=v.email;
       editingStudentId=null;
@@ -4595,7 +4599,7 @@ async function saveStudentAdminForm(){
       setTimeout(()=>{const st=document.getElementById('studentFormStatus');if(st){st.style.color='#178a5b';st.textContent='✓ تم حفظ التعديلات سحابيًا.';}},50);
       return;
     }
-    await NabdCloud.createUser('student',{name:v.name,phone:v.phone,email:v.email,studentId:'',stage:v.stage,grade:v.grade,section:v.section},v.password);
+    await NabdCloud.createUser('student',{name:v.name,phone:v.phone,guardianPhone:v.guardianPhone,email:v.email,studentId:'',stage:v.stage,grade:v.grade,section:v.section},v.password);
     await syncCloudProfiles(); renderAdminManagement();
     setTimeout(()=>{const st=document.getElementById('studentFormStatus');if(st){st.style.color='#178a5b';st.textContent='✓ تمت إضافة الطالب وحسابه السحابي بنجاح.';}},50);
   }catch(e){
