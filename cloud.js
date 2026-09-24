@@ -304,6 +304,32 @@
     };
     const {data,error}=await c.from('attendance_sessions').update(patch).eq('id',sessionId).select('*').single();
     if(error) throw error;
+
+    // بمجرد اعتماد الإدارة جهّز طابور رسائل الغياب تلقائيًا.
+    // الإرسال الفعلي عبر WaSenderAPI سيُربط في الخطوة الأخيرة.
+    if(next==='approved'){
+      const {data:records,error:rErr}=await c.from('attendance_records').select('student_id,student_name,status').eq('session_id',sessionId).eq('status','absent');
+      if(rErr) throw rErr;
+      const ids=(records||[]).map(x=>x.student_id).filter(Boolean);
+      let profiles=[];
+      if(ids.length){
+        const {data:pRows,error:pErr}=await c.from('profiles').select('auth_user_id,name,phone,guardian_phone,grade,section').in('auth_user_id',ids);
+        if(pErr) throw pErr;
+        profiles=pRows||[];
+      }
+      const byId=new Map(profiles.map(x=>[String(x.auth_user_id),x]));
+      const notificationRows=(records||[]).map(x=>{
+        const p=byId.get(String(x.student_id))||{};
+        const guardianPhone=(p.guardian_phone||p.phone||'').replace(/\D/g,'');
+        const studentName=x.student_name||p.name||'الطالب';
+        const message='السلام عليكم، نحيطكم علمًا بأن ابنكم/ابنتكم '+studentName+' من '+(data.grade||'')+' / الشعبة '+(data.section||'')+' متغيب/ة عن المدرسة اليوم '+(data.attendance_date||'')+'. في حال وجود عذر يرجى التواصل مع إدارة المدرسة.';
+        return {session_id:sessionId,student_id:x.student_id,student_name:studentName,guardian_phone:guardianPhone,message,status:'pending',sent_at:null};
+      });
+      if(notificationRows.length){
+        const {error:nErr}=await c.from('attendance_notifications').upsert(notificationRows,{onConflict:'session_id,student_id'});
+        if(nErr) throw nErr;
+      }
+    }
     return data;
   }
 
