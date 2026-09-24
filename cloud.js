@@ -68,6 +68,20 @@
 
       directSession=auth;
 
+      // خزّن جلسة Supabase في المتصفح حتى تبقى الإدارة/المعلم/الطالب مسجلين بعد تحديث الصفحة.
+      // تسجيل الدخول أعلاه يتم عبر REST مباشرة، لذلك يجب تمرير التوكنات لعميل supabase-js
+      // حتى يستخدم التخزين المحلي وتجديد الجلسة تلقائيًا.
+      try{
+        const sessionClient=await init();
+        const {error:persistError}=await sessionClient.auth.setSession({
+          access_token:auth.access_token,
+          refresh_token:auth.refresh_token
+        });
+        if(persistError) throw persistError;
+      }catch(persistErr){
+        console.warn('تعذر حفظ جلسة تسجيل الدخول محليًا:',persistErr);
+      }
+
       const profileRes=await fetch(
         conf.url+'/rest/v1/profiles?auth_user_id=eq.'+encodeURIComponent(auth.user.id)+'&select=*',
         {headers:{'apikey':conf.anonKey,'Authorization':'Bearer '+auth.access_token},signal:controller.signal}
