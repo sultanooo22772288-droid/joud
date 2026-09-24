@@ -307,6 +307,53 @@
     return data;
   }
 
+  async function prepareAttendanceNotifications(sessionId){
+    const c=await init();
+    const user=await currentUser();
+    if(!user) throw new Error('يجب تسجيل الدخول أولاً.');
+
+    const {data:session,error:sErr}=await c.from('attendance_sessions').select('*').eq('id',sessionId).single();
+    if(sErr) throw sErr;
+    if(session.approval_status!=='approved') throw new Error('يجب اعتماد التحضير أولاً.');
+
+    const {data:records,error:rErr}=await c.from('attendance_records').select('student_id,student_name,status').eq('session_id',sessionId).eq('status','absent');
+    if(rErr) throw rErr;
+    if(!(records||[]).length) return [];
+
+    const ids=(records||[]).map(x=>x.student_id).filter(Boolean);
+    const {data:profiles,error:pErr}=await c.from('profiles').select('auth_user_id,name,phone,guardian_phone,grade,section').in('auth_user_id',ids);
+    if(pErr) throw pErr;
+    const byId=new Map((profiles||[]).map(x=>[String(x.auth_user_id),x]));
+
+    const rows=(records||[]).map(x=>{
+      const p=byId.get(String(x.student_id))||{};
+      const guardianPhone=(p.guardian_phone||p.phone||'').replace(/\D/g,'');
+      const studentName=x.student_name||p.name||'الطالب';
+      const message='السلام عليكم، نحيطكم علمًا بأن الطالب '+studentName+' من '+(session.grade||'')+' / الشعبة '+(session.section||'')+' تم تسجيله متغيبًا عن المدرسة اليوم '+(session.attendance_date||'')+'. في حال وجود عذر يرجى إبلاغ إدارة المدرسة.';
+      return {session_id:sessionId,student_id:x.student_id,student_name:studentName,guardian_phone:guardianPhone,message,status:'pending'};
+    });
+
+    const {data,error}=await c.from('attendance_notifications').upsert(rows,{onConflict:'session_id,student_id'}).select('*');
+    if(error) throw error;
+    return data||[];
+  }
+
+  async function listAttendanceNotifications(sessionId){
+    const c=await init();
+    let q=c.from('attendance_notifications').select('*').order('created_at',{ascending:false});
+    if(sessionId) q=q.eq('session_id',sessionId);
+    const {data,error}=await q;
+    if(error) throw error;
+    return data||[];
+  }
+
+  async function markAttendanceNotificationSent(id){
+    const c=await init();
+    const {data,error}=await c.from('attendance_notifications').update({status:'sent',sent_at:new Date().toISOString()}).eq('id',id).select('*').single();
+    if(error) throw error;
+    return data;
+  }
+
   window.NabdCloud={
     init,signIn,signOut,restoreSession,getAccessToken,loadProfiles,createUser,updateUser,deleteUser,bulkCreateUsers,loadAdminCredentials,syncOwnCredential,
     currentUser,uploadSchoolFile,signedSchoolFileUrl,
@@ -315,7 +362,7 @@
     setHomeworkScoreVisibility,listClassStudents,
     saveStudentReport,myStudentReports,myStudentReportBundle,getTeacherStudentReport,
     createTeacherContent,listTeacherContent,deleteTeacherContent,createTeacherHomework,listTeacherHomeworks,deleteTeacherHomework,adminAllTeacherContent,
-    demoVisitStats,saveAttendanceSession,listAttendanceSessions,getAttendanceRecords,updateAttendanceApproval,
+    demoVisitStats,saveAttendanceSession,listAttendanceSessions,getAttendanceRecords,updateAttendanceApproval,prepareAttendanceNotifications,listAttendanceNotifications,markAttendanceNotificationSent,
     get config(){return cfg;}
   };
 })();
