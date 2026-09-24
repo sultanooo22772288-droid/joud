@@ -2724,7 +2724,8 @@ async function renderAttendancePage(){
    <div class="card" style="margin-top:16px"><div class="section-title" style="margin:0 0 10px"><h3>📈 التقرير الشهري</h3><span>إحصائيات الصفوف والشعب</span></div><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px"><input id="attendanceMonth" type="month" value="${window.attendanceMonth||new Date().toISOString().slice(0,7)}" onchange="window.attendanceMonth=this.value;renderAttendanceMonthlyReport()" style="padding:10px;border:1px solid var(--line);border-radius:12px;background:#fff"><button class="btn soft" onclick="exportAttendanceMonthlyCsv()">⬇️ تصدير التقرير</button></div><div id="attendanceMonthlyReport">جاري تحميل التقرير...</div></div>
    <div class="card" style="margin-top:16px"><div class="section-title" style="margin:0 0 10px"><h3>📊 تقارير الغياب المتكرر</h3><span>آخر 30 يومًا</span></div><div id="attendanceRepeatReport">جاري تحميل التقرير...</div></div>
    <div class="card" style="margin-top:16px"><div class="section-title" style="margin:0 0 10px"><h3>🔄 السجلات الجاهزة للمزامنة</h3><span>السجلات المعتمدة فقط</span></div><div id="attendanceSyncQueue"></div></div>
-   <div class="card" style="margin-top:16px"><div class="section-title" style="margin:0 0 10px"><h3>🗂️ سجل التحضير</h3><span>آخر 30 يومًا</span></div><div id="attendanceHistoryLog">جاري التحميل...</div></div>`;
+   <div class="card" style="margin-top:16px"><div class="section-title" style="margin:0 0 10px"><h3>🗂️ سجل التحضير</h3><span>آخر 30 يومًا</span></div><div id="attendanceHistoryLog">جاري التحميل...</div></div>
+   <div class="card" style="margin-top:16px"><div class="section-title" style="margin:0 0 10px"><h3>🔐 سجل الإجراءات</h3><span>حفظ، تعديل، اعتماد ورفض</span></div><div id="attendanceAuditLog">جاري تحميل السجل...</div></div>`;
   renderAdminAttendanceFiltered();
   window.attendanceAllSessions=rows||[];
   setTimeout(()=>{renderAttendanceReports(rows);renderAttendanceMonthlyReport();},0);
@@ -2784,6 +2785,7 @@ async function renderAttendanceReports(rows){
  const repeatBox=document.getElementById('attendanceRepeatReport');
  const syncBox=document.getElementById('attendanceSyncQueue');
  const historyBox=document.getElementById('attendanceHistoryLog');
+ const auditBox=document.getElementById('attendanceAuditLog');
  if(!repeatBox||!syncBox||!historyBox)return;
  try{
   const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-30);
@@ -2798,6 +2800,14 @@ async function renderAttendanceReports(rows){
   historyBox.innerHTML=history.length
    ? `<div style="overflow:auto"><table style="width:100%;min-width:720px"><thead><tr><th>التاريخ</th><th>الصف</th><th>الشعبة</th><th>المعلم</th><th>الاعتماد</th><th>المزامنة</th></tr></thead><tbody>${history.map(x=>`<tr><td>${esc(x.attendance_date)}</td><td>${esc(x.grade)}</td><td>${esc(x.section)}</td><td>${esc(x.teacher_name||'معلم')}</td><td>${(x.approval_status||'pending')==='approved'?'معتمد':(x.approval_status==='rejected'?'مرفوض':'بانتظار الاعتماد')}</td><td>${x.sync_status==='synced'?'تمت':x.sync_status==='pending'?'جاهز':'غير جاهز'}</td></tr>`).join('')}</tbody></table></div>`
    : '<div style="padding:18px;text-align:center;color:var(--muted)">لا توجد سجلات خلال آخر 30 يومًا.</div>';
+
+  if(auditBox){
+    try{
+      const audits=await NabdCloud.listAttendanceAudit();
+      const labels={submitted:'حفظ التحضير',updated:'تعديل التحضير',approved:'اعتماد الإدارة',rejected:'رفض الإدارة'};
+      auditBox.innerHTML=audits.length?`<div style="overflow:auto"><table style="width:100%;min-width:650px"><thead><tr><th>الوقت</th><th>المستخدم</th><th>الإجراء</th><th>الملاحظة</th></tr></thead><tbody>${audits.slice(0,100).map(a=>`<tr><td>${new Date(a.created_at).toLocaleString('ar-OM')}</td><td>${esc(a.actor_name||a.actor_role||'')}</td><td>${esc(labels[a.action]||a.action)}</td><td>${esc(a.note||'—')}</td></tr>`).join('')}</tbody></table></div>`:'<div style="padding:18px;text-align:center;color:var(--muted)">لا توجد إجراءات مسجلة بعد.</div>';
+    }catch(e){auditBox.textContent='تعذر تحميل سجل الإجراءات.';}
+  }
 
   const sample=recent.slice(0,60);
   const detailRows=await Promise.all(sample.map(async s=>({session:s,records:await NabdCloud.getAttendanceRecords(s.id)})));
