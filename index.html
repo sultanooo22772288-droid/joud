@@ -2754,7 +2754,7 @@ async function renderAttendanceReports(rows){
   const approvedReady=(rows||[]).filter(x=>(x.approval_status||'pending')==='approved' && (x.sync_status||'not_ready')!=='synced');
 
   syncBox.innerHTML=approvedReady.length
-   ? approvedReady.map(x=>`<div style="border:1px solid var(--line);border-radius:14px;padding:11px;margin:8px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>${esc(x.attendance_date)}</b><span>${esc(x.grade)} — الشعبة ${esc(x.section)}</span><span class="tag blue">جاهز للمزامنة</span><span style="color:var(--muted)">${esc(x.teacher_name||'معلم')}</span></div>`).join('')
+   ? approvedReady.map(x=>`<div style="border:1px solid var(--line);border-radius:14px;padding:11px;margin:8px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>${esc(x.attendance_date)}</b><span>${esc(x.grade)} — الشعبة ${esc(x.section)}</span><span class="tag blue">جاهز للمزامنة</span><span style="color:var(--muted)">${esc(x.teacher_name||'معلم')}</span><span style="margin-right:auto"><button class="btn soft" onclick="flagAttendanceForSync(${x.id})">وضع في قائمة المزامنة</button></span></div>`).join('')
    : '<div style="padding:18px;text-align:center;color:var(--muted)">لا توجد سجلات معتمدة بانتظار المزامنة.</div>';
 
   const history=[...recent].sort((a,b)=>String(b.attendance_date).localeCompare(String(a.attendance_date))).slice(0,80);
@@ -2764,20 +2764,41 @@ async function renderAttendanceReports(rows){
 
   const sample=recent.slice(0,60);
   const detailRows=await Promise.all(sample.map(async s=>({session:s,records:await NabdCloud.getAttendanceRecords(s.id)})));
+  window.attendanceRecentDetailRows=detailRows;
   const counts=new Map();
   detailRows.forEach(x=>x.records.filter(r=>r.status==='absent').forEach(r=>{
     const key=String(r.student_id||r.student_name||'');
     const cur=counts.get(key)||{name:r.student_name||'طالب',count:0,grade:x.session.grade,section:x.session.section};
     cur.count++; cur.grade=x.session.grade; cur.section=x.session.section; counts.set(key,cur);
   }));
-  const repeated=[...counts.values()].filter(x=>x.count>=2).sort((a,b)=>b.count-a.count);
+  const repeated=[...counts.entries()].map(([key,v])=>({...v,key})).filter(x=>x.count>=2).sort((a,b)=>b.count-a.count);
   repeatBox.innerHTML=repeated.length
-   ? `<div style="overflow:auto"><table style="width:100%"><thead><tr><th>الطالب</th><th>الصف</th><th>الشعبة</th><th>مرات الغياب</th></tr></thead><tbody>${repeated.map(x=>`<tr><td><b>${esc(x.name)}</b></td><td>${esc(x.grade)}</td><td>${esc(x.section)}</td><td><span class="tag red">${x.count}</span></td></tr>`).join('')}</tbody></table></div>`
+   ? `<div style="overflow:auto"><table style="width:100%"><thead><tr><th>الطالب</th><th>الصف</th><th>الشعبة</th><th>مرات الغياب</th><th>السجل</th></tr></thead><tbody>${repeated.map(x=>`<tr><td><b>${esc(x.name)}</b></td><td>${esc(x.grade)}</td><td>${esc(x.section)}</td><td><span class="tag red">${x.count}</span></td><td><button class="btn soft" onclick="showStudentAttendanceHistory('${esc(String(x.key))}')">عرض</button></td></tr>`).join('')}</tbody></table></div><div id="studentAttendanceHistoryBox" style="margin-top:14px"></div>`
    : '<div style="padding:18px;text-align:center;color:#178a5b;font-weight:700">✓ لا يوجد غياب متكرر مرتين أو أكثر خلال آخر 30 يومًا</div>';
  }catch(e){
   if(repeatBox) repeatBox.textContent='تعذر تحميل التقرير: '+(e.message||'');
   if(historyBox) historyBox.textContent='تعذر تحميل السجل.';
  }
+}
+function showStudentAttendanceHistory(studentKey){
+ const box=document.getElementById('studentAttendanceHistoryBox'); if(!box)return;
+ const rows=window.attendanceRecentDetailRows||[];
+ const items=[];
+ rows.forEach(x=>x.records.forEach(r=>{
+  const key=String(r.student_id||r.student_name||'');
+  if(key===String(studentKey)) items.push({date:x.session.attendance_date,status:r.status,grade:x.session.grade,section:x.session.section,teacher:x.session.teacher_name||'معلم'});
+ }));
+ items.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+ if(!items.length){box.innerHTML='<div style="color:var(--muted)">لا يوجد سجل لهذا الطالب ضمن الفترة.</div>';return;}
+ const abs=items.filter(x=>x.status==='absent').length, present=items.length-abs;
+ box.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><span class="tag blue">إجمالي الأيام: ${items.length}</span><span class="tag green">حضور: ${present}</span><span class="tag red">غياب: ${abs}</span></div><div style="overflow:auto"><table style="width:100%"><thead><tr><th>التاريخ</th><th>الحالة</th><th>الصف</th><th>الشعبة</th><th>المعلم</th></tr></thead><tbody>${items.map(x=>`<tr><td>${esc(x.date)}</td><td>${x.status==='absent'?'<span class="tag red">غائب</span>':'<span class="tag green">حاضر</span>'}</td><td>${esc(x.grade)}</td><td>${esc(x.section)}</td><td>${esc(x.teacher)}</td></tr>`).join('')}</tbody></table></div>`;
+}
+async function flagAttendanceForSync(id){
+ try{
+  await NabdCloud.updateAttendanceSyncStatus(id,'pending');
+  alert('تم تجهيز السجل داخل قائمة المزامنة. الربط الخارجي نفسه سنفعله في الخطوة الأخيرة.');
+  await renderAttendancePage();
+ }catch(e){alert('تعذر تحديث حالة المزامنة: '+(e.message||''));}
 }
 async function approveAttendanceSession(id){
  try{
