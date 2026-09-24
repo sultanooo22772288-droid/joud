@@ -376,3 +376,11 @@ body:not([data-theme]) .btn.soft,body[data-theme="default"] .btn.soft{background
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none !important;transition:none !important}
 }
+
+/* ---------- توسيط محتوى شاشة الدخول ---------- */
+.jd-login-brand{justify-content:center}
+.jd-login-body{text-align:center;max-width:520px;width:100%;margin:0 auto}
+.jd-kicker{align-self:center}
+.jd-field label{text-align:center}
+.jd-remember{justify-content:center}
+.jd-login-copy{text-align:center}
