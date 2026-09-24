@@ -1500,7 +1500,7 @@ body[data-theme] .app-shell,body[data-theme] .login-screen{position:relative;z-i
       <section id="schedule" class="page"></section>
       <section id="notifications" class="page"></section>
       <section id="ai" class="page"></section>
-      <section id="profile" class="page"></section>
+      <section id="profile" class="page"></section>\n      <section id="attendance" class="page"></section>
       <section id="themesAdmin" class="page"></section>
       <section id="announcementsAdmin" class="page"></section>
       <section id="studentsAdmin" class="page"></section>
@@ -1531,10 +1531,10 @@ const navByRole = {
   ],
   teacher:[
     ['dashboard','🏠','الرئيسية'],['subjects','📚','المواد'],['lessons','🎓','إدارة الدروس'],['assignments','📝','إدارة الواجبات'],
-    ['quizzes','✅','الاختبارات'],['progressPage','📊','تقارير الطلاب'],['schedule','🗓️','الجدول'],['notifications','🔔','الإشعارات'],['profile','👤','الملف الشخصي']
+    ['quizzes','✅','الاختبارات'],['attendance','📋','الحضور والغياب'],['progressPage','📊','تقارير الطلاب'],['schedule','🗓️','الجدول'],['notifications','🔔','الإشعارات'],['profile','👤','الملف الشخصي']
   ],
   admin:[
-    ['dashboard','🏠','الرئيسية'],['studentsAdmin','👨‍🎓','الطلاب'],['teachersAdmin','👨‍🏫','المعلمون'],['stagesAdmin','🏫','المراحل والصفوف'],
+    ['dashboard','🏠','الرئيسية'],['attendance','📋','الحضور والغياب'],['studentsAdmin','👨‍🎓','الطلاب'],['teachersAdmin','👨‍🏫','المعلمون'],['stagesAdmin','🏫','المراحل والصفوف'],
     ['subjects','📚','المواد'],['lessons','🎓','الدروس'],['assignments','📝','الواجبات'],['quizzes','✅','الاختبارات'],
     ['progressPage','📊','التقارير'],['schedule','🗓️','الجداول'],['notifications','🔔','الإشعارات'],['announcementsAdmin','📢','الإعلانات'],['themesAdmin','🎨','الثيمات'],['profile','⚙️','الإعدادات']
   ]
@@ -2717,6 +2717,38 @@ async function saveStudentProfileChanges(){
   }catch(e){if(status){status.style.color='#c0392b';status.textContent='تعذر التحديث: '+(e.message||'');}}
 }
 
+async function renderAttendancePage(){
+  const page=document.getElementById('attendance'); if(!page)return;
+  if(role==='teacher'){
+    const students=demoData.students||[];
+    const grades=[...new Set(students.map(s=>s.grade).filter(Boolean))];
+    page.innerHTML=`<div class="page-head"><div><h2>الحضور والغياب 📋</h2><p>اختر الصف والشعبة ثم حدد الطلاب الغائبين.</p></div></div>
+    <div class="card"><div class="upload-row"><select id="attGrade" onchange="attendanceGradeChanged()"><option value="">اختر الصف</option>${grades.map(g=>`<option>${esc(g)}</option>`).join('')}</select><select id="attSection" onchange="loadAttendanceStudents()"><option value="">اختر الشعبة</option></select></div><div id="attStudents" style="margin-top:16px"></div></div>`;
+  }else if(role==='admin'){
+    page.innerHTML='<div class="page-head"><div><h2>متابعة الحضور والغياب 📋</h2><p>سجلات التحضير المسجلة من المعلمين.</p></div></div><div class="card" id="attendanceAdminList">جاري تحميل السجلات...</div>';
+    try{const rows=await NabdCloud.listAttendanceSessions(); const box=document.getElementById('attendanceAdminList'); if(!rows.length){box.innerHTML='<div style="text-align:center;color:var(--muted);padding:24px">لا توجد سجلات تحضير حتى الآن.</div>';return;} box.innerHTML='<div style="overflow:auto"><table style="width:100%"><thead><tr><th>التاريخ</th><th>الصف</th><th>الشعبة</th><th>تم التسجيل بواسطة</th><th>الوقت</th><th>التفاصيل</th></tr></thead><tbody>'+rows.map(x=>`<tr><td>${esc(x.attendance_date)}</td><td>${esc(x.grade)}</td><td>${esc(x.section)}</td><td><b>${esc(x.teacher_name||'معلم')}</b></td><td>${new Date(x.submitted_at).toLocaleTimeString('ar-OM',{hour:'2-digit',minute:'2-digit'})}</td><td><button class="btn soft" onclick="showAttendanceDetails(${x.id})">عرض</button></td></tr>`).join('')+'</tbody></table></div>';}catch(e){document.getElementById('attendanceAdminList').textContent='تعذر تحميل السجلات: '+e.message;}
+  }else page.innerHTML='<div class="card">هذه الصفحة للمعلمين والإدارة.</div>';
+}
+function attendanceGradeChanged(){
+ const g=document.getElementById('attGrade')?.value||''; const sel=document.getElementById('attSection'); if(!sel)return;
+ const sections=[...new Set((demoData.students||[]).filter(s=>s.grade===g).map(s=>s.section).filter(Boolean))];
+ sel.innerHTML='<option value="">اختر الشعبة</option>'+sections.map(s=>`<option>${esc(s)}</option>`).join(''); document.getElementById('attStudents').innerHTML='';
+}
+async function loadAttendanceStudents(){
+ const grade=document.getElementById('attGrade')?.value||'', section=document.getElementById('attSection')?.value||'', box=document.getElementById('attStudents'); if(!grade||!section||!box)return;
+ box.innerHTML='جاري تحميل الطلاب...';
+ try{const students=await NabdCloud.listClassStudents(grade,section); if(!students.length){box.innerHTML='<div style="color:var(--muted)">لا يوجد طلاب في هذا الصف والشعبة.</div>';return;}
+ box.innerHTML=`<div style="display:grid;gap:8px">${students.map((s,i)=>`<label style="display:flex;align-items:center;justify-content:space-between;padding:12px;border:1px solid var(--line);border-radius:14px"><span><b>${esc(s.name||'طالب')}</b><small style="display:block;color:var(--muted)">حاضر افتراضيًا</small></span><span><input type="checkbox" class="attAbsent" data-id="${s.auth_user_id}" data-name="${esc(s.name||'')}" style="width:20px;height:20px"> غائب</span></label>`).join('')}</div><button class="btn primary" style="margin-top:16px" onclick="saveAttendance()">💾 حفظ التحضير</button><span id="attSaveStatus" style="margin-right:12px"></span>`;
+ }catch(e){box.textContent='تعذر تحميل الطلاب: '+e.message;}
+}
+async function saveAttendance(){
+ const grade=document.getElementById('attGrade')?.value||'',section=document.getElementById('attSection')?.value||'',st=document.getElementById('attSaveStatus'); const checks=[...document.querySelectorAll('.attAbsent')];
+ try{if(st)st.textContent='جاري الحفظ...'; const students=checks.map(x=>({auth_user_id:x.dataset.id,name:x.dataset.name,status:x.checked?'absent':'present'})); await NabdCloud.saveAttendanceSession({grade,section,students}); if(st){st.style.color='#178a5b';st.textContent='✓ تم تسجيل التحضير بنجاح';}}catch(e){if(st){st.style.color='#c0392b';st.textContent=e.message||'تعذر الحفظ';}}
+}
+async function showAttendanceDetails(id){
+ try{const rows=await NabdCloud.getAttendanceRecords(id); const absent=rows.filter(x=>x.status==='absent'); alert(absent.length?'الطلاب الغائبون:\n'+absent.map(x=>'• '+x.student_name).join('\n'):'لا يوجد غياب — جميع الطلاب حاضرون.');}catch(e){alert('تعذر تحميل التفاصيل: '+e.message);}
+}
+
 function renderRolePages(){
   role=normalizeAccountRole(role);
   renderAdminManagement();
@@ -2725,6 +2757,7 @@ function renderRolePages(){
   renderThemesPage();
   renderAnnouncementsAdmin();
   renderAnnouncementTicker();
+  renderAttendancePage();
   const lessons=document.getElementById('lessons');
   const assignments=document.getElementById('assignments');
   const subjects=document.getElementById('subjects');
