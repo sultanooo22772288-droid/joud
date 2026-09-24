@@ -354,6 +354,16 @@
     return data;
   }
 
+  async function updateAttendanceSyncStatus(sessionId,status){
+    const c=await init();
+    const user=await currentUser();
+    if(!user) throw new Error('يجب تسجيل الدخول أولاً.');
+    const next=['not_ready','pending','synced','failed'].includes(status)?status:'pending';
+    const {data,error}=await c.from('attendance_sessions').update({sync_status:next,updated_at:new Date().toISOString()}).eq('id',sessionId).select('*').single();
+    if(error) throw error;
+    return data;
+  }
+
   window.NabdCloud={
     init,signIn,signOut,restoreSession,getAccessToken,loadProfiles,createUser,updateUser,deleteUser,bulkCreateUsers,loadAdminCredentials,syncOwnCredential,
     currentUser,uploadSchoolFile,signedSchoolFileUrl,
@@ -362,7 +372,7 @@
     setHomeworkScoreVisibility,listClassStudents,
     saveStudentReport,myStudentReports,myStudentReportBundle,getTeacherStudentReport,
     createTeacherContent,listTeacherContent,deleteTeacherContent,createTeacherHomework,listTeacherHomeworks,deleteTeacherHomework,adminAllTeacherContent,
-    demoVisitStats,saveAttendanceSession,listAttendanceSessions,getAttendanceRecords,updateAttendanceApproval,prepareAttendanceNotifications,listAttendanceNotifications,markAttendanceNotificationSent,
+    demoVisitStats,saveAttendanceSession,listAttendanceSessions,getAttendanceRecords,updateAttendanceApproval,prepareAttendanceNotifications,listAttendanceNotifications,markAttendanceNotificationSent,updateAttendanceSyncStatus,
     get config(){return cfg;}
   };
 })();
