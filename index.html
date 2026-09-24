@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>منصة نَبْض للتعلّم</title>
+  <title>منصة جود للتعلّم</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@500;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Reem+Kufi:wght@600;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
   <style>
     :root{
       --bg:#f6f8ff;
@@ -1413,48 +1413,54 @@ body[data-theme] .app-shell,body[data-theme] .login-screen{position:relative;z-i
     }
 
   </style>
+  <link rel="stylesheet" href="joud-design.css">
 </head>
 <body>
 <div id="deleteSuccessToast" class="success-toast"></div>
 <div id="themeScenery" class="theme-scenery" aria-hidden="true"></div>
 
 </div>
-<div id="login" class="login-overlay">
-  <div class="login-card login-approved-design">
-    <div class="login-form">
-      <div class="login-brand">
-        <div class="login-brand-icon">✦</div>
+<div id="login" class="login-overlay jd-login">
+  <div class="jd-login-shell">
+    <div class="jd-login-form">
+      <div class="jd-login-brand">
+        <div class="jd-login-logo"><svg viewBox="0 0 64 64" fill="none" stroke="#F2A93B" stroke-width="4" stroke-linejoin="round" aria-hidden="true"><path d="M16 16h32v32H16z"/><path d="M32 9.4 54.6 32 32 54.6 9.4 32z"/></svg></div>
+        <div><b>جود</b><span>منصة إدارة المدارس</span></div>
+      </div>
+
+      <div class="jd-login-body">
+        <span class="jd-kicker">أهلًا بك من جديد</span>
         <div>
-          <h2>نبض المدرسة</h2>
-          <span>منصة إدارة المدارس</span>
+          <h1>مرحبًا بك</h1>
+          <p class="jd-sub">سجّل الدخول للوصول إلى حسابك</p>
         </div>
+        <div class="jd-field">
+          <label for="loginEmail">البريد الإلكتروني</label>
+          <div class="jd-input"><svg class="jd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18v14H3zM3 6l9 7 9-7"/></svg><input id="loginEmail" type="email" placeholder="أدخل البريد الإلكتروني" autocomplete="username"></div>
+        </div>
+        <div class="jd-field">
+          <label for="loginPassword">كلمة المرور</label>
+          <div class="jd-input has-toggle"><svg class="jd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4"/></svg><input id="loginPassword" type="password" placeholder="أدخل كلمة المرور" autocomplete="current-password"><button type="button" class="jd-eye" onclick="jdTogglePassword(this)" aria-label="إظهار كلمة المرور" aria-pressed="false"><svg class="jd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg></button></div>
+        </div>
+        <label class="jd-remember">
+          <input id="rememberLogin" type="checkbox">
+          <span>تذكرني وحفظ بيانات الدخول</span>
+        </label>
+        <button class="btn primary login-main-btn" onclick="enterDemo()">تسجيل الدخول</button>
       </div>
-
-      <div class="login-welcome">
-        <h1>مرحبًا بك</h1>
-        <p>سجّل الدخول للوصول إلى حسابك</p>
-      </div>
-
-      <div class="field">
-        <label>البريد الإلكتروني</label>
-        <input id="loginEmail" type="email" placeholder="أدخل البريد الإلكتروني" autocomplete="username">
-      </div>
-      <div class="field">
-        <label>كلمة المرور</label>
-        <input id="loginPassword" type="password" placeholder="أدخل كلمة المرور" autocomplete="current-password">
-      </div>
-
-      <label class="remember-approved">
-        <input id="rememberLogin" type="checkbox">
-        <span>تذكرني وحفظ بيانات الدخول</span>
-      </label>
-
-      <button class="btn primary login-main-btn" onclick="enterDemo()">تسجيل الدخول</button>
-      <div class="login-copyright">جميع الحقوق محفوظة © 2026 نبض المدرسة</div>
+      <div class="jd-login-copy">جميع الحقوق محفوظة © 2026 منصة جود</div>
     </div>
 
-    <div class="login-visual approved-login-visual">
-      <img src="school-login-children.png" alt="طفلان يحملان حقائب مدرسية">
+    <div class="jd-login-visual" aria-hidden="true">
+      <span class="jd-shape s1"></span><span class="jd-shape s2"></span><span class="jd-shape s3"></span>
+      <div class="jd-login-center">
+        <div class="jd-wordmark">جود</div>
+        <p class="jd-tagline">نتعلّم بمتعة</p>
+        <p class="jd-quote">كل إنجاز كبير يبدأ بخطوة صغيرة… وخطوتك اليوم تصنع فرق الغد</p>
+      </div>
+      <div class="jd-float-card c1"><div><span class="ic" style="background:#E3F5EC;color:#17805A"><svg class="jd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" stroke-width="2.4"><path d="m5 12 5 5 9-10"/></svg></span><span><b>تم تسليم الواجب</b><small>تابع مهامك أولًا بأول</small></span></div></div>
+      <div class="jd-float-card c2"><div><span class="ic" style="background:#FDF0DA"><svg class="jd-ico" viewBox="0 0 24 24" fill="#F2A93B" stroke="#C47D12" stroke-width="1.4" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg></span><span><b>نقاط وإنجازات</b><small>كل خطوة تُحتسب</small></span></div></div>
+      <div class="jd-float-card c3"><div><svg class="jd-mini-ring" viewBox="0 0 56 56"><circle cx="28" cy="28" r="24" fill="none" stroke="#EEF1FB" stroke-width="6"/><circle class="val" cx="28" cy="28" r="24" fill="none" stroke="#22358A" stroke-width="6" stroke-linecap="round" style="stroke-dashoffset:33.2"/></svg><span><b>تقدّمك</b><small>تقارير واضحة لكل مادة</small></span></div></div>
     </div>
   </div>
 </div>
@@ -1462,8 +1468,8 @@ body[data-theme] .app-shell,body[data-theme] .login-screen{position:relative;z-i
 <div class="app">
   <aside class="sidebar">
     <div class="brand">
-      <div class="brand-logo">✦</div>
-      <div><h2>منصة نَبْض</h2><small>نتعلّم بمتعة</small></div>
+      <div class="brand-logo"><svg viewBox="0 0 64 64" fill="none" stroke="#F2A93B" stroke-width="4" stroke-linejoin="round" aria-hidden="true"><path d="M16 16h32v32H16z"/><path d="M32 9.4 54.6 32 32 54.6 9.4 32z"/></svg></div>
+      <div><h2>جود</h2><small>نتعلّم بمتعة</small></div>
     </div>
     <nav class="nav" id="nav"></nav>
     <div class="role-switch">
@@ -1479,10 +1485,10 @@ body[data-theme] .app-shell,body[data-theme] .login-screen{position:relative;z-i
       </div>
     </div>
     <div class="topbar">
-      <input class="search" placeholder="ابحث في المنصة...">
+      <input class="search" type="search" placeholder="ابحث في المنصة..." aria-label="بحث في المنصة">
       <div class="top-actions">
-        <button class="icon-btn" onclick="showPage('notifications')">🔔</button>
-        <div class="avatar">🧒</div>
+        <button class="icon-btn" onclick="showPage('notifications')" aria-label="الإشعارات"><svg class="jd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 21h4"/></svg><span class="jd-dot"></span></button>
+        <div class="avatar"><svg class="jd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0"/></svg></div>
       </div>
     </div>
 
@@ -1509,17 +1515,18 @@ body[data-theme] .app-shell,body[data-theme] .login-screen{position:relative;z-i
 </div>
 
 <div class="mobile-nav">
-  <button onclick="showPage('dashboard')">🏠<span>الرئيسية</span></button>
-  <button onclick="showPage('subjects')">📚<span>المواد</span></button>
-  <button onclick="showPage('assignments')">📝<span>الواجبات</span></button>
-  <button onclick="mobileAI()">🤖<span>المساعد</span></button>
-  <button onclick="showPage('profile')">👤<span>حسابي</span></button>
+  <button class="active" data-page="dashboard" onclick="showPage('dashboard')"><svg class="jd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>الرئيسية</span></button>
+  <button data-page="subjects" onclick="showPage('subjects')"><svg class="jd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5zM4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg><span>المواد</span></button>
+  <button class="jd-ai" data-page="ai" onclick="mobileAI()" aria-label="المساعد"><svg class="jd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7-4.7-1.8 4.7-1.8zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg><span>المساعد</span></button>
+  <button data-page="assignments" onclick="showPage('assignments')"><svg class="jd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6v3H9zM7 5H5v16h14V5h-2M9 12h6M9 16h4"/></svg><span>الواجبات</span></button>
+  <button data-page="profile" onclick="showPage('profile')"><svg class="jd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0"/></svg><span>حسابي</span></button>
 </div>
 
 <script src="supabase-config.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="cloud.js"></script>
+<script src="joud-design.js"></script>
 <script>
 const navByRole = {
   student:[
@@ -1648,7 +1655,7 @@ function renderAnnouncementTicker(){
   if(!track || !ticker) return;
   const list=getSchoolAnnouncements().filter(x=>x.active!==false);
   if(!list.length){
-    track.innerHTML='<span class="announcement-empty">مرحبًا بكم في منصة نبض المدرسة</span>';
+    track.innerHTML='<span class="announcement-empty">مرحبًا بكم في منصة جود</span>';
     return;
   }
   const items=list.map(a=>`<span class="announcement-item">${esc(a.text)}</span>`).join('');
@@ -1951,16 +1958,17 @@ function renderNav(){
   const n=document.getElementById('nav'); n.innerHTML='';
   const items=navByRole[role]||navByRole.student;
   items.forEach(([id,ic,name],i)=>{
-    const b=document.createElement('button'); b.innerHTML=`<span class="ico">${ic}</span>${name}`; b.onclick=()=>showPage(id); if(i===0)b.classList.add('active'); b.dataset.page=id; n.appendChild(b);
+    const b=document.createElement('button'); b.innerHTML=`<span class="ico">${window.jdIcon?jdIcon(ic):ic}</span>${name}`; b.onclick=()=>showPage(id); if(i===0)b.classList.add('active'); b.dataset.page=id; n.appendChild(b);
   })
 }
 function showPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   (document.getElementById(id)||document.getElementById('dashboard')).classList.add('active');
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));
+  if(window.jdAfterShow) jdAfterShow(id);
 }
-function stat(icon,bg,num,label){return `<div class="card stat"><div class="bubble" style="background:${bg}">${icon}</div><div><h4>${num}</h4><p>${label}</p></div></div>`}
-function task(icon,title,sub,tag,cls){return `<div class="task"><div class="dot">${icon}</div><div><strong>${title}</strong><small>${sub}</small></div><span class="tag ${cls}">${tag}</span></div>`}
+function stat(icon,bg,num,label){return `<div class="card stat"><div class="bubble" style="background:${bg}">${window.jdIcon?jdIcon(icon):icon}</div><div><h4>${num}</h4><p>${label}</p></div></div>`}
+function task(icon,title,sub,tag,cls){return `<div class="task"><div class="dot">${window.jdIcon?jdIcon(icon):icon}</div><div><strong>${title}</strong><small>${sub}</small></div><span class="tag ${cls}">${tag}</span></div>`}
 
 function renderDashboard(){
  const d=document.getElementById('dashboard');
@@ -1970,7 +1978,7 @@ function renderDashboard(){
  const studentGrade=esc(currentStudent?.grade||'غير محدد');
  const studentSection=esc(currentStudent?.section||'غير محددة');
  d.innerHTML=`
-  <div class="role-welcome">
+  <div class="role-welcome has-ring">
     <div class="role-welcome-content">
       <div class="role-welcome-kicker">🎓 بوابتك ليوم دراسي جديد</div>
       <h1>مرحبًا ${studentFirstName} 👋</h1>
@@ -1981,6 +1989,11 @@ function renderDashboard(){
         <button class="welcome-action" onclick="showPage('assignments')">📝 عرض واجباتي</button>
         <button class="welcome-action ghost" onclick="showPage('lessons')">📚 متابعة الدروس</button>
       </div>
+    </div>
+    <div class="jd-ring" aria-label="إجمالي التقدّم 78%">
+      <svg viewBox="0 0 160 160" aria-hidden="true"><circle class="track" cx="80" cy="80" r="72" stroke-width="10"/><circle class="val" cx="80" cy="80" r="72" fill="none" stroke-width="10" style="stroke-dashoffset:99.5"/></svg>
+      <div class="jd-ring-label"><b>78%</b><span>إجمالي التقدّم</span></div>
+      <span class="jd-ring-badge">${window.jdSvg?jdSvg('tick'):''}</span>
     </div>
   </div>
   <div class="section-title"><h3>ملخص اليوم</h3></div>
@@ -2081,7 +2094,9 @@ function teacherQuickAction(action){
 }
 
 function subjectCard(icon,title,bg,p){
- return `<div class="card subject" onclick="showPage('lessons')"><div class="subject-top" style="background:${bg}">${icon}</div><h4>${title}</h4><div class="meta">12 درس • ${p}% مكتمل</div><div class="progress"><span style="width:${p}%"></span></div></div>`
+ const [tint,ink]=window.jdSubjectColors?jdSubjectColors(bg):[bg,'var(--green)'];
+ const ico=window.jdIcon?jdIcon(icon):icon;
+ return `<div class="card subject" onclick="showPage('lessons')"><div class="subject-top" style="background:${tint}"><span class="jd-subj-ico" style="color:${ink}">${ico}</span></div><h4>${title}</h4><div class="meta">12 درس • ${p}% مكتمل</div><div class="progress"><span style="width:${p}%;background:${ink}"></span></div></div>`
 }
 
 document.getElementById('subjects').innerHTML=`
@@ -2233,8 +2248,8 @@ document.getElementById('notifications').innerHTML=`
  <div class="card">${task('📝','واجب جديد في الرياضيات','قبل 10 دقائق','جديد','orange')}${task('✅','ظهرت نتيجة اختبار العلوم','قبل ساعة','88%','green')}${task('📣','إعلان من إدارة المدرسة','الرحلة المدرسية يوم الخميس','إعلان','blue')}${task('🗓️','تم تعديل جدول الأربعاء','أضيفت حصة علوم','تحديث','red')}</div>`;
 
 document.getElementById('ai').innerHTML=`
- <div class="page-head"><div><h2>مساعد نَبْض الذكي 🤖</h2><p>اسأل، تعلّم، وتدرّب خطوة بخطوة.</p></div></div>
- <div class="card ai-box"><div class="chat" id="chat"><div class="msg bot">مرحبًا! 👋 أنا نَبْض. أستطيع شرح الدروس، مساعدتك في حل المسائل خطوة بخطوة، أو اختبارك بأسئلة قصيرة.</div><div class="msg user">اشرح لي الجهاز الدوري بطريقة سهلة.</div><div class="msg bot">أكيد! تخيّل أن القلب مثل مضخة، والدم مثل سيارات توصيل تحمل الأكسجين والغذاء إلى كل أجزاء الجسم ثم تعود مرة أخرى. ❤️🩸</div></div><div class="chat-input"><input id="aiInput" placeholder="اكتب سؤالك هنا..." onkeydown="if(event.key==='Enter')sendAI()"><button class="btn primary" onclick="sendAI()">إرسال</button></div></div>`;
+ <div class="page-head"><div><h2>مساعد جود الذكي 🤖</h2><p>اسأل، تعلّم، وتدرّب خطوة بخطوة.</p></div></div>
+ <div class="card ai-box"><div class="chat" id="chat"><div class="msg bot">مرحبًا! 👋 أنا جود. أستطيع شرح الدروس، مساعدتك في حل المسائل خطوة بخطوة، أو اختبارك بأسئلة قصيرة.</div><div class="msg user">اشرح لي الجهاز الدوري بطريقة سهلة.</div><div class="msg bot">أكيد! تخيّل أن القلب مثل مضخة، والدم مثل سيارات توصيل تحمل الأكسجين والغذاء إلى كل أجزاء الجسم ثم تعود مرة أخرى. ❤️🩸</div></div><div class="chat-input"><input id="aiInput" placeholder="اكتب سؤالك هنا..." onkeydown="if(event.key==='Enter')sendAI()"><button class="btn primary" onclick="sendAI()">إرسال</button></div></div>`;
 
 document.getElementById('profile').innerHTML=`
  <div class="page-head"><div><h2>الملف الشخصي والإعدادات 👤</h2><p>إدارة المعلومات والتفضيلات.</p></div></div>
@@ -4529,7 +4544,7 @@ function printFilteredStudentsAdmin(){
   </head>
   <body>
     <div class="head">
-      <h1>منصة نَبْض — قائمة الطلاب</h1>
+      <h1>منصة جود — قائمة الطلاب</h1>
       <p>${filterTitle}</p>
       <p>عدد الطلاب: ${list.length}</p>
     </div>
