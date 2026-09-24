@@ -2729,8 +2729,10 @@ async function renderAttendancePage(){
   const rows=await NabdCloud.listAttendanceSessions(),today=new Date().toISOString().slice(0,10),todayRows=rows.filter(x=>x.attendance_date===today);
   const details=await Promise.all(todayRows.map(async x=>({session:x,records:await NabdCloud.getAttendanceRecords(x.id)})));
   window.attendanceAdminDetails=details;
-  const classes=[...new Map((demoData.students||[]).filter(s=>s.grade&&s.section).map(s=>[s.grade+'||'+s.section,{grade:s.grade,section:s.section}])).values()];
-  const grades=[...new Set(classes.map(x=>x.grade))];
+  const fixedGrades=['روضة','تمهيدي','الصف الأول','الصف الثاني','الصف الثالث','الصف الرابع'];
+  const fixedSections=['1','2','3','4'];
+  const classes=fixedGrades.flatMap(grade=>fixedSections.map(section=>({grade,section})));
+  const grades=fixedGrades;
   const total=details.reduce((n,x)=>n+x.records.length,0),absent=details.reduce((n,x)=>n+x.records.filter(r=>r.status==='absent').length,0),present=total-absent,pending=Math.max(0,classes.length-todayRows.length);
   document.getElementById('attendanceAdminList').innerHTML=`
    <div class="grid grid-4" style="margin-bottom:18px">${stat('🔴','#ffe8e8',absent,'إجمالي الغياب اليوم')}${stat('🟢','#e8fff5',present,'إجمالي الحضور')}${stat('✅','#e8fff5',todayRows.length,'الشعب المحضّرة')}${stat('⏳','#fff2df',pending,'بانتظار التحضير')}</div>
@@ -2740,9 +2742,9 @@ async function renderAttendancePage(){
  }catch(e){document.getElementById('attendanceAdminList').textContent='تعذر تحميل السجلات: '+e.message;}
 }
 function adminAttendanceFilterChanged(){
- const g=document.getElementById('adminAttGrade')?.value||'',sel=document.getElementById('adminAttSection'); if(!sel)return;
- const ds=window.attendanceAdminDetails||[],sections=[...new Set(ds.filter(x=>!g||x.session.grade===g).map(x=>x.session.section).filter(Boolean))];
- sel.innerHTML='<option value="">كل الشعب</option>'+sections.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join(''); renderAdminAttendanceFiltered();
+ const sel=document.getElementById('adminAttSection'); if(!sel)return;
+ const sections=['1','2','3','4'];
+ sel.innerHTML='<option value="">كل الشعب</option>'+sections.map(s=>`<option value="${s}">${s}</option>`).join(''); renderAdminAttendanceFiltered();
 }
 function renderAdminAttendanceFiltered(){
  const g=document.getElementById('adminAttGrade')?.value||'',s=document.getElementById('adminAttSection')?.value||'',box=document.getElementById('adminAttendanceSummary');if(!box)return;
