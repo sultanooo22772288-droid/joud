@@ -239,6 +239,42 @@
   async function setHomeworkScoreVisibility(id,visible){ const c=await init(); const {data,error}=await c.from('homework_submissions').update({score_visible:!!visible}).eq('id',id).select('*').single(); if(error) throw error; return data; }
   async function listClassStudents(grade,section){ const c=await init(); let q=c.from('profiles').select('id,auth_user_id,name,email,grade,section,role').eq('role','student'); if(grade) q=q.eq('grade',grade); if(section) q=q.eq('section',section); const {data,error}=await q.order('name',{ascending:true}); if(error) throw error; return data||[]; }
 
+
+  async function saveAttendanceSession(payload){
+    const c=await init(); const user=await currentUser();
+    if(!user) throw new Error('يجب تسجيل الدخول أولاً.');
+    const date=payload.attendance_date||new Date().toISOString().slice(0,10);
+    const {data:profile,error:pe}=await c.from('profiles').select('role,name').eq('auth_user_id',user.id).single();
+    if(pe) throw pe; if(profile?.role!=='teacher') throw new Error('هذه العملية متاحة للمعلم فقط.');
+    const {data:existing,error:ee}=await c.from('attendance_sessions').select('*').eq('attendance_date',date).eq('grade',payload.grade).eq('section',payload.section).maybeSingle();
+    if(ee) throw ee;
+    let session=existing;
+    if(existing){
+      if(existing.teacher_id!==user.id) throw new Error('تم تسجيل تحضير هذه الشعبة اليوم بواسطة معلم آخر.');
+      const {data,error}=await c.from('attendance_sessions').update({teacher_name:profile.name||'',updated_at:new Date().toISOString()}).eq('id',existing.id).select('*').single();
+      if(error) throw error; session=data;
+      const {error:de}=await c.from('attendance_records').delete().eq('session_id',session.id); if(de) throw de;
+    }else{
+      const {data,error}=await c.from('attendance_sessions').insert({attendance_date:date,grade:payload.grade,section:payload.section,teacher_id:user.id,teacher_name:profile.name||''}).select('*').single();
+      if(error) throw error; session=data;
+    }
+    const students=Array.isArray(payload.students)?payload.students:[];
+    if(students.length){
+      const rows=students.map(s=>({session_id:session.id,student_id:s.auth_user_id,student_name:s.name||'',status:s.status==='absent'?'absent':'present'}));
+      const {error}=await c.from('attendance_records').insert(rows); if(error) throw error;
+    }
+    return session;
+  }
+  async function listAttendanceSessions(){
+    const c=await init();
+    const {data,error}=await c.from('attendance_sessions').select('*').order('attendance_date',{ascending:false}).order('submitted_at',{ascending:false});
+    if(error) throw error; return data||[];
+  }
+  async function getAttendanceRecords(sessionId){
+    const c=await init(); const {data,error}=await c.from('attendance_records').select('*').eq('session_id',sessionId).order('student_name',{ascending:true});
+    if(error) throw error; return data||[];
+  }
+
   window.NabdCloud={
     init,signIn,signOut,restoreSession,getAccessToken,loadProfiles,createUser,updateUser,deleteUser,bulkCreateUsers,loadAdminCredentials,syncOwnCredential,
     currentUser,uploadSchoolFile,signedSchoolFileUrl,
@@ -247,7 +283,7 @@
     setHomeworkScoreVisibility,listClassStudents,
     saveStudentReport,myStudentReports,myStudentReportBundle,getTeacherStudentReport,
     createTeacherContent,listTeacherContent,deleteTeacherContent,createTeacherHomework,listTeacherHomeworks,deleteTeacherHomework,adminAllTeacherContent,
-    demoVisitStats,
+    demoVisitStats,saveAttendanceSession,listAttendanceSessions,getAttendanceRecords,
     get config(){return cfg;}
   };
 })();
