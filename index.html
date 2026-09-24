@@ -2707,9 +2707,9 @@ async function renderAttendancePage(){
   page.innerHTML=`<div class="page-head"><div><h2>الحضور والغياب 📋</h2><p>اختر الصف والشعبة ثم حدد الطلاب الغائبين.</p></div></div><div class="card"><div class="upload-row"><select id="attGrade" onchange="attendanceGradeChanged()"><option value="">اختر الصف</option>${grades.map(g=>`<option>${esc(g)}</option>`).join('')}</select><select id="attSection" onchange="loadAttendanceStudents()"><option value="">اختر الشعبة</option></select></div><div id="attStudents" style="margin-top:16px"></div></div>`; return;
  }
  if(role!=='admin'){page.innerHTML='<div class="card">هذه الصفحة للمعلمين والإدارة.</div>';return;}
- page.innerHTML=`<div class="page-head"><div><h2>لوحة الغياب والحضور 📋</h2><p>متابعة الغياب الكلي والتفاصيل حسب الصف والشعبة.</p></div></div><div id="attendanceAdminList">جاري تحميل البيانات...</div>`;
+ page.innerHTML=`<div class="page-head"><div><h2>لوحة الغياب والحضور 📋</h2><p>متابعة الغياب الكلي والتفاصيل حسب التاريخ والصف والشعبة.</p></div></div><div class="card" style="margin-bottom:14px"><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">تاريخ التحضير</label><input id="attendanceAdminDate" type="date" value="${window.attendanceAdminDate||new Date().toISOString().slice(0,10)}" onchange="window.attendanceAdminDate=this.value;renderAttendancePage()" style="padding:11px;border:1px solid var(--line);border-radius:12px;background:#fff"></div><div id="attendanceAdminList">جاري تحميل البيانات...</div>`;
  try{
-  const rows=await NabdCloud.listAttendanceSessions(),today=new Date().toISOString().slice(0,10),todayRows=rows.filter(x=>x.attendance_date===today);
+  const rows=await NabdCloud.listAttendanceSessions(),selectedDate=window.attendanceAdminDate||new Date().toISOString().slice(0,10),todayRows=rows.filter(x=>x.attendance_date===selectedDate);
   const details=await Promise.all(todayRows.map(async x=>({session:x,records:await NabdCloud.getAttendanceRecords(x.id)})));
   window.attendanceAdminDetails=details;
   const fixedGrades=['روضة','تمهيدي','الصف الأول','الصف الثاني','الصف الثالث','الصف الرابع'];
@@ -2718,7 +2718,7 @@ async function renderAttendancePage(){
   const grades=fixedGrades;
   const total=details.reduce((n,x)=>n+x.records.length,0),absent=details.reduce((n,x)=>n+x.records.filter(r=>r.status==='absent').length,0),present=total-absent,pending=Math.max(0,classes.length-todayRows.length);
   document.getElementById('attendanceAdminList').innerHTML=`
-   <div class="grid grid-4" style="margin-bottom:18px">${stat('🔴','#ffe8e8',absent,'إجمالي الغياب اليوم')}${stat('🟢','#e8fff5',present,'إجمالي الحضور')}${stat('✅','#e8fff5',todayRows.length,'الشعب المحضّرة')}${stat('⏳','#fff2df',pending,'بانتظار التحضير')}</div>
+   <div class="grid grid-4" style="margin-bottom:18px">${stat('🔴','#ffe8e8',absent,'إجمالي الغياب')}${stat('🟢','#e8fff5',present,'إجمالي الحضور')}${stat('✅','#e8fff5',todayRows.length,'الشعب المحضّرة')}${stat('⏳','#fff2df',pending,'بانتظار التحضير')}</div>
    <div class="card" style="margin-bottom:16px"><div class="section-title" style="margin:0 0 12px"><h3>🔎 عرض الغياب حسب الصف والشعبة</h3></div><div class="upload-row"><select id="adminAttGrade" onchange="adminAttendanceFilterChanged()"><option value="">كل الصفوف</option>${grades.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('')}</select><select id="adminAttSection" onchange="renderAdminAttendanceFiltered()"><option value="">كل الشعب</option></select></div></div>
    <div class="card"><div id="adminAttendanceSummary"></div></div>`;
   renderAdminAttendanceFiltered();
