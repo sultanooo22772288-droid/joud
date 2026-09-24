@@ -43,7 +43,7 @@
   function toLegacyProfile(p){
     if(!p) return null;
     const base={
-      id:String(p.id||''), authUserId:p.auth_user_id, name:p.name||'', phone:p.phone||'', email:p.email||'',
+      id:String(p.id||''), authUserId:p.auth_user_id, name:p.name||'', phone:p.phone||'', guardianPhone:p.guardian_phone||'', email:p.email||'',
       password:'', role:p.role
     };
     if(p.role==='student') return {...base,studentId:p.external_id||'',stage:p.stage||'',grade:p.grade||'',section:p.section||''};
@@ -190,12 +190,12 @@
   async function syncOwnCredential(email,password){ return adminRequest({action:'sync-self',email,password}); }
 
   async function createUser(role,legacy,password){
-    const p={role,name:legacy.name||'',phone:legacy.phone||'',email:legacy.email||'',external_id:role==='student'?(legacy.studentId||''):(legacy.teacherId||''),stage:legacy.stage||'',grade:legacy.grade||'',section:legacy.section||'',subject:legacy.subject||'',stages:legacy.stages||[]};
+    const p={role,name:legacy.name||'',phone:legacy.phone||'',guardian_phone:legacy.guardianPhone||'',email:legacy.email||'',external_id:role==='student'?(legacy.studentId||''):(legacy.teacherId||''),stage:legacy.stage||'',grade:legacy.grade||'',section:legacy.section||'',subject:legacy.subject||'',stages:legacy.stages||[]};
     const out=await adminRequest({action:'create',profile:p,password});
     return toLegacyProfile(out.profile);
   }
   async function updateUser(legacy,password){
-    const p={auth_user_id:legacy.authUserId,name:legacy.name||'',phone:legacy.phone||'',email:legacy.email||'',external_id:legacy.role==='student'?(legacy.studentId||''):(legacy.teacherId||''),stage:legacy.stage||'',grade:legacy.grade||'',section:legacy.section||'',subject:legacy.subject||'',stages:legacy.stages||[]};
+    const p={auth_user_id:legacy.authUserId,name:legacy.name||'',phone:legacy.phone||'',guardian_phone:legacy.guardianPhone||'',email:legacy.email||'',external_id:legacy.role==='student'?(legacy.studentId||''):(legacy.teacherId||''),stage:legacy.stage||'',grade:legacy.grade||'',section:legacy.section||'',subject:legacy.subject||'',stages:legacy.stages||[]};
     const out=await adminRequest({action:'update',profile:p,password:password||''});
     return toLegacyProfile(out.profile);
   }
