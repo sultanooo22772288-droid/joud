@@ -265,7 +265,8 @@
     let session=existing;
     if(existing){
       if(existing.teacher_id!==user.id) throw new Error('تم تسجيل تحضير هذه الشعبة اليوم بواسطة معلم آخر.');
-      const {data,error}=await c.from('attendance_sessions').update({teacher_name:profile.name||'',updated_at:new Date().toISOString()}).eq('id',existing.id).select('*').single();
+      if(existing.approval_status==='approved') throw new Error('تم اعتماد هذا التحضير من الإدارة ولا يمكن تعديله.');
+      const {data,error}=await c.from('attendance_sessions').update({teacher_name:profile.name||'',updated_at:new Date().toISOString(),approval_status:'pending',approved_by:null,approved_at:null,rejection_note:'',sync_status:'not_ready'}).eq('id',existing.id).select('*').single();
       if(error) throw error; session=data;
       const {error:de}=await c.from('attendance_records').delete().eq('session_id',session.id); if(de) throw de;
     }else{
