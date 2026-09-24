@@ -1,0 +1,324 @@
+/* =====================================================================
+   جود — ثيمات المناسبات (تغيير جذري للواجهة لكل مناسبة)
+   ===================================================================== */
+
+/* ---------- متغيرات كل ثيم ---------- */
+body[data-theme="ramadan"]{
+  --primary:#5B3A9E;--primary2:#C99A2E;--theme-soft:#F1EAFB;--line:#E6DCF2;--text:#2A1F40;--muted:#6E6283;
+  --jt-page:radial-gradient(900px 420px at 85% 0,rgba(201,154,46,.12),transparent 60%),#F6F1FF;
+  --jt-on-page:#2A1F40;
+  --jt-side-bg:#1B1235;--jt-side-fg:#D9CCF2;--jt-side-active-bg:rgba(244,196,81,.16);--jt-side-active-fg:#F4C451;
+  --jt-top-bg:rgba(27,18,53,.86);--jt-top-fg:#F7E7B4;
+  --jt-hero-bg:linear-gradient(180deg,#140C2C,#3B2470);--jt-hero-fg:#fff;--jt-hero-muted:#E4D8FF;--jt-hero-accent:#F4C451;
+  --jt-display:"Aref Ruqaa","Reem Kufi",serif;--jt-radius:20px;--jt-card-border:#E9DDB8;
+}
+body[data-theme="national"]{
+  --primary:#C8102E;--primary2:#1F7A4D;--theme-soft:#FCE8EA;--line:#E6E0DA;--text:#2A2320;--muted:#6F6660;
+  --jt-page:linear-gradient(180deg,#FFFFFF 0,#FBF7F1 100%);
+  --jt-on-page:#2A2320;
+  --jt-side-bg:#FFFFFF;--jt-side-fg:#4A403A;--jt-side-active-bg:#FCE8EA;--jt-side-active-fg:#C8102E;
+  --jt-top-bg:rgba(255,255,255,.9);
+  --jt-hero-bg:linear-gradient(180deg,#FFFFFF 0 calc(100% - 26px),#C8102E calc(100% - 26px) calc(100% - 13px),#1F7A4D calc(100% - 13px));--jt-hero-fg:#2A2320;--jt-hero-muted:#5D534C;--jt-hero-accent:#C8102E;
+  --jt-display:"Reem Kufi","Alexandria",serif;--jt-radius:18px;
+}
+body[data-theme="space"]{
+  --primary:#6C5CE7;--primary2:#F2A93B;--theme-soft:#ECEAFF;--line:#E1E0F5;--text:#1E1B3A;--muted:#6C6A8A;
+  --jt-page:radial-gradient(900px 500px at 15% 0,#2A1F6E 0,transparent 60%),radial-gradient(700px 400px at 90% 30%,#12245A 0,transparent 60%),#070B1E;
+  --jt-on-page:#E8EAFF;--jt-head-on-dark:#E8EAFF;
+  --jt-side-bg:rgba(10,14,36,.92);--jt-side-fg:#B9BEE6;--jt-side-active-bg:rgba(108,92,231,.3);--jt-side-active-fg:#fff;
+  --jt-top-bg:rgba(7,11,30,.7);--jt-top-fg:#E8EAFF;
+  --jt-hero-bg:radial-gradient(600px 300px at 20% 30%,#3B2A9E 0,transparent 70%),linear-gradient(135deg,#0B0F2A,#1A1450);--jt-hero-fg:#fff;--jt-hero-muted:#C9CEF5;--jt-hero-accent:#F2A93B;
+  --jt-display:"Alexandria",sans-serif;--jt-radius:22px;
+}
+body[data-theme="ocean"]{
+  --primary:#0B7FB5;--primary2:#12B5A0;--theme-soft:#E1F5FC;--line:#CFE9F2;--text:#113247;--muted:#557487;
+  --jt-page:linear-gradient(180deg,#E3F6FF 0,#F2FBFF 50%,#DDF3F7 100%);
+  --jt-on-page:#113247;
+  --jt-side-bg:linear-gradient(180deg,#0B5E8C,#0B7FB5);--jt-side-fg:#D8F1FF;--jt-side-active-bg:rgba(255,255,255,.18);--jt-side-active-fg:#fff;
+  --jt-top-bg:rgba(227,246,255,.86);
+  --jt-hero-bg:linear-gradient(180deg,#1AA3D9 0,#0B6FA8 60%,#084F7E 100%);--jt-hero-fg:#fff;--jt-hero-muted:#DDF4FF;--jt-hero-accent:#FFD166;
+  --jt-display:"Baloo Bhaijaan 2","Alexandria",sans-serif;--jt-body:"Baloo Bhaijaan 2","IBM Plex Sans Arabic",sans-serif;--jt-radius:26px;
+}
+body[data-theme="garden"]{
+  --primary:#2E8B57;--primary2:#F2A94A;--theme-soft:#E6F6EA;--line:#D6EBDA;--text:#1F3D2B;--muted:#5D7A66;
+  --jt-page:linear-gradient(180deg,#EAF8FF 0,#F4FCF2 45%,#E9F7E4 100%);
+  --jt-on-page:#1F3D2B;
+  --jt-side-bg:#FFFFFF;--jt-side-fg:#3F5C49;--jt-side-active-bg:#E6F6EA;--jt-side-active-fg:#2E8B57;
+  --jt-top-bg:rgba(244,252,242,.88);
+  --jt-hero-bg:linear-gradient(180deg,#BFE8FF 0,#E8F8FF 70%);--jt-hero-fg:#1F3D2B;--jt-hero-muted:#3F5C49;--jt-hero-accent:#2E8B57;
+  --jt-display:"Baloo Bhaijaan 2","Alexandria",sans-serif;--jt-body:"Baloo Bhaijaan 2","IBM Plex Sans Arabic",sans-serif;--jt-radius:28px;
+}
+body[data-theme="rainbow"]{
+  --primary:#E0457B;--primary2:#3E7BE0;--theme-soft:#FFEFF4;--line:#F3E3EA;--text:#2F2742;--muted:#6F6784;
+  --jt-page:linear-gradient(180deg,#FFF6F0 0,#F4F7FF 100%);
+  --jt-on-page:#2F2742;
+  --jt-side-bg:#FFFFFF;--jt-side-fg:#4E4764;--jt-side-active-bg:#FFEFF4;--jt-side-active-fg:#E0457B;
+  --jt-top-bg:rgba(255,246,240,.88);
+  --jt-hero-bg:linear-gradient(180deg,#9FDBFF 0,#DDF3FF 100%);--jt-hero-fg:#2F2742;--jt-hero-muted:#4E4764;--jt-hero-accent:#E0457B;
+  --jt-display:"Baloo Bhaijaan 2","Alexandria",sans-serif;--jt-body:"Baloo Bhaijaan 2","IBM Plex Sans Arabic",sans-serif;--jt-radius:30px;
+}
+body[data-theme="teacher"]{
+  --primary:#1F5A43;--primary2:#C6862B;--theme-soft:#EAF3EE;--line:#E8DCC6;--text:#2E2A22;--muted:#6E6556;
+  --jt-page:repeating-linear-gradient(90deg,rgba(150,110,60,.05) 0 2px,transparent 2px 60px),#F7F0E2;
+  --jt-on-page:#2E2A22;
+  --jt-side-bg:linear-gradient(180deg,#8B5E34,#6E4826);--jt-side-fg:#F7E9D2;--jt-side-active-bg:rgba(255,255,255,.16);--jt-side-active-fg:#FFE3A8;
+  --jt-top-bg:rgba(247,240,226,.9);
+  --jt-hero-bg:radial-gradient(500px 200px at 30% 40%,rgba(255,255,255,.06),transparent 70%),#1F3B2E;--jt-hero-fg:#FDF7E4;--jt-hero-muted:#D9E6DC;--jt-hero-accent:#FFD166;
+  --jt-display:"Aref Ruqaa","Reem Kufi",serif;--jt-radius:14px;
+}
+body[data-theme="tree"]{
+  --primary:#2F7D4A;--primary2:#8B5E34;--theme-soft:#E4F4E8;--line:#D8E8DA;--text:#1F3526;--muted:#5E7564;
+  --jt-page:linear-gradient(180deg,#EEF8EE 0,#F7FBF3 60%,#EDF5E6 100%);
+  --jt-on-page:#1F3526;
+  --jt-side-bg:linear-gradient(180deg,#1E5A35,#2F7D4A);--jt-side-fg:#DDF2E2;--jt-side-active-bg:rgba(255,255,255,.16);--jt-side-active-fg:#fff;
+  --jt-top-bg:rgba(238,248,238,.88);
+  --jt-hero-bg:linear-gradient(180deg,#CDEBFF 0,#EAF7E6 100%);--jt-hero-fg:#1F3526;--jt-hero-muted:#3E5A46;--jt-hero-accent:#2F7D4A;
+  --jt-display:"El Messiri","Alexandria",sans-serif;--jt-radius:24px;
+}
+body[data-theme="sports"]{
+  --primary:#0A5FB4;--primary2:#FF5A36;--theme-soft:#E4F0FF;--line:#D6E4F2;--text:#10243A;--muted:#566C82;
+  --jt-page:repeating-linear-gradient(-45deg,rgba(10,95,180,.035) 0 18px,transparent 18px 36px),#F2F7FC;
+  --jt-on-page:#10243A;
+  --jt-side-bg:#0B1F36;--jt-side-fg:#BFD2E8;--jt-side-active-bg:#FF5A36;--jt-side-active-fg:#fff;
+  --jt-top-bg:rgba(242,247,252,.9);
+  --jt-hero-bg:linear-gradient(120deg,#FF5A36 0,#FF7A4F 30%,#0A4C90 30.2%,#0A5FB4 100%);--jt-hero-fg:#fff;--jt-hero-muted:#DDEBFF;--jt-hero-accent:#FFD166;
+  --jt-display:"Lalezar","Alexandria",sans-serif;--jt-radius:10px;
+}
+body[data-theme="backtoschool"]{
+  --primary:#2F5FD0;--primary2:#F0932B;--theme-soft:#E8EFFF;--line:#DCE4F2;--text:#1E2E4F;--muted:#5E6C88;
+  --jt-page:linear-gradient(90deg,transparent 0 calc(100% - 70px),rgba(228,68,58,.18) calc(100% - 70px) calc(100% - 68px),transparent calc(100% - 68px)),repeating-linear-gradient(180deg,transparent 0 31px,rgba(47,95,208,.10) 31px 32px),#FFFDF7;
+  --jt-on-page:#1E2E4F;
+  --jt-side-bg:#FFC531;--jt-side-fg:#3A2A00;--jt-side-active-bg:#fff;--jt-side-active-fg:#2F5FD0;
+  --jt-top-bg:rgba(255,253,247,.92);
+  --jt-hero-bg:repeating-linear-gradient(180deg,transparent 0 31px,rgba(47,95,208,.14) 31px 32px),#FFFDF5;--jt-hero-fg:#1E2E4F;--jt-hero-muted:#46557A;--jt-hero-accent:#2F5FD0;
+  --jt-display:"Baloo Bhaijaan 2","Alexandria",sans-serif;--jt-body:"Baloo Bhaijaan 2","IBM Plex Sans Arabic",sans-serif;--jt-radius:16px;
+}
+body[data-theme="children"]{
+  --primary:#C93B82;--primary2:#6E72D9;--theme-soft:#FDEAF4;--line:#F2DFEC;--text:#3A2440;--muted:#7A6680;
+  --jt-page:radial-gradient(600px 400px at 10% 10%,#FFE3F1 0,transparent 60%),radial-gradient(600px 400px at 90% 60%,#E7E6FF 0,transparent 60%),#FFF9FD;
+  --jt-on-page:#3A2440;
+  --jt-side-bg:#FFFFFF;--jt-side-fg:#5A4660;--jt-side-active-bg:#FDEAF4;--jt-side-active-fg:#C93B82;
+  --jt-top-bg:rgba(255,249,253,.88);
+  --jt-hero-bg:linear-gradient(160deg,#FFE0EF 0,#E9E4FF 100%);--jt-hero-fg:#3A2440;--jt-hero-muted:#5A4660;--jt-hero-accent:#C93B82;
+  --jt-display:"Baloo Bhaijaan 2","Alexandria",sans-serif;--jt-body:"Baloo Bhaijaan 2","IBM Plex Sans Arabic",sans-serif;--jt-radius:32px;
+}
+body[data-theme="book"]{
+  --primary:#7A4B2A;--primary2:#B58B5C;--theme-soft:#F3EADC;--line:#E6D9C4;--text:#3A2C22;--muted:#75655A;
+  --jt-page:radial-gradient(circle at 20% 20%,rgba(181,139,92,.08),transparent 40%),#F6EEDF;
+  --jt-on-page:#3A2C22;
+  --jt-side-bg:linear-gradient(180deg,#5A3620,#7A4B2A);--jt-side-fg:#F3E3CC;--jt-side-active-bg:rgba(255,248,231,.16);--jt-side-active-fg:#FFE3B0;
+  --jt-top-bg:rgba(246,238,223,.9);
+  --jt-hero-bg:radial-gradient(500px 240px at 25% 60%,#FFF6E2 0,transparent 70%),#EFE2C8;--jt-hero-fg:#3A2C22;--jt-hero-muted:#5E4B3C;--jt-hero-accent:#7A4B2A;
+  --jt-display:"Amiri",serif;--jt-radius:12px;
+}
+
+/* ---------- قواعد عامة لكل ثيم مناسبة ---------- */
+body[data-theme]:not([data-theme="default"]){
+  background:var(--jt-page) !important;background-attachment:fixed !important;
+  font-family:var(--jt-body,var(--jd-body)) !important;
+}
+body[data-theme]:not([data-theme="default"]) .app{position:relative;z-index:1}
+body[data-theme]:not([data-theme="default"]) :is(h1,h2,h3,.page-head h2,.section-title h3,.stat h4,.subject h4,.role-welcome h1){font-family:var(--jt-display) !important}
+body[data-theme]:not([data-theme="default"]) :is(.page-head h2,.page-head p,.section-title h3){color:var(--jt-on-page)}
+
+/* الشريط الجانبي */
+body[data-theme]:not([data-theme="default"]) .sidebar{background:var(--jt-side-bg) !important;border-left-color:transparent !important}
+body[data-theme]:not([data-theme="default"]) .sidebar :is(.brand h2,.brand small){color:var(--jt-side-fg)}
+body[data-theme]:not([data-theme="default"]) .nav button{color:var(--jt-side-fg)}
+body[data-theme]:not([data-theme="default"]) .nav button:hover,
+body[data-theme]:not([data-theme="default"]) .nav button.active{background:var(--jt-side-active-bg) !important;color:var(--jt-side-active-fg) !important}
+body[data-theme]:not([data-theme="default"]) .brand-logo{background:var(--primary) !important}
+body[data-theme]:not([data-theme="default"]) .role-switch{background:transparent;border-color:rgba(127,127,127,.2)}
+
+/* الشريط العلوي */
+body[data-theme]:not([data-theme="default"]) .topbar{background:var(--jt-top-bg) !important;border-bottom-color:transparent !important}
+
+/* البطاقات */
+body[data-theme]:not([data-theme="default"]) .card{border-radius:var(--jt-radius) !important}
+body[data-theme]:not([data-theme="default"]) .stat::after{content:none}
+body[data-theme]:not([data-theme="default"]) .subject{border-top:0}
+body[data-theme]:not([data-theme="default"]) .btn.primary{background:var(--primary) !important}
+
+/* بطاقة الترحيب */
+body[data-theme]:not([data-theme="default"]) .role-welcome,
+.jt-preview{background:var(--jt-hero-bg) !important;color:var(--jt-hero-fg)}
+body[data-theme]:not([data-theme="default"]) .role-welcome::before,
+body[data-theme]:not([data-theme="default"]) .role-welcome::after{display:none}
+body[data-theme]:not([data-theme="default"]) .role-welcome{min-height:300px}
+body[data-theme]:not([data-theme="default"]) .role-welcome h1{color:var(--jt-hero-fg)}
+body[data-theme]:not([data-theme="default"]) .role-welcome :is(p,.welcome-mini-stat span){color:var(--jt-hero-muted)}
+body[data-theme]:not([data-theme="default"]) :is(.role-welcome-kicker,.student-academic-badge,.welcome-mini-stat){
+  color:var(--jt-hero-fg);background:color-mix(in srgb,var(--jt-hero-fg) 10%,transparent);border-color:color-mix(in srgb,var(--jt-hero-fg) 20%,transparent)
+}
+body[data-theme]:not([data-theme="default"]) .role-welcome-quote{color:var(--jt-hero-fg);border-right-color:var(--jt-hero-accent) !important}
+body[data-theme]:not([data-theme="default"]) .welcome-action{background:var(--jt-hero-accent);color:#fff}
+body[data-theme]:is([data-theme="ramadan"],[data-theme="space"],[data-theme="ocean"],[data-theme="teacher"],[data-theme="sports"]) .welcome-action{color:#1A1400}
+body[data-theme]:not([data-theme="default"]) .welcome-action.ghost{background:color-mix(in srgb,var(--jt-hero-fg) 10%,transparent);color:var(--jt-hero-fg);border-color:color-mix(in srgb,var(--jt-hero-fg) 30%,transparent)}
+body[data-theme]:not([data-theme="default"]) .jd-ring .val{stroke:var(--jt-hero-accent)}
+body[data-theme]:not([data-theme="default"]) .jd-ring-label{color:var(--jt-hero-fg)}
+body[data-theme]:not([data-theme="default"]) .jd-ring-label span{color:var(--jt-hero-muted)}
+body[data-theme]:not([data-theme="default"]) .jd-ring .track{fill:color-mix(in srgb,var(--jt-hero-fg) 6%,transparent);stroke:color-mix(in srgb,var(--jt-hero-fg) 15%,transparent)}
+
+.jt-art{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.role-welcome .jd-ring{z-index:2}
+.jt-badge{
+  display:flex;width:fit-content;align-items:center;gap:12px;margin-bottom:14px;padding:10px 16px 10px 20px;border-radius:18px;
+  background:color-mix(in srgb,var(--jt-hero-fg) 12%,transparent);border:1px solid color-mix(in srgb,var(--jt-hero-fg) 22%,transparent);
+  animation:jdPop .8s var(--jd-ease) backwards;
+}
+.jt-badge .jt-icon{width:30px;height:30px;color:var(--jt-hero-accent);flex-shrink:0}
+.jt-badge b{display:block;font-family:var(--jt-display);font-size:22px;line-height:1.3;color:var(--jt-hero-accent)}
+.jt-badge span{display:block;font-size:13px;color:var(--jt-hero-muted)}
+body[data-theme="national"] .jt-badge b{color:#C8102E}
+
+/* لمسات خاصة لكل ثيم */
+body[data-theme="ramadan"] .card{border:1px solid var(--jt-card-border) !important;background:#FFFDF8}
+body[data-theme="ramadan"] .stat .bubble{background:#F6EEDB !important;color:#8A6412}
+body[data-theme="space"] .card{background:#F7F7FF;border-color:#DCDAF8 !important}
+body[data-theme="space"] :is(.page-head h2,.page-head p,.section-title h3,.section-title .link){color:var(--jt-on-page)}
+body[data-theme="space"] .page-head p{color:#B9BEE6 !important}
+body[data-theme="space"] .section-title .link{color:#C9C2FF}
+body[data-theme="national"] .card{border-top:4px solid #C8102E !important}
+body[data-theme="national"] .card:nth-child(even){border-top-color:#1F7A4D !important}
+body[data-theme="national"] .sidebar{border-left:6px solid #C8102E !important}
+body[data-theme="teacher"] .role-welcome{border:12px solid #8B5E34 !important;box-shadow:inset 0 0 40px rgba(0,0,0,.35),0 18px 40px rgba(60,40,20,.25) !important}
+body[data-theme="teacher"] .card{background:#FFFCF4}
+body[data-theme="sports"] .card{border-bottom:4px solid #FF5A36 !important}
+body[data-theme="sports"] :is(.page-head h2,.section-title h3){letter-spacing:.5px}
+body[data-theme="backtoschool"] .card{background:repeating-linear-gradient(180deg,#fff 0 27px,rgba(47,95,208,.06) 27px 28px);border:1px solid #DCE4F2 !important;box-shadow:3px 4px 0 rgba(47,95,208,.12) !important}
+body[data-theme="backtoschool"] .sidebar .nav button{color:#3A2A00}
+body[data-theme="children"] .card{border:2px solid #F7D3E6 !important}
+body[data-theme="rainbow"] .card{border-top:5px solid transparent !important;border-image:linear-gradient(90deg,#FF6B6B,#FECA57,#1DD1A1,#54A0FF,#8E6CF5) 1 !important;border-image-slice:1 0 0 0 !important}
+body[data-theme="book"] .card{background:#FFFBF2;box-shadow:0 1px 0 #E6D9C4,0 10px 24px rgba(90,60,30,.08) !important}
+body[data-theme="book"] :is(.page-head h2,.section-title h3){font-size:24px}
+
+/* ---------- مشهد الخلفية ---------- */
+.jd-scene{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.js-stars{position:absolute;inset:0;background-image:radial-gradient(1.5px 1.5px at 20px 30px,#fff,transparent),radial-gradient(1px 1px at 90px 120px,#fff,transparent),radial-gradient(1.2px 1.2px at 160px 60px,#fff,transparent),radial-gradient(1px 1px at 230px 170px,#fff,transparent),radial-gradient(1.4px 1.4px at 300px 90px,#fff,transparent);background-size:320px 220px;animation:jtTwinkleBg 4s ease-in-out infinite alternate}
+.js-ramadan .js-stars{background-image:radial-gradient(2px 2px at 20px 30px,#C99A2E,transparent),radial-gradient(1.5px 1.5px at 90px 120px,#C99A2E,transparent),radial-gradient(2px 2px at 230px 170px,#C99A2E,transparent);opacity:.35}
+.js-stars2{background-size:420px 300px;animation-delay:-2s;opacity:.6}
+.js-comet{position:absolute;top:12%;left:-10%;width:140px;height:2px;background:linear-gradient(90deg,transparent,#fff);border-radius:2px;transform:rotate(18deg);animation:jtComet 9s linear infinite}
+.js-lantern{position:absolute;top:0;width:70px;height:170px;opacity:.9}
+.js-bubble{position:absolute;bottom:-40px;border-radius:50%;border:2px solid rgba(11,127,181,.28);background:rgba(255,255,255,.35);animation:jtRise linear infinite}
+.js-seafloor{position:absolute;left:0;right:0;bottom:0;height:90px;background:radial-gradient(60px 30px at 10% 100%,rgba(18,181,160,.25),transparent),radial-gradient(90px 40px at 70% 100%,rgba(11,127,181,.2),transparent)}
+.js-leaf{position:absolute;top:-30px;width:18px;height:12px;border-radius:0 100% 0 100%;background:var(--c);opacity:.75;animation:jtFall linear infinite}
+.js-cloud{position:absolute;left:-220px;width:180px;height:56px;border-radius:60px;background:#fff;opacity:.85;box-shadow:40px -22px 0 6px #fff,90px -8px 0 0 #fff;animation:jtDrift linear infinite}
+.js-balloon{position:absolute;bottom:-120px;width:44px;height:54px;border-radius:50% 50% 48% 48%;background:var(--c);opacity:.55;animation:jtRise linear infinite}
+.js-balloon::after{content:"";position:absolute;left:50%;top:100%;width:1px;height:60px;background:rgba(90,70,100,.4)}
+.js-confetti{position:absolute;top:-20px;width:8px;height:14px;border-radius:2px;background:var(--c);opacity:.6;animation:jtFall linear infinite}
+.js-plane{position:absolute;left:-80px;width:64px;height:40px;opacity:.7;animation:jtPlane 26s linear infinite}
+.js-letter{position:absolute;bottom:-60px;font-family:"Amiri",serif;font-size:34px;color:rgba(122,75,42,.22);animation:jtRise linear infinite}
+.js-flagband{position:absolute;top:0;left:0;right:0;height:6px;background:linear-gradient(90deg,#C8102E 0 33%,#fff 33% 66%,#1F7A4D 66%)}
+.js-burst{position:absolute;width:10px;height:10px;border-radius:50%;box-shadow:0 -40px 0 -2px var(--c),28px -28px 0 -2px var(--c),40px 0 0 -2px var(--c),28px 28px 0 -2px var(--c),0 40px 0 -2px var(--c),-28px 28px 0 -2px var(--c),-40px 0 0 -2px var(--c),-28px -28px 0 -2px var(--c);opacity:0;animation:jtBurst 4s ease-out infinite}
+.js-doodles{position:absolute;inset:0;opacity:.06;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M20 40h60M20 60h40M150 30l30 30M180 30l-30 30M40 150a20 20 0 1 0 40 0a20 20 0 1 0-40 0M140 140l40 40M130 190h60'/%3E%3C/svg%3E")}
+
+/* ---------- حركات رسوم الترحيب ---------- */
+.jt-twinkle{fill:#fff;animation:jtTwinkle 3s ease-in-out infinite}
+.jt-sparkle{fill:#fff;animation:jtTwinkle 2.4s ease-in-out infinite}
+.jt-moon{filter:drop-shadow(0 0 18px rgba(244,196,81,.6))}
+.jt-swing{transform-origin:0 0;animation:jtSwing 4.5s ease-in-out infinite}
+.jt-glow{animation:jtGlow 2.6s ease-in-out infinite}
+.jt-fire{transform-box:fill-box;transform-origin:center;animation:jtFire 3.2s ease-out infinite;animation-delay:var(--d)}
+.jt-fire > g{transform-box:fill-box}
+.jt-wave-flag{transform-origin:0 0;animation:jtFlag 2.4s ease-in-out infinite}
+.jt-float{animation:jtFloat 7s ease-in-out infinite}
+.jt-rocket{animation:jtRocket 12s linear infinite}
+.jt-flame{transform-box:fill-box;transform-origin:top;animation:jtFlame .25s ease-in-out infinite alternate}
+.jt-bubbles circle{animation:jtBubble linear infinite}
+.jt-fish{animation:jtSwim linear infinite}
+.jt-sway{animation:jtSway 4s ease-in-out infinite}
+.jt-waves{animation:jtWaves 10s linear infinite}
+.jt-spin-slow{animation:jdSpin 40s linear infinite}
+.jt-bob{transform-box:fill-box;transform-origin:bottom;animation:jtBob 3.6s ease-in-out infinite}
+.jt-butterfly{transform:translate(var(--x),var(--y));animation:jtButterfly 10s ease-in-out infinite}
+.jt-flap{transform-box:fill-box;transform-origin:center;animation:jtFlap .35s ease-in-out infinite alternate}
+.jt-arc{stroke-dasharray:1400;animation:jtArc 1.8s cubic-bezier(.2,.8,.2,1) backwards}
+.jt-drift{animation:jtCloud 40s linear infinite}
+.jt-chalk{fill:#FDF7E4;font-family:"Aref Ruqaa",serif;opacity:.9}
+.jt-draw{stroke-dasharray:500;stroke-dashoffset:500;animation:jtDraw 2.4s ease forwards}
+.jt-sway-tree{animation:jtTree 6s ease-in-out infinite}
+.jt-leaf{transform:translate(var(--x),-20px);animation:jtLeaf linear infinite}
+.jt-bounce{transform:translate(300px,200px);animation:jtBounce 1.6s cubic-bezier(.3,0,.7,1) infinite}
+.jt-roll{animation:jdSpin 1.6s linear infinite}
+.jt-confetti{animation:jtConfetti linear infinite}
+.jt-bus{animation:jtBus 14s linear infinite}
+.jt-wheel{animation:jdSpin .6s linear infinite}
+.jt-plane{transform:translate(520px,90px);animation:jtPlaneArt 9s ease-in-out infinite}
+.jt-balloon{transform:translate(var(--x),360px);animation:jtBalloon 9s linear infinite}
+.jt-page{transform-origin:0 0;animation:jtPage 5s ease-in-out infinite}
+.jt-letter{animation:jtLetterFloat 6s ease-in-out infinite}
+
+@keyframes jtTwinkle{0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes jtTwinkleBg{from{opacity:.35}to{opacity:.9}}
+@keyframes jtSwing{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}
+@keyframes jtGlow{0%,100%{opacity:.4}50%{opacity:1}}
+@keyframes jtFire{0%{transform:scale(.2);opacity:0}15%{opacity:1}70%{transform:scale(1.1);opacity:.9}100%{transform:scale(1.25);opacity:0}}
+@keyframes jtFlag{0%,100%{transform:skewY(0) scaleX(1)}50%{transform:skewY(-4deg) scaleX(.94)}}
+@keyframes jtFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes jtRocket{0%{transform:translate(-80px,340px)}100%{transform:translate(900px,-120px)}}
+@keyframes jtFlame{from{transform:scaleY(.8)}to{transform:scaleY(1.25)}}
+@keyframes jtBubble{from{transform:translateY(0);opacity:.9}to{transform:translateY(-360px);opacity:0}}
+@keyframes jtSwim{from{transform:translate(-120px,var(--y,150px))}to{transform:translate(1300px,var(--y,150px))}}
+@keyframes jtSway{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+@keyframes jtWaves{from{transform:translateX(0)}to{transform:translateX(-600px)}}
+@keyframes jtBob{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+@keyframes jtButterfly{0%,100%{transform:translate(var(--x),var(--y))}25%{transform:translate(calc(var(--x) + 60px),calc(var(--y) - 30px))}50%{transform:translate(calc(var(--x) + 20px),calc(var(--y) + 20px))}75%{transform:translate(calc(var(--x) - 50px),calc(var(--y) - 10px))}}
+@keyframes jtFlap{from{transform:scaleX(1)}to{transform:scaleX(.35)}}
+@keyframes jtArc{from{stroke-dashoffset:1400}to{stroke-dashoffset:0}}
+@keyframes jtCloud{from{transform:translateX(-300px)}to{transform:translateX(1300px)}}
+@keyframes jtDraw{to{stroke-dashoffset:0}}
+@keyframes jtTree{0%,100%{transform:rotate(-1.5deg)}50%{transform:rotate(1.5deg)}}
+@keyframes jtLeaf{0%{transform:translate(var(--x),-20px) rotate(0)}100%{transform:translate(calc(var(--x) + 80px),340px) rotate(360deg)}}
+@keyframes jtBounce{0%,100%{transform:translate(300px,200px)}50%{transform:translate(300px,70px)}}
+@keyframes jtConfetti{from{transform:translateY(0) rotate(0)}to{transform:translateY(360px) rotate(540deg)}}
+@keyframes jtBus{from{transform:translateX(-220px)}to{transform:translateX(1250px)}}
+@keyframes jtPlaneArt{0%,100%{transform:translate(520px,90px) rotate(-6deg)}50%{transform:translate(620px,50px) rotate(6deg)}}
+@keyframes jtBalloon{from{transform:translate(var(--x),360px)}to{transform:translate(calc(var(--x) + 30px),-140px)}}
+@keyframes jtPage{0%,15%{transform:scaleX(1)}50%,65%{transform:scaleX(-1)}100%{transform:scaleX(1)}}
+@keyframes jtLetterFloat{0%,100%{transform:translateY(0);opacity:.35}50%{transform:translateY(-16px);opacity:.8}}
+@keyframes jtComet{0%{transform:translate(0,0) rotate(18deg);opacity:0}10%{opacity:1}60%,100%{transform:translate(120vw,40vh) rotate(18deg);opacity:0}}
+@keyframes jtRise{from{transform:translateY(0)}to{transform:translateY(-120vh)}}
+@keyframes jtFall{from{transform:translateY(0) rotate(0)}to{transform:translateY(120vh) rotate(420deg)}}
+@keyframes jtDrift{from{transform:translateX(0)}to{transform:translateX(calc(100vw + 440px))}}
+@keyframes jtPlane{0%{transform:translate(0,0) rotate(-4deg)}50%{transform:translate(55vw,-40px) rotate(6deg)}100%{transform:translate(115vw,10px) rotate(-4deg)}}
+@keyframes jtBurst{0%{transform:scale(.2);opacity:0}20%{opacity:.5}70%{transform:scale(1.2);opacity:.35}100%{transform:scale(1.4);opacity:0}}
+
+/* ---------- معاينة الثيمات في صفحة الإدارة ---------- */
+.theme-card{padding:0 !important;overflow:hidden}
+.theme-card > div:not(.theme-palette):not(.jt-preview){padding:16px 18px 0}
+.theme-card .theme-palette{padding:0 18px 18px}
+.theme-card .theme-icon{display:none}
+.jt-preview{position:relative;height:130px;overflow:hidden;display:flex;align-items:flex-end;justify-content:flex-start;padding:12px 16px}
+.jt-preview .jt-art{opacity:.95}
+.jt-prev-title{position:relative;z-index:1;font-family:var(--jt-display);font-size:18px;font-weight:700;color:var(--jt-hero-accent);background:rgba(255,255,255,.9);padding:3px 12px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.jt-preview:is([data-tp="ramadan"],[data-tp="space"],[data-tp="teacher"],[data-tp="sports"],[data-tp="ocean"]) .jt-prev-title{background:rgba(8,10,30,.55);box-shadow:none}
+.jt-preview[data-tp="default"]{background:#22358A !important;justify-content:center;align-items:center}
+.jt-prev-mark{font-family:var(--jd-mark);font-size:44px;color:#FAF6EF}
+.theme-card.active{box-shadow:0 0 0 3px var(--primary),0 18px 40px rgba(20,27,52,.15) !important}
+.theme-selected{z-index:2}
+/* ألوان المعاينة مستقلة عن الثيم المفعّل */
+.jt-preview[data-tp="ramadan"]{--jt-hero-bg:linear-gradient(180deg,#140C2C,#3B2470);--jt-hero-accent:#F4C451;--jt-display:"Aref Ruqaa",serif}
+.jt-preview[data-tp="national"]{--jt-hero-bg:linear-gradient(180deg,#fff 0 calc(100% - 16px),#C8102E calc(100% - 16px) calc(100% - 8px),#1F7A4D calc(100% - 8px));--jt-hero-accent:#C8102E;--jt-display:"Reem Kufi",serif}
+.jt-preview[data-tp="space"]{--jt-hero-bg:linear-gradient(135deg,#0B0F2A,#1A1450);--jt-hero-accent:#F2A93B}
+.jt-preview[data-tp="ocean"]{--jt-hero-bg:linear-gradient(180deg,#1AA3D9,#084F7E);--jt-hero-accent:#FFD166;--jt-display:"Baloo Bhaijaan 2",sans-serif}
+.jt-preview[data-tp="garden"]{--jt-hero-bg:linear-gradient(180deg,#BFE8FF,#E8F8FF);--jt-hero-accent:#2E8B57;--jt-display:"Baloo Bhaijaan 2",sans-serif}
+.jt-preview[data-tp="rainbow"]{--jt-hero-bg:linear-gradient(180deg,#9FDBFF,#DDF3FF);--jt-hero-accent:#E0457B;--jt-display:"Baloo Bhaijaan 2",sans-serif}
+.jt-preview[data-tp="teacher"]{--jt-hero-bg:#1F3B2E;--jt-hero-accent:#FFD166;--jt-display:"Aref Ruqaa",serif;border-bottom:6px solid #8B5E34}
+.jt-preview[data-tp="tree"]{--jt-hero-bg:linear-gradient(180deg,#CDEBFF,#EAF7E6);--jt-hero-accent:#2F7D4A;--jt-display:"El Messiri",sans-serif}
+.jt-preview[data-tp="sports"]{--jt-hero-bg:linear-gradient(120deg,#FF5A36 0,#FF7A4F 30%,#0A4C90 30.2%,#0A5FB4 100%);--jt-hero-accent:#FFD166;--jt-display:"Lalezar",sans-serif}
+.jt-preview[data-tp="backtoschool"]{--jt-hero-bg:repeating-linear-gradient(180deg,transparent 0 15px,rgba(47,95,208,.14) 15px 16px),#FFFDF5;--jt-hero-accent:#2F5FD0;--jt-display:"Baloo Bhaijaan 2",sans-serif}
+.jt-preview[data-tp="children"]{--jt-hero-bg:linear-gradient(160deg,#FFE0EF,#E9E4FF);--jt-hero-accent:#C93B82;--jt-display:"Baloo Bhaijaan 2",sans-serif}
+.jt-preview[data-tp="book"]{--jt-hero-bg:#EFE2C8;--jt-hero-accent:#7A4B2A;--jt-display:"Amiri",serif}
+
+@media (max-width:760px){
+  body[data-theme]:not([data-theme="default"]) .sidebar .nav button{color:var(--jt-side-fg) !important;background:color-mix(in srgb,var(--jt-side-fg) 8%,transparent) !important;border-color:color-mix(in srgb,var(--jt-side-fg) 14%,transparent) !important}
+  body[data-theme]:not([data-theme="default"]) .sidebar .nav button.active{background:var(--jt-side-active-bg) !important;color:var(--jt-side-active-fg) !important}
+  body[data-theme]:not([data-theme="default"]) .role-welcome{min-height:auto}
+  .jt-art{opacity:.55}
+  .jt-badge b{font-size:19px}
+  .js-lantern:nth-child(n+3){display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .jd-scene{display:none}
+}
+.occasion-banner .big .jt-icon{width:42px;height:42px;color:var(--primary);display:block}
