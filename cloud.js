@@ -278,6 +278,8 @@
       const rows=students.map(s=>({session_id:session.id,student_id:s.auth_user_id,student_name:s.name||'',status:s.status==='absent'?'absent':'present'}));
       const {error}=await c.from('attendance_records').insert(rows); if(error) throw error;
     }
+    const auditAction=existing?'updated':'submitted';
+    await c.from('attendance_audit').insert({session_id:session.id,actor_id:user.id,actor_name:profile.name||'',actor_role:'teacher',action:auditAction,note:''});
     return session;
   }
   async function listAttendanceSessions(){
@@ -304,6 +306,12 @@
     };
     const {data,error}=await c.from('attendance_sessions').update(patch).eq('id',sessionId).select('*').single();
     if(error) throw error;
+    const {data:adminProfile}=await c.from('profiles').select('name,role').eq('auth_user_id',user.id).maybeSingle();
+    const auditAction=next==='approved'?'approved':next==='rejected'?'rejected':null;
+    if(auditAction){
+      const {error:aErr}=await c.from('attendance_audit').insert({session_id:sessionId,actor_id:user.id,actor_name:adminProfile?.name||'',actor_role:'admin',action:auditAction,note:next==='rejected'?(note||''):''});
+      if(aErr) throw aErr;
+    }
 
     // بمجرد اعتماد الإدارة جهّز طابور رسائل الغياب تلقائيًا.
     // الإرسال الفعلي عبر WaSenderAPI سيُربط في الخطوة الأخيرة.
@@ -380,6 +388,15 @@
     return data;
   }
 
+  async function listAttendanceAudit(sessionId){
+    const c=await init();
+    let q=c.from('attendance_audit').select('*').order('created_at',{ascending:false});
+    if(sessionId) q=q.eq('session_id',sessionId);
+    const {data,error}=await q;
+    if(error) throw error;
+    return data||[];
+  }
+
   async function updateAttendanceSyncStatus(sessionId,status){
     const c=await init();
     const user=await currentUser();
@@ -398,7 +415,7 @@
     setHomeworkScoreVisibility,listClassStudents,
     saveStudentReport,myStudentReports,myStudentReportBundle,getTeacherStudentReport,
     createTeacherContent,listTeacherContent,deleteTeacherContent,createTeacherHomework,listTeacherHomeworks,deleteTeacherHomework,adminAllTeacherContent,
-    demoVisitStats,saveAttendanceSession,listAttendanceSessions,getAttendanceRecords,updateAttendanceApproval,prepareAttendanceNotifications,listAttendanceNotifications,markAttendanceNotificationSent,updateAttendanceSyncStatus,
+    demoVisitStats,saveAttendanceSession,listAttendanceSessions,getAttendanceRecords,updateAttendanceApproval,prepareAttendanceNotifications,listAttendanceNotifications,markAttendanceNotificationSent,listAttendanceAudit,updateAttendanceSyncStatus,
     get config(){return cfg;}
   };
 })();
