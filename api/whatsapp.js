@@ -113,6 +113,83 @@ export default async function handler(req, res) {
       return res.status(200).json({ statuses });
     }
 
+    if (b.action === 'send-finance') {
+      const apiKey = process.env.WASENDER_API_KEY;
+      if (!apiKey) return res.status(503).json({ error: 'لم يتم ربط واتساب بعد. أضف WASENDER_API_KEY في إعدادات Vercel.', code: 'not_configured' });
+
+      const studentAuthId = String(b.student_auth_id || '').trim();
+      if (!studentAuthId) return res.status(400).json({ error: 'student_auth_id مطلوب.' });
+
+      const accountKey = 'finance:account:' + studentAuthId;
+      const account = await readKv(sb, accountKey);
+      if (!account) return res.status(404).json({ error: 'الحساب المالي للطالب غير موجود.' });
+
+      const annual = Number(account.annual_fee) || 0;
+      const paid = Number(account.paid_amount) || 0;
+      const balance = Math.max(0, annual - paid);
+      if (annual <= 0) return res.status(400).json({ error: 'لا توجد رسوم سنوية محددة لهذا الطالب.' });
+      if (balance <= 0) return res.status(400).json({ error: 'تم سداد الرسوم كاملة ولا يوجد مبلغ متبقٍ.' });
+
+      const to = toWhatsAppNumber(account.guardian_phone);
+      if (!to) return res.status(400).json({ error: 'رقم ولي الأمر غير موجود.', code: 'no_phone' });
+
+      const fmt = n => Number(n || 0).toFixed(3);
+      const text =
+        'السلام عليكم ورحمة الله وبركاته 🌷\n\n' +
+        'ولي أمر الطالب/ة: *' + (account.student_name || 'الطالب') + '*\n' +
+        'نود تذكيركم بالرصيد المتبقي من الرسوم الدراسية السنوية.\n\n' +
+        '📚 ' + (account.grade || '') + (account.section ? ' — الشعبة ' + account.section : '') + '\n' +
+        '💰 إجمالي الرسوم: ' + fmt(annual) + ' ر.ع\n' +
+        '✅ إجمالي المدفوع: ' + fmt(paid) + ' ر.ع\n' +
+        '⏳ المبلغ المتبقي: *' + fmt(balance) + ' ر.ع*\n\n' +
+        'شاكرين لكم تعاونكم.\nإدارة مدرسة نخل الخاصة 🏫';
+
+      const reminderId = 'FIN-' + studentAuthId + '-' + Date.now();
+      const statusKey = 'wa_status:' + reminderId;
+      const r = await fetch(WASENDER_URL, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to, text })
+      });
+      const out = await r.json().catch(() => ({}));
+      if (r.status === 429) {
+        const retry = Number(r.headers.get('retry-after')) || Number(out.retry_after) || 10;
+        return res.status(429).json({ error: 'تم تجاوز حد الإرسال، سيُعاد المحاولة.', retry_after: retry });
+      }
+      if (!r.ok || out.success === false) {
+        const message = out.message || out.error || ('HTTP ' + r.status);
+        await writeKv(sb, statusKey, { status:'failed', error:String(message).slice(0,300), to, updated_at:new Date().toISOString() });
+        return res.status(502).json({ error:'تعذر الإرسال: ' + message });
+      }
+
+      const msgId = out?.data?.msgId ?? out?.data?.id ?? null;
+      const now = new Date().toISOString();
+      await writeKv(sb, 'finance:reminder:' + reminderId, {
+        id: reminderId,
+        student_auth_id: studentAuthId,
+        student_name: account.student_name || '',
+        guardian_phone: account.guardian_phone || '',
+        annual_fee: annual,
+        paid_amount: paid,
+        balance,
+        message: text,
+        sent_at: now,
+        sent_by: au.user.id
+      });
+      await writeKv(sb, statusKey, { status:'sent', msg_id:msgId, to, sent_at:now, updated_at:now, error:'' });
+      if (msgId !== null) await writeKv(sb, 'wa_msg:' + msgId, { notification_id: reminderId });
+      return res.status(200).json({ ok:true, status:'sent', reminder_id:reminderId, msg_id:msgId });
+    }
+
+    if (b.action === 'finance-reminders') {
+      const { data, error } = await sb.from('school_kv').select('key,value').like('key','finance:reminder:%');
+      if (error) throw error;
+      let reminders=(data||[]).map(x=>x.value||{});
+      if (b.student_auth_id) reminders=reminders.filter(x=>String(x.student_auth_id)===String(b.student_auth_id));
+      reminders.sort((a,b)=>String(b.sent_at||'').localeCompare(String(a.sent_at||'')));
+      return res.status(200).json({ reminders });
+    }
+
     if (b.action === 'send') {
       const apiKey = process.env.WASENDER_API_KEY;
       if (!apiKey) return res.status(503).json({ error: 'لم يتم ربط واتساب بعد. أضف WASENDER_API_KEY في إعدادات Vercel.', code: 'not_configured' });
