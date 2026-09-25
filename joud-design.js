@@ -176,15 +176,34 @@
   window.jdFilterFinanceAccounts=function(){
     const grade=document.getElementById('financeAccountGrade')?.value||'';
     const section=document.getElementById('financeAccountSection')?.value||'';
+    const status=document.getElementById('financeAccountStatus')?.value||'';
     const q=(document.getElementById('financeAccountSearch')?.value||'').trim().toLowerCase();
-    const rows=financeState.accounts.filter(a=>
-      (!grade||a.grade===grade)&&
-      (!section||String(a.section||'')===section)&&
-      (!q||String(a.student_name||'').toLowerCase().includes(q)||String(a.student_id||'').toLowerCase().includes(q)||String(a.guardian_phone||'').includes(q))
-    );
+    const rows=financeState.accounts.filter(a=>{
+      const annual=Number(a.annual_fee)||0;
+      const paid=Number(a.paid_amount)||0;
+      const st=annual<=0?'no_fee':paid>=annual?'paid':paid>0?'partial':'unpaid';
+      return (!grade||a.grade===grade)&&
+        (!section||String(a.section||'')===section)&&
+        (!status||st===status)&&
+        (!q||String(a.student_name||'').toLowerCase().includes(q)||String(a.student_id||'').toLowerCase().includes(q)||String(a.guardian_phone||'').includes(q));
+    });
     const body=document.getElementById('financeAccountsBody');
     const count=document.getElementById('financeAccountsCount');
     if(count) count.textContent=rows.length;
+
+    const totalFees=rows.reduce((s,a)=>s+(Number(a.annual_fee)||0),0);
+    const totalPaid=rows.reduce((s,a)=>s+(Number(a.paid_amount)||0),0);
+    const totalBalance=Math.max(0,totalFees-totalPaid);
+    const unpaidCount=rows.filter(a=>(Number(a.annual_fee)||0)>0&&(Number(a.paid_amount)||0)<=0).length;
+    const partialCount=rows.filter(a=>(Number(a.paid_amount)||0)>0&&(Number(a.paid_amount)||0)<(Number(a.annual_fee)||0)).length;
+    const paidCount=rows.filter(a=>(Number(a.annual_fee)||0)>0&&(Number(a.paid_amount)||0)>=(Number(a.annual_fee)||0)).length;
+    const setText=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+    setText('financeKpiFees',money(totalFees));
+    setText('financeKpiPaid',money(totalPaid));
+    setText('financeKpiBalance',money(totalBalance));
+    setText('financeKpiUnpaid',unpaidCount);
+    setText('financeKpiPartial',partialCount);
+    setText('financeKpiComplete',paidCount);
     if(!body) return;
     body.innerHTML=rows.length?rows.map(a=>`
       <tr>
@@ -305,14 +324,19 @@
     page.innerHTML=`
       <div class="page-head">
         <div><h2>المالية والرسوم 💳</h2><p>إدارة الرسوم السنوية والتحصيل المرن والرصيد المتبقي لكل طالب.</p></div>
-        <span class="tag green">الخطوة 3 جاهزة ✓</span>
+        <span class="tag green">الخطوة 5 جاهزة ✓</span>
       </div>
 
       <div class="grid grid-4">
-        ${stat('👨‍🎓','#E7EFFD',accounts.length,'حساب مالي')}
-        ${stat('✅','#E3F5EC',pricedAccounts,'طلاب برسوم محددة')}
-        ${stat('⚠️','#FDF0DA',unpricedAccounts,'طلاب بلا رسوم')}
-        ${stat('📅','#FCE6DE',esc(settings.academic_year||'2026/2027'),'العام الدراسي')}
+        <div class="card stat"><div class="bubble" style="background:#E7EFFD">💰</div><div><h4 id="financeKpiFees">0.000 ر.ع</h4><p>إجمالي الرسوم</p></div></div>
+        <div class="card stat"><div class="bubble" style="background:#E3F5EC">✅</div><div><h4 id="financeKpiPaid">0.000 ر.ع</h4><p>إجمالي المحصل</p></div></div>
+        <div class="card stat"><div class="bubble" style="background:#FDF0DA">⏳</div><div><h4 id="financeKpiBalance">0.000 ر.ع</h4><p>إجمالي المتبقي</p></div></div>
+        <div class="card stat"><div class="bubble" style="background:#FCE6DE">⚠️</div><div><h4 id="financeKpiUnpaid">0</h4><p>غير مسددين</p></div></div>
+      </div>
+      <div class="grid grid-3" style="margin-top:12px">
+        <div class="card"><small style="color:var(--muted)">سداد جزئي</small><h3 id="financeKpiPartial" style="margin:6px 0 0">0</h3></div>
+        <div class="card"><small style="color:var(--muted)">مكتمل السداد</small><h3 id="financeKpiComplete" style="margin:6px 0 0">0</h3></div>
+        <div class="card"><small style="color:var(--muted)">طلاب بلا رسوم محددة</small><h3 style="margin:6px 0 0">${unpricedAccounts}</h3></div>
       </div>
 
       <div class="card" style="margin-top:16px">
@@ -323,10 +347,17 @@
             <span id="financeSyncStatus" style="font-size:12px;font-weight:800"></span>
           </div>
         </div>
-        <div class="upload-row" style="margin-top:14px;grid-template-columns:1.4fr 1fr 1fr">
+        <div class="upload-row" style="margin-top:14px;grid-template-columns:1.5fr 1fr 1fr 1fr">
           <input id="financeAccountSearch" placeholder="بحث بالاسم أو رقم الطالب أو هاتف ولي الأمر" oninput="jdFilterFinanceAccounts()">
           <select id="financeAccountGrade" onchange="jdFilterFinanceAccounts()"><option value="">كل الصفوف</option>${GRADES.map(g=>`<option>${g}</option>`).join('')}</select>
           <select id="financeAccountSection" onchange="jdFilterFinanceAccounts()"><option value="">كل الشعب</option><option>1</option><option>2</option><option>3</option><option>4</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select>
+          <select id="financeAccountStatus" onchange="jdFilterFinanceAccounts()">
+            <option value="">كل حالات السداد</option>
+            <option value="unpaid">غير مسدد</option>
+            <option value="partial">سداد جزئي</option>
+            <option value="paid">مكتمل السداد</option>
+            <option value="no_fee">بلا رسوم محددة</option>
+          </select>
         </div>
         <div style="margin:12px 0 6px;color:var(--muted);font-size:12px">عدد النتائج: <b id="financeAccountsCount">${accounts.length}</b></div>
         <div style="overflow:auto">
@@ -361,8 +392,8 @@
 
       <div class="grid grid-3" style="margin-top:16px">
         <div class="card"><h3 style="margin-top:0">✅ إعداد الرسوم</h3><p style="color:var(--muted)">رسوم سنوية لكل صف بدون أقساط ثابتة.</p><span class="tag green">جاهز</span></div>
-        <div class="card"><h3 style="margin-top:0">✅ حسابات الطلاب</h3><p style="color:var(--muted)">تم ربط الحساب المالي ببيانات كل طالب.</p><span class="tag green">جاهز</span></div>
-        <div class="card"><h3 style="margin-top:0">💵 سجل الدفعات</h3><p style="color:var(--muted)">تسجيل أي مبلغ يدفعه ولي الأمر وخصمه من الرصيد السنوي.</p><span class="tag orange">الخطوة 4</span></div>
+        <div class="card"><h3 style="margin-top:0">✅ سجل الدفعات</h3><p style="color:var(--muted)">أي مبلغ يُسجل ويخصم من الرصيد السنوي.</p><span class="tag green">جاهز</span></div>
+        <div class="card"><h3 style="margin-top:0">✅ الجرد والتحصيل</h3><p style="color:var(--muted)">المحصل والمتبقي وحالات السداد حسب الصف والشعبة.</p><span class="tag green">جاهز</span></div>
       </div>`;
 
     window.jdFilterFinanceAccounts();
