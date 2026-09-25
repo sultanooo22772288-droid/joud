@@ -289,6 +289,7 @@
         <td style="padding:8px;border-bottom:1px solid var(--line)">
           <button class="btn primary" style="padding:7px 10px" onclick='jdOpenPaymentModal(${JSON.stringify(JSON.stringify(a))})' ${Number(a.annual_fee)<=Number(a.paid_amount)?'disabled':''}>+ دفعة</button>
           <button class="btn soft" style="padding:7px 10px;margin-right:4px" onclick='jdShowPaymentHistory(${JSON.stringify(a.student_auth_id)})'>السجل</button>
+          <button class="btn soft" style="padding:7px 10px;margin-right:4px" onclick='jdShowStudentStatement(${JSON.stringify(a.student_auth_id)})'>كشف الحساب</button>
           <button class="btn soft" style="padding:7px 10px;margin-right:4px" onclick='jdSendFinanceReminder(${JSON.stringify(a.student_auth_id)},this)' ${(Number(a.annual_fee)||0)<=0||(Number(a.paid_amount)||0)>=(Number(a.annual_fee)||0)?'disabled':''}>واتساب</button>
         </td>
       </tr>`).join(''):'<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">لا توجد حسابات مطابقة.</td></tr>';
@@ -518,6 +519,134 @@
     }catch(e){alert('تعذر تحميل سجل التذكيرات: '+(e.message||''));}
   };
 
+
+  function jdStatementPaymentMethod(method){
+    return method==='bank'?'تحويل بنكي':method==='card'?'بطاقة':'نقدي';
+  }
+
+  window.jdShowStudentStatement=async function(studentAuthId){
+    try{
+      const account=financeState.accounts.find(x=>String(x.student_auth_id)===String(studentAuthId));
+      if(!account) return alert('تعذر العثور على حساب الطالب.');
+      const [payments,audit]=await Promise.all([
+        NabdCloud.listFinancePayments(studentAuthId),
+        NabdCloud.listFinanceAudit(studentAuthId)
+      ]);
+
+      document.getElementById('financeStatementModal')?.remove();
+      const annual=Number(account.annual_fee)||0;
+      const paid=Number(account.paid_amount)||0;
+      const balance=Math.max(0,annual-paid);
+      const wrap=document.createElement('div');
+      wrap.id='financeStatementModal';
+      wrap.style.cssText='position:fixed;inset:0;z-index:10003;background:rgba(20,28,45,.42);display:grid;place-items:center;padding:16px';
+
+      const paymentsHtml=payments.length?payments.map(p=>`
+        <tr>
+          <td style="padding:8px;border-bottom:1px solid var(--line)">${esc(p.payment_date||'')}</td>
+          <td style="padding:8px;border-bottom:1px solid var(--line)">${esc(p.receipt_no||'')}</td>
+          <td style="padding:8px;border-bottom:1px solid var(--line);font-weight:800">${money(p.amount)}</td>
+          <td style="padding:8px;border-bottom:1px solid var(--line)">${jdStatementPaymentMethod(p.method)}</td>
+          <td style="padding:8px;border-bottom:1px solid var(--line)">${esc(p.reference||'—')}</td>
+          <td style="padding:8px;border-bottom:1px solid var(--line)">${esc(p.created_by||'')}</td>
+        </tr>`).join(''):'<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--muted)">لا توجد دفعات مسجلة.</td></tr>';
+
+      const auditHtml=audit.length?audit.map(x=>`
+        <div class="card" style="padding:10px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+            <b>${x.action==='payment_voided'?'إلغاء دفعة':'تعديل دفعة'} — ${esc(x.receipt_no||'')}</b>
+            <small style="color:var(--muted)">${x.created_at?new Date(x.created_at).toLocaleString('ar-OM'):'—'}</small>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:5px">بواسطة: ${esc(x.actor_name||'')} — السبب: ${esc(x.reason||'')}</div>
+          ${x.action==='payment_updated'?'<div style="font-size:12px;margin-top:5px">المبلغ قبل: <b>'+money(x.before?.amount||0)+'</b> — بعد: <b>'+money(x.after?.amount||0)+'</b></div>':''}
+        </div>`).join(''):'<div style="padding:14px;text-align:center;color:var(--muted)">لا توجد تعديلات أو إلغاءات.</div>';
+
+      wrap.innerHTML=`
+        <div class="card" style="width:min(980px,97vw);max-height:92vh;overflow:auto">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+            <div>
+              <h3 style="margin:0">📄 كشف حساب الطالب</h3>
+              <small style="color:var(--muted)">${esc(account.student_name||'')} — ${esc(account.grade||'')} / ${esc(account.section||'')}</small>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn primary" onclick='jdPrintStudentStatement(${JSON.stringify(studentAuthId)})'>🖨️ طباعة / PDF</button>
+              <button class="btn soft" onclick="document.getElementById('financeStatementModal').remove()">✕</button>
+            </div>
+          </div>
+
+          <div class="grid grid-4" style="margin-top:14px">
+            <div class="card" style="padding:12px"><small>الرسوم السنوية</small><b style="display:block;margin-top:5px">${money(annual)}</b></div>
+            <div class="card" style="padding:12px"><small>إجمالي المدفوع</small><b style="display:block;margin-top:5px">${money(paid)}</b></div>
+            <div class="card" style="padding:12px"><small>المتبقي</small><b style="display:block;margin-top:5px">${money(balance)}</b></div>
+            <div class="card" style="padding:12px"><small>حالة السداد</small><b style="display:block;margin-top:5px">${jdFinanceStatusLabel(account)}</b></div>
+          </div>
+
+          <div class="grid grid-3" style="margin-top:12px">
+            <div class="card" style="padding:12px"><small>رقم الطالب</small><b style="display:block;margin-top:5px">${esc(account.student_id||'—')}</b></div>
+            <div class="card" style="padding:12px"><small>ولي الأمر</small><b style="display:block;margin-top:5px" dir="ltr">${esc(account.guardian_phone||'—')}</b></div>
+            <div class="card" style="padding:12px"><small>العام الدراسي</small><b style="display:block;margin-top:5px">${esc(account.academic_year||financeState.settings?.academic_year||'')}</b></div>
+          </div>
+
+          <div class="card" style="margin-top:14px">
+            <h4 style="margin-top:0">💵 سجل الدفعات</h4>
+            <div style="overflow:auto">
+              <table style="width:100%;border-collapse:collapse;min-width:760px">
+                <thead><tr><th>التاريخ</th><th>رقم الإيصال</th><th>المبلغ</th><th>طريقة الدفع</th><th>المرجع</th><th>المسجل بواسطة</th></tr></thead>
+                <tbody>${paymentsHtml}</tbody>
+              </table>
+            </div>
+          </div>
+
+          <details class="card" style="margin-top:14px">
+            <summary style="cursor:pointer;font-weight:800">🧾 سجل التعديلات والإلغاءات (${audit.length})</summary>
+            <div style="margin-top:12px">${auditHtml}</div>
+          </details>
+        </div>`;
+      document.body.appendChild(wrap);
+    }catch(e){alert('تعذر تحميل كشف الحساب: '+(e.message||''));}
+  };
+
+  window.jdPrintStudentStatement=async function(studentAuthId){
+    try{
+      const account=financeState.accounts.find(x=>String(x.student_auth_id)===String(studentAuthId));
+      if(!account) return alert('تعذر العثور على حساب الطالب.');
+      const payments=await NabdCloud.listFinancePayments(studentAuthId);
+      const annual=Number(account.annual_fee)||0;
+      const paid=Number(account.paid_amount)||0;
+      const balance=Math.max(0,annual-paid);
+      const win=window.open('','_blank','noopener,noreferrer');
+      if(!win) return alert('اسمح بفتح النوافذ المنبثقة حتى يتم تجهيز كشف الحساب.');
+      const html=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>كشف حساب - ${esc(account.student_name||'')}</title>
+      <style>
+        @page{size:A4;margin:12mm}
+        body{font-family:Arial,Tahoma,sans-serif;color:#222;margin:0}
+        h1{font-size:22px;margin:0 0 4px}.sub{color:#666;margin-bottom:14px}
+        .info{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+        .box{border:1px solid #ddd;border-radius:8px;padding:10px}.box b{display:block;margin-top:4px;font-size:16px}
+        table{width:100%;border-collapse:collapse;font-size:11px;margin-top:12px}th,td{border:1px solid #ccc;padding:6px;text-align:center}th{background:#f3f5f7}
+        .foot{margin-top:14px;font-size:10px;color:#777}
+      </style></head><body>
+      <h1>كشف حساب الطالب — مدرسة نخل الخاصة</h1>
+      <div class="sub">${esc(account.student_name||'')} | ${esc(account.grade||'')} | الشعبة ${esc(account.section||'')} | العام الدراسي ${esc(account.academic_year||financeState.settings?.academic_year||'')}</div>
+      <div class="info">
+        <div class="box">الرسوم السنوية<b>${money(annual)}</b></div>
+        <div class="box">إجمالي المدفوع<b>${money(paid)}</b></div>
+        <div class="box">المبلغ المتبقي<b>${money(balance)}</b></div>
+        <div class="box">حالة السداد<b>${jdFinanceStatusLabel(account)}</b></div>
+        <div class="box">رقم الطالب<b>${esc(account.student_id||'—')}</b></div>
+        <div class="box">ولي الأمر<b dir="ltr">${esc(account.guardian_phone||'—')}</b></div>
+      </div>
+      <h3>سجل الدفعات</h3>
+      <table><thead><tr><th>التاريخ</th><th>رقم الإيصال</th><th>المبلغ</th><th>طريقة الدفع</th><th>المرجع</th></tr></thead><tbody>
+      ${payments.length?payments.map(p=>`<tr><td>${esc(p.payment_date||'')}</td><td>${esc(p.receipt_no||'')}</td><td>${money(p.amount)}</td><td>${jdStatementPaymentMethod(p.method)}</td><td>${esc(p.reference||'—')}</td></tr>`).join(''):'<tr><td colspan="5">لا توجد دفعات مسجلة.</td></tr>'}
+      </tbody></table>
+      <div class="foot">تاريخ إصدار الكشف: ${new Date().toLocaleString('ar-OM')}</div>
+      <script>window.onload=()=>setTimeout(()=>window.print(),250);<\/script>
+      </body></html>`;
+      win.document.open();win.document.write(html);win.document.close();
+    }catch(e){alert('تعذر تجهيز كشف الحساب: '+(e.message||''));}
+  };
+
   window.renderFinanceAdmin=async function(){
     const page=document.getElementById('financeAdmin');
     if(!page) return;
@@ -551,7 +680,7 @@
     page.innerHTML=`
       <div class="page-head">
         <div><h2>المالية والرسوم 💳</h2><p>إدارة الرسوم السنوية والتحصيل المرن والرصيد المتبقي لكل طالب.</p></div>
-        <span class="tag green">الخطوة 9 جاهزة ✓</span>
+        <span class="tag green">الخطوة 10 جاهزة ✓</span>
       </div>
 
       <div class="grid grid-4">
