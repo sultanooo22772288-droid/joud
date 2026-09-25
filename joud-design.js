@@ -223,7 +223,7 @@
       return;
     }
 
-    const rows=GRADES.map(g=>(settings.rows||[]).find(x=>x.grade===g)||{grade:g,annual_fee:0,installments:10,first_due_date:'',due_day:1});
+    const rows=GRADES.map(g=>(settings.rows||[]).find(x=>x.grade===g)||{grade:g,annual_fee:0});
     const configured=rows.filter(r=>Number(r.annual_fee)>0).length;
     const accounts=financeState.accounts||[];
     const pricedAccounts=accounts.filter(a=>Number(a.annual_fee)>0).length;
@@ -231,7 +231,7 @@
 
     page.innerHTML=`
       <div class="page-head">
-        <div><h2>المالية والأقساط 💳</h2><p>إدارة رسوم الطلاب والأقساط الشهرية والتحصيل والمتأخرات.</p></div>
+        <div><h2>المالية والرسوم 💳</h2><p>إدارة الرسوم السنوية والتحصيل المرن والرصيد المتبقي لكل طالب.</p></div>
         <span class="tag green">الخطوة 3 جاهزة ✓</span>
       </div>
 
