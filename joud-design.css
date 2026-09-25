@@ -390,3 +390,10 @@ body:not([data-theme]) .btn.soft,body[data-theme="default"] .btn.soft{background
 #notifications .task.is-read .dot{opacity:.55}
 #notifications .task.is-read .tag{background:#F1EADF !important;color:#6B7183 !important}
 #markAllReadBtn:disabled{opacity:.7;cursor:default}
+
+/* ---------- اختيار مواد المعلم ---------- */
+.jd-subject-picks{display:flex;flex-wrap:wrap;gap:8px}
+.jd-subject-pick{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1.5px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;font-size:14px;transition:border-color .2s,background .2s}
+.jd-subject-pick input{width:18px;height:18px;margin:0;accent-color:var(--primary)}
+.jd-subject-pick:has(input:checked){border-color:var(--primary);background:var(--theme-soft,#EEF1FB);color:var(--primary);font-weight:700}
+.jd-subject-pick:focus-within{box-shadow:0 0 0 3px rgba(34,53,138,.15)}
