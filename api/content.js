@@ -138,6 +138,12 @@ export default async function handler(req,res){
       });
     }
 
+    if(action==='own-password-changed'){
+      const {error}=await sb.from('school_kv').delete().eq('key',`default_password:${uid}`);
+      if(error) throw error;
+      return res.status(200).json({ok:true});
+    }
+
     if(action==='theme-get'){
       const {data,error}=await sb.from('school_kv').select('value').eq('key','platform_theme').maybeSingle();
       if(error) throw error;

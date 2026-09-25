@@ -1848,7 +1848,7 @@ async function syncCloudProfiles(){
     let credentials=[];
     try{credentials=await NabdCloud.loadAdminCredentials();}catch(e){console.warn('تعذر تحميل كلمات المرور الإدارية',e);}
     const byId=new Map((credentials||[]).map(c=>[String(c.auth_user_id||''),c]));
-    demoData.students=students.map(s=>({...s,password:byId.get(String(s.authUserId||''))?.password||'',email:byId.get(String(s.authUserId||''))?.email||s.email}));
+    demoData.students=students.map(s=>({...s,password:byId.get(String(s.authUserId||''))?.default_password?DEFAULT_STUDENT_PASSWORD:(byId.get(String(s.authUserId||''))?.password||''),email:byId.get(String(s.authUserId||''))?.email||s.email}));
     demoData.teachers=teachers.map(t=>({...t,password:byId.get(String(t.authUserId||''))?.password||'',email:byId.get(String(t.authUserId||''))?.email||t.email}));
     if(admin) demoData.admin={...demoData.admin,...admin,password:''};
   }else if(role==='student'){
@@ -1986,7 +1986,7 @@ function renderDashboard(){
  const d=document.getElementById('dashboard');
  if(role==='student'){
  const currentStudent=demoData.students.find(x=>String(x.email||'').toLowerCase()===String(currentLoginEmail||'').toLowerCase()) || demoData.students[0];
- const studentFirstName=esc((currentStudent?.name||'طالبنا').trim().split(/\s+/)[0]);
+ const studentFirstName=esc(studentDisplayName(currentStudent?.name||'طالبنا'));
  const studentGrade=esc(currentStudent?.grade||'غير محدد');
  const studentSection=esc(currentStudent?.section||'غير محددة');
  d.innerHTML=`
@@ -2612,8 +2612,8 @@ function renderProfilePageForRole(){
               <input class="locked-field" value="${esc(s.name)}" readonly aria-readonly="true" title="الاسم مسجل من الإدارة ولا يمكن للطالب تغييره">
             </div>
             <div class="field">
-              <label>البريد الإلكتروني</label>
-              <input id="studentProfileEmail" type="email" value="${esc(s.email||'')}" autocomplete="email">
+              <label>اسم المستخدم</label>
+              <input id="studentProfileEmail" class="locked-field" type="text" value="${esc(studentEmailToUsername(s.email))}" readonly aria-readonly="true" dir="ltr" title="اسم المستخدم تحدده الإدارة">
             </div>
             <div class="field">
               <label>كلمة المرور</label>
@@ -2714,7 +2714,7 @@ async function saveAdminProfileChanges(){
 async function saveStudentProfileChanges(){
   if(role!=='student')return;
   const s=getCurrentStudent(); if(!s){alert('تعذر العثور على سجل الطالب.');return;}
-  const email=(document.getElementById('studentProfileEmail')?.value||'').trim().toLowerCase();
+  const email=studentUsernameToEmail(document.getElementById('studentProfileEmail')?.value);
   const password=(document.getElementById('studentProfilePassword')?.value||'').trim();
   const status=document.getElementById('studentProfileSaveStatus');
   if(!email || !password){if(status){status.style.color='#c0392b';status.textContent='يرجى إدخال البريد الإلكتروني وكلمة المرور الجديدة.';}return;}
@@ -2722,6 +2722,7 @@ async function saveStudentProfileChanges(){
     const c=await NabdCloud.init();
     const {error:ae}=await c.auth.updateUser({email,password}); if(ae)throw ae;
     const {error:pe}=await c.from('profiles').update({email}).eq('auth_user_id',s.authUserId); if(pe)throw pe;
+    try{await NabdCloud.markOwnPasswordChanged();}catch(_e){}
     s.email=email; s.password=''; currentLoginEmail=email; renderProfilePageForRole();
     const st=document.getElementById('studentProfileSaveStatus');if(st){st.style.color='#178a5b';st.textContent='✓ تم تحديث بيانات الدخول السحابية.';}
   }catch(e){if(status){status.style.color='#c0392b';status.textContent='تعذر التحديث: '+(e.message||'');}}
@@ -4108,10 +4109,10 @@ function renderAdminManagement(){
   const subjectOptions = demoData.subjects.map((s,i)=>`<option>${esc(s)}</option>`).join('');
 
   st.innerHTML=`
-    <div class="page-head"><div><h2>إدارة الطلاب 👨‍🎓</h2><p>إضافة الطلاب وتوزيعهم على المراحل والصفوف.</p></div></div>
+    <div class="page-head"><div><h2>إدارة الطلاب 👨‍🎓</h2><p>إضافة الطلاب وتوزيعهم على المراحل والصفوف.</p></div><button class="btn primary" type="button" onclick="printStudentLoginList()">🖨️ طباعة بيانات الدخول</button></div>
     <div class="card" style="margin-bottom:16px">
       <h3 style="margin-top:0">📥 استيراد الطلاب دفعة واحدة</h3>
-      <p style="color:var(--muted);font-size:13px">ارفع Excel أو PDF يحتوي على الاسم، الهاتف، البريد الإلكتروني، كلمة المرور، الصف، الشعبة.</p>
+      <p style="color:var(--muted);font-size:13px">ارفع ملف Excel فيه اسم الطالب والصف والشعبة (وهاتف ولي الأمر اختياريًا). اسم المستخدم يُعطى تلقائيًا بالتسلسل (101001، 101002…) ويكمل من آخر رقم، والرقم السري الموحد 123456 إذا تُرك فارغًا.</p>
       <label class="btn primary" style="cursor:pointer">اختيار ملف Excel / PDF
         <input id="studentBulkFile" type="file" accept=".xlsx,.xls,.pdf" hidden onchange="previewBulkImport('student',this.files?.[0])">
       </label>
@@ -4128,11 +4129,11 @@ function renderAdminManagement(){
           <span id="newGuardianPhoneError" class="student-field-error"></span>
         </div>
         <div>
-          <input id="newStudentUsername" type="text" placeholder="اسم المستخدم (بالإنجليزي)" aria-label="اسم المستخدم" dir="ltr" autocomplete="off" autocapitalize="none" spellcheck="false"
+          <input id="newStudentUsername" type="text" placeholder="اسم المستخدم (تلقائي إذا تُرك فارغًا)" aria-label="اسم المستخدم" dir="ltr" autocomplete="off" autocapitalize="none" spellcheck="false"
             oninput="validateStudentEmailField()" onblur="validateStudentEmailField()">
           <span id="newStudentUsernameError" class="student-field-error"></span>
         </div>
-        <input id="newStudentPassword" type="password" placeholder="الرقم السري" aria-label="الرقم السري">
+        <input id="newStudentPassword" type="text" placeholder="الرقم السري (123456 إذا تُرك فارغًا)" aria-label="الرقم السري" dir="ltr" autocomplete="off">
         <select id="newStudentGrade" aria-label="الصف" onchange="ensureNumericStudentSections()">${gradeOptions}</select>
         <select id="newStudentSection" aria-label="الشعبة"><option>1</option><option>2</option><option>3</option><option>4</option></select>
       </div>
@@ -4170,7 +4171,7 @@ function renderAdminManagement(){
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center">
         <button class="btn primary" onclick="showAllStudentsAdmin()">👨‍🎓 جميع طلاب المدرسة</button>
-        <button id="printFilteredStudentsBtn" class="btn soft" onclick="printFilteredStudentsAdmin()" style="display:none">🖨️ طباعة قائمة الطلاب</button>
+        <button id="printFilteredStudentsBtn" class="btn soft" onclick="printStudentLoginList(true)">🖨️ طباعة بيانات دخول النتيجة الحالية</button>
         <span id="studentCount" style="align-self:center;color:var(--muted);font-size:13px">عدد الطلاب في المدرسة: ${demoData.students.length}</span>
       </div>
     </div>
@@ -4503,7 +4504,7 @@ function filterStudentsAdmin(){
     count.textContent=`${label}: ${list.length}`;
   }
   if(printBtn){
-    printBtn.style.display=(grade!=='الكل' || section!=='الكل') ? 'inline-flex' : 'none';
+    printBtn.style.display='inline-flex';
     printBtn.disabled=list.length===0;
   }
 }
@@ -4580,6 +4581,38 @@ function printFilteredStudentsAdmin(){
   w.document.close();
 }
 
+// طباعة بيانات دخول الطلاب: صفحة لكل صف وشعبة، مرتبة بالاسم.
+function printStudentLoginList(onlyFiltered=false){
+  if(role!=='admin'){alert('الطباعة متاحة لإدارة المدرسة فقط.');return;}
+  const list=onlyFiltered?getFilteredStudentsAdmin().list:[...demoData.students];
+  if(!list.length){alert('لا يوجد طلاب للطباعة.');return;}
+  const gradeOrder=['روضة','تمهيدي','الصف الأول','الصف الثاني','الصف الثالث','الصف الرابع'];
+  const groups=new Map();
+  list.forEach(s=>{const k=`${s.grade||''}||${s.section||''}`;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(s);});
+  const keys=[...groups.keys()].sort((a,b)=>{
+    const [ga,sa]=a.split('||'),[gb,sb]=b.split('||');
+    const d=(gradeOrder.indexOf(ga)+1||99)-(gradeOrder.indexOf(gb)+1||99);
+    return d||String(sa).localeCompare(String(sb),'ar',{numeric:true});
+  });
+  const pwd=s=>s.password?esc(s.password):'تم تغييره';
+  const sections=keys.map(k=>{
+    const [g,sec]=k.split('||');
+    const rows=groups.get(k).sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar')).map((s,i)=>`<tr><td>${i+1}</td><td class="name">${esc(s.name||'')}</td><td dir="ltr" class="mono">${esc(studentEmailToUsername(s.email)||'—')}</td><td dir="ltr" class="mono">${pwd(s)}</td></tr>`).join('');
+    return `<section><div class="head"><h1>بيانات دخول الطلاب — منصة جود</h1><p>${esc(g)} — الشعبة ${esc(sec)} · عدد الطلاب: ${groups.get(k).length}</p><p class="url">رابط الدخول: nakhalschool.com</p></div><table><thead><tr><th>م</th><th>اسم الطالب</th><th>اسم المستخدم</th><th>الرقم السري</th></tr></thead><tbody>${rows}</tbody></table></section>`;
+  }).join('');
+  const w=window.open('','_blank','width=1000,height=750');
+  if(!w){alert('تعذر فتح نافذة الطباعة. يرجى السماح بالنوافذ المنبثقة.');return;}
+  w.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>بيانات دخول الطلاب</title><style>
+    @page{size:A4;margin:12mm}
+    body{font-family:Tahoma,Arial,sans-serif;color:#141B34;margin:0}
+    section{page-break-after:always}section:last-child{page-break-after:auto}
+    .head{text-align:center;margin-bottom:14px}.head h1{margin:0 0 6px;font-size:20px}.head p{margin:3px 0;color:#444;font-size:14px}.head .url{font-weight:700;color:#22358A}
+    table{width:100%;border-collapse:collapse}th,td{border:1px solid #999;padding:7px 8px;text-align:center;font-size:13px}th{background:#EEF1FB}
+    td.name{text-align:right}td.mono{font-family:Consolas,monospace;font-size:14px;font-weight:700}
+  </style></head><body>${sections}<script>window.onload=()=>{window.print();};<\/script></body></html>`);
+  w.document.close();
+}
+
 function showAllStudentsAdmin(){
   const grade=document.getElementById('studentGradeFilter');
   const section=document.getElementById('studentSectionFilter');
@@ -4594,6 +4627,26 @@ let editingStudentId=null;
 
 // الطلاب يدخلون باسم مستخدم؛ يتحول داخليًا إلى عنوان على نطاق المدرسة لأن Supabase يتطلب بريدًا.
 const STUDENT_LOGIN_DOMAIN='students.nakhalschool.com';
+const DEFAULT_STUDENT_PASSWORD='123456';
+const FIRST_STUDENT_NUMBER=101001;
+// الرقم التالي لاسم المستخدم التلقائي (للمعاينة فقط؛ الخادم يحدد الرقم النهائي).
+function nextStudentUsernameNumber(){
+  const max=(demoData.students||[]).reduce((m,s)=>{
+    const u=studentEmailToUsername(s.email);
+    return /^\d+$/.test(u)?Math.max(m,parseInt(u,10)):m;
+  },FIRST_STUDENT_NUMBER-1);
+  return max+1;
+}
+// «أصيل بن إبراهيم بن محمد زهران الرويشدي» ← «أصيل بن إبراهيم الرويشدي»
+function studentDisplayName(full){
+  const t=String(full||'').trim().split(/\s+/).filter(Boolean);
+  if(t.length<=3) return t.join(' ');
+  const out=[t[0]];
+  let i=1;
+  if(['بن','بنت','ابن'].includes(t[1])&&t[2]){out.push(t[1],t[2]);i=3;}else{out.push(t[1]);i=2;}
+  if(i<t.length) out.push(t[t.length-1]);
+  return out.join(' ');
+}
 function studentUsernameToEmail(value){
   const v=String(value||'').trim().toLowerCase();
   if(!v) return '';
@@ -4639,9 +4692,13 @@ function validateStudentEmailField(){
   input.classList.remove('field-invalid','field-valid');
 
   if(!value){
-    if(error) error.textContent='اسم المستخدم مطلوب.';
-    input.classList.add('field-invalid');
-    return false;
+    if(editingStudentId){
+      if(error) error.textContent='اسم المستخدم مطلوب.';
+      input.classList.add('field-invalid');
+      return false;
+    }
+    if(error) error.textContent='';
+    return true;
   }
 
   const legacyEmail=value.includes('@');
@@ -4690,10 +4747,10 @@ function getStudentFormValues(){
   const phone='';
   const guardianPhone=(document.getElementById('newGuardianPhone')?.value||'').replace(/\D/g,'').slice(0,8);
   const email=studentUsernameToEmail(document.getElementById('newStudentUsername')?.value);
-  const password=document.getElementById('newStudentPassword')?.value.trim()||'';
+  const password=document.getElementById('newStudentPassword')?.value.trim()||(editingStudentId?'':DEFAULT_STUDENT_PASSWORD);
   const pair=(document.getElementById('newStudentGrade')?.value||'').split('||');
   const section=document.getElementById('newStudentSection')?.value.trim()||'1';
-  return {name,phone,guardianPhone,email,password,stage:pair[0]||'',grade:pair[1]||'',section};
+  return {name,phone,guardianPhone,email,password,autoUsername:!email&&!editingStudentId,stage:pair[0]||'',grade:pair[1]||'',section};
 }
 
 function clearStudentAdminForm(){
@@ -4729,22 +4786,22 @@ const bulkImportState={student:[],teacher:[]};
 function normH(v){return String(v||'').trim().toLowerCase().replace(/\s+/g,' ').replace(/[أإآ]/g,'ا')}
 function pv(row,aliases){for(const k of Object.keys(row||{})){if(aliases.map(normH).includes(normH(k)))return String(row[k]??'').trim()}return ''}
 function nr(role,row){
- if(role==='student')return {name:pv(row,['الاسم','اسم الطالب','name']),phone:'',guardianPhone:pv(row,['هاتف ولي الأمر','رقم ولي الأمر','ولي الأمر','guardian phone','guardian']),email:studentUsernameToEmail(pv(row,['اسم المستخدم','username','user'])||pv(row,['البريد الإلكتروني','الايميل','email'])),password:pv(row,['كلمة المرور','الرقم السري','password']),grade:pv(row,['الصف','grade']),section:pv(row,['الشعبة','section']),stage:pv(row,['المرحلة','stage'])};
+ if(role==='student')return {name:pv(row,['الاسم','اسم الطالب','name']),phone:'',guardianPhone:pv(row,['هاتف ولي الأمر','رقم ولي الأمر','ولي الأمر','guardian phone','guardian']),email:studentUsernameToEmail(pv(row,['اسم المستخدم','username','user'])||pv(row,['البريد الإلكتروني','الايميل','email'])),password:pv(row,['كلمة المرور','الرقم السري','password'])||DEFAULT_STUDENT_PASSWORD,grade:pv(row,['الصف','grade']),section:pv(row,['الشعبة','section']),stage:pv(row,['المرحلة','stage'])};
  return {name:pv(row,['الاسم','اسم المعلم','name']),phone:pv(row,['رقم الهاتف','الهاتف','phone']),email:pv(row,['البريد الإلكتروني','الايميل','email']),password:pv(row,['كلمة المرور','الرقم السري','password']),subject:pv(row,['المادة','subject']),stagesRaw:pv(row,['الصفوف والشعب','الصفوف','stages','classes'])};
 }
-function verr(role,r){const e=[];if(!r.name)e.push('الاسم مفقود');if(role==='student'){if(r.guardianPhone&&!/^\d{8}$/.test(r.guardianPhone))e.push('هاتف ولي الأمر 8 أرقام')}else if(!/^\d{8}$/.test(r.phone||''))e.push('الهاتف 8 أرقام');if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email||''))e.push(role==='student'?'اسم المستخدم غير صحيح':'البريد غير صحيح');if(!r.password||r.password.length<6)e.push('الرقم السري 6 خانات على الأقل');if(role==='student'){if(!['روضة','تمهيدي','الصف الأول','الصف الثاني','الصف الثالث','الصف الرابع'].includes(r.grade))e.push('الصف غير صحيح');r.section=({'أ':'1','ب':'2','ج':'3','د':'4'})[r.section]||r.section;if(!['1','2','3','4'].includes(r.section))e.push('الشعبة من 1 إلى 4');if(!r.stage)r.stage=(r.grade==='روضة'||r.grade==='تمهيدي')?'رياض الأطفال':'الحلقة الأولى'}else if(!r.subject)e.push('المادة مفقودة');return e}
+function verr(role,r){const e=[];if(!r.name)e.push('الاسم مفقود');if(role==='student'){if(r.guardianPhone&&!/^\d{8}$/.test(r.guardianPhone))e.push('هاتف ولي الأمر 8 أرقام')}else if(!/^\d{8}$/.test(r.phone||''))e.push('الهاتف 8 أرقام');if(role==='student'&&!r.email)r.autoUsername=true;else if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email||''))e.push(role==='student'?'اسم المستخدم غير صحيح':'البريد غير صحيح');else if(role==='student'&&demoData.students.some(x=>String(x.email||'').toLowerCase()===r.email))e.push('اسم المستخدم مستخدم لطالب آخر');if(!r.password||r.password.length<6)e.push('الرقم السري 6 خانات على الأقل');if(role==='student'){if(!['روضة','تمهيدي','الصف الأول','الصف الثاني','الصف الثالث','الصف الرابع'].includes(r.grade))e.push('الصف غير صحيح');r.section=({'أ':'1','ب':'2','ج':'3','د':'4'})[r.section]||r.section;if(!['1','2','3','4'].includes(r.section))e.push('الشعبة من 1 إلى 4');if(!r.stage)r.stage=(r.grade==='روضة'||r.grade==='تمهيدي')?'رياض الأطفال':'الحلقة الأولى'}else if(!r.subject)e.push('المادة مفقودة');return e}
 async function readX(file){const b=await file.arrayBuffer(),wb=XLSX.read(b,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];return XLSX.utils.sheet_to_json(ws,{defval:''})}
 async function readP(file){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise,lines=[];for(let n=1;n<=pdf.numPages;n++){const p=await pdf.getPage(n),tc=await p.getTextContent(),g={};tc.items.forEach(i=>{const y=Math.round((i.transform?.[5]||0)/3)*3;(g[y]||(g[y]=[])).push({x:i.transform?.[4]||0,t:i.str||''})});Object.keys(g).sort((a,b)=>b-a).forEach(y=>lines.push(g[y].sort((a,b)=>a.x-b.x).map(x=>x.t.trim()).filter(Boolean).join(' | ')))}if(lines.length<2)return[];const sp=l=>l.split(/\s*\|\s*|\t+|\s{3,}/).filter(Boolean),h=sp(lines[0]);return lines.slice(1).map(l=>{const v=sp(l),o={};h.forEach((x,i)=>o[x]=v[i]||'');return o})}
-async function previewBulkImport(role,file){const box=document.getElementById(role==='student'?'studentBulkPreview':'teacherBulkPreview');if(!file||!box)return;box.innerHTML='جاري قراءة الملف...';try{const raw=/\.pdf$/i.test(file.name)?await readP(file):await readX(file),seen=new Set();bulkImportState[role]=raw.map(nr.bind(null,role)).map((r,i)=>{const e=verr(role,r),k=(r.email||'').toLowerCase();if(k&&seen.has(k))e.push('البريد مكرر');if(k)seen.add(k);return {...r,_row:i+2,_errors:e}}).filter(r=>r.name||r.email);renderBulkPreview(role)}catch(e){box.innerHTML='<span style="color:#c0392b">تعذر القراءة: '+esc(e.message||'')+'</span>'}}
+async function previewBulkImport(role,file){const box=document.getElementById(role==='student'?'studentBulkPreview':'teacherBulkPreview');if(!file||!box)return;box.innerHTML='جاري قراءة الملف...';try{const raw=/\.pdf$/i.test(file.name)?await readP(file):await readX(file),seen=new Set();bulkImportState[role]=raw.map(nr.bind(null,role)).map((r,i)=>{const e=verr(role,r),k=(r.email||'').toLowerCase();if(k&&seen.has(k))e.push('البريد مكرر');if(k)seen.add(k);return {...r,_row:i+2,_errors:e}}).filter(r=>r.name||r.email);if(role==='student'){let n=nextStudentUsernameNumber();const taken=new Set(demoData.students.map(x=>String(x.email||'').toLowerCase()).concat(bulkImportState.student.map(x=>x.email)));bulkImportState.student.forEach(r=>{if(r.autoUsername&&!r._errors.length){while(taken.has(studentUsernameToEmail(String(n))))n++;r.email=studentUsernameToEmail(String(n++));}})}renderBulkPreview(role)}catch(e){box.innerHTML='<span style="color:#c0392b">تعذر القراءة: '+esc(e.message||'')+'</span>'}}
 function renderBulkPreview(role){const box=document.getElementById(role==='student'?'studentBulkPreview':'teacherBulkPreview'),rows=bulkImportState[role]||[],ok=rows.filter(r=>!r._errors.length);if(!rows.length){box.innerHTML='لا توجد بيانات.';return}box.innerHTML=`<div style="margin-bottom:10px"><span class="tag blue">الإجمالي ${rows.length}</span> <span class="tag green">صحيحة ${ok.length}</span> <button class="btn primary" onclick="confirmBulkImport('${role}')" ${ok.length?'':'disabled'}>إضافة الجميع</button></div><div style="overflow:auto;max-height:350px"><table style="width:100%;min-width:850px;border-collapse:collapse"><thead><tr><th>#</th><th>الاسم</th><th>${role==='student'?'هاتف ولي الأمر':'الهاتف'}</th><th>${role==='student'?'اسم المستخدم':'البريد'}</th><th>${role==='student'?'الصف / الشعبة':'المادة'}</th><th>الحالة</th></tr></thead><tbody>${rows.map(r=>`<tr style="border-top:1px solid var(--line)"><td>${r._row}</td><td>${esc(r.name)}</td><td dir="ltr">${esc(role==='student'?r.guardianPhone:r.phone)}</td><td dir="ltr">${esc(role==='student'?studentEmailToUsername(r.email):r.email)}</td><td>${esc(role==='student'?(r.grade+' / '+r.section):r.subject)}</td><td>${r._errors.length?'<span style="color:#c0392b">'+esc(r._errors.join('، '))+'</span>':'<span style="color:#178a5b">جاهز ✓</span>'}</td></tr>`).join('')}</tbody></table></div>`}
 function parseStages(v){return String(v||'').split(/[،,;|]+/).map(x=>x.trim()).filter(Boolean)}
-async function confirmBulkImport(role){const rows=(bulkImportState[role]||[]).filter(r=>!r._errors.length);if(!rows.length)return;if(!confirm(`إضافة ${rows.length} حسابًا الآن؟`))return;try{const users=rows.map(r=>role==='student'?{password:r.password,profile:{role:'student',name:r.name,phone:r.phone,guardian_phone:r.guardianPhone||'',email:r.email,external_id:'',stage:r.stage,grade:r.grade,section:r.section,subject:'',stages:[]}}:{password:r.password,profile:{role:'teacher',name:r.name,phone:r.phone,email:r.email,external_id:'',stage:'',grade:'',section:'',subject:r.subject,stages:parseStages(r.stagesRaw)}});const res=await NabdCloud.bulkCreateUsers(role,users);await syncCloudProfiles();renderAdminManagement();alert(`تمت إضافة ${res.created?.length||0} بنجاح${res.errors?.length?`، وتعذر ${res.errors.length}`:''}.`)}catch(e){alert('تعذر الاستيراد: '+(e.message||''))}}
+async function confirmBulkImport(role){const rows=(bulkImportState[role]||[]).filter(r=>!r._errors.length);if(!rows.length)return;if(!confirm(`إضافة ${rows.length} حسابًا الآن؟`))return;try{const users=rows.map(r=>role==='student'?{password:r.password,profile:{role:'student',auto_username:!!r.autoUsername,name:r.name,phone:r.phone,guardian_phone:r.guardianPhone||'',email:r.email,external_id:'',stage:r.stage,grade:r.grade,section:r.section,subject:'',stages:[]}}:{password:r.password,profile:{role:'teacher',name:r.name,phone:r.phone,email:r.email,external_id:'',stage:'',grade:'',section:'',subject:r.subject,stages:parseStages(r.stagesRaw)}});const res=await NabdCloud.bulkCreateUsers(role,users);await syncCloudProfiles();renderAdminManagement();const nums=(res.created||[]).map(x=>studentEmailToUsername(x.email)).filter(Boolean);alert(`تمت إضافة ${res.created?.length||0} بنجاح${res.errors?.length?`، وتعذر ${res.errors.length}`:''}.${role==='student'&&nums.length?`\nأسماء المستخدمين من ${nums[0]} إلى ${nums[nums.length-1]}، والرقم السري الموحد ${DEFAULT_STUDENT_PASSWORD}.\nيمكنك طباعة بيانات الدخول من زر «طباعة بيانات الدخول».`:''}`)}catch(e){alert('تعذر الاستيراد: '+(e.message||''))}}
 
 async function saveStudentAdminForm(){
   if(role!=='admin'){alert('هذا الخيار متاح لإدارة المدرسة فقط.');return;}
   const v=getStudentFormValues();
   const status=document.getElementById('studentFormStatus');
-  if(!v.name || !v.guardianPhone || !v.email || !v.password || !v.grade || !v.section){
+  if(!v.name || !v.guardianPhone || (!v.email && !v.autoUsername) || !v.password || !v.grade || !v.section){
     if(status){status.style.color='#c0392b';status.textContent='يرجى تعبئة جميع بيانات الطالب.';} return;
   }
   const phoneValid=validateStudentPhoneField();
@@ -4765,9 +4822,10 @@ async function saveStudentAdminForm(){
       setTimeout(()=>{const st=document.getElementById('studentFormStatus');if(st){st.style.color='#178a5b';st.textContent='✓ تم حفظ التعديلات سحابيًا.';}},50);
       return;
     }
-    await NabdCloud.createUser('student',{name:v.name,phone:v.phone,guardianPhone:v.guardianPhone,email:v.email,studentId:'',stage:v.stage,grade:v.grade,section:v.section},v.password);
+    const createdStudent=await NabdCloud.createUser('student',{name:v.name,phone:v.phone,guardianPhone:v.guardianPhone,email:v.email,autoUsername:v.autoUsername,studentId:'',stage:v.stage,grade:v.grade,section:v.section},v.password);
     await syncCloudProfiles(); renderAdminManagement();
-    setTimeout(()=>{const st=document.getElementById('studentFormStatus');if(st){st.style.color='#178a5b';st.textContent='✓ تمت إضافة الطالب وحسابه السحابي بنجاح.';}},50);
+    const createdUsername=studentEmailToUsername(createdStudent?.email||v.email);
+    setTimeout(()=>{const st=document.getElementById('studentFormStatus');if(st){st.style.color='#178a5b';st.textContent=`✓ تمت إضافة الطالب. اسم المستخدم: ${createdUsername} — الرقم السري: ${v.password}`;}},50);
   }catch(e){
     console.error(e); if(status){status.style.color='#c0392b';status.textContent='تعذر الحفظ: '+(e.message||'خطأ غير معروف');} alert('تعذر حفظ حساب الطالب: '+(e.message||''));
   }
