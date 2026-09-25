@@ -96,3 +96,89 @@
     btn.setAttribute('aria-pressed',show?'true':'false');
   };
 })();
+
+
+/* ===== جود: الخطوة 1 — قسم المالية والأقساط ===== */
+(function jdFinanceBootstrap(){
+  function boot(){
+    if(typeof window.navByRole==='undefined' || !document.querySelector('.content')){
+      return setTimeout(boot,60);
+    }
+
+    // إضافة الصفحة مرة واحدة.
+    if(!document.getElementById('financeAdmin')){
+      const page=document.createElement('section');
+      page.id='financeAdmin';
+      page.className='page';
+      document.querySelector('.content').appendChild(page);
+    }
+
+    // إضافة القسم لقائمة الإدارة فقط.
+    const admin=window.navByRole.admin||[];
+    if(!admin.some(x=>x[0]==='financeAdmin')){
+      const attendanceIndex=admin.findIndex(x=>x[0]==='attendance');
+      admin.splice(attendanceIndex>=0?attendanceIndex+1:1,0,['financeAdmin','💳','المالية والأقساط']);
+    }
+
+    window.renderFinanceAdmin=function(){
+      const page=document.getElementById('financeAdmin');
+      if(!page) return;
+      if(window.role!=='admin'){
+        page.innerHTML='<div class="card"><h3>🔒 قسم المالية والأقساط متاح لإدارة المدرسة فقط.</h3></div>';
+        return;
+      }
+      page.innerHTML=`
+        <div class="page-head">
+          <div>
+            <h2>المالية والأقساط 💳</h2>
+            <p>إدارة رسوم الطلاب، الأقساط الشهرية، التحصيل، المتأخرات والتقارير من مكان واحد.</p>
+          </div>
+          <span class="tag blue">الخطوة 1 جاهزة</span>
+        </div>
+
+        <div class="grid grid-4">
+          ${stat('💰','#E7EFFD','—','إجمالي الرسوم')}
+          ${stat('✅','#E3F5EC','—','المحصل')}
+          ${stat('⏳','#FDF0DA','—','المتبقي')}
+          ${stat('⚠️','#FCE6DE','—','المتأخر')}
+        </div>
+
+        <div class="grid grid-3" style="margin-top:16px">
+          <div class="card">
+            <h3 style="margin-top:0">⚙️ إعداد الرسوم</h3>
+            <p style="color:var(--muted)">حدد رسوم كل صف وعدد الأقساط ومواعيد الاستحقاق.</p>
+            <button class="btn primary" type="button" onclick="alert('سيتم تفعيل إعداد رسوم الصفوف في الخطوة رقم 2.')">إعداد الرسوم</button>
+          </div>
+          <div class="card">
+            <h3 style="margin-top:0">💵 تحصيل دفعة</h3>
+            <p style="color:var(--muted)">تسجيل دفعات الطلاب والدفع الجزئي وإصدار الإيصالات.</p>
+            <button class="btn soft" type="button" disabled>قريبًا</button>
+          </div>
+          <div class="card">
+            <h3 style="margin-top:0">📊 الجرد والتقارير</h3>
+            <p style="color:var(--muted)">عرض المدفوع والمتبقي والمتأخر حسب الصف والشعبة.</p>
+            <button class="btn soft" type="button" disabled>قريبًا</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <h3 style="margin-top:0">حالة نظام الأقساط</h3>
+          <div class="task"><div class="dot">✓</div><div><strong>قسم المالية والأقساط</strong><small>تمت إضافته إلى لوحة الإدارة</small></div><span class="tag green">جاهز</span></div>
+          <div class="task"><div class="dot">2</div><div><strong>إعداد رسوم الصفوف</strong><small>الخطوة التالية</small></div><span class="tag orange">التالي</span></div>
+        </div>`;
+    };
+
+    // افتح الصفحة مع إعادة رسم محتواها.
+    const oldAfter=window.jdAfterShow;
+    window.jdAfterShow=function(id){
+      if(typeof oldAfter==='function') oldAfter(id);
+      if(id==='financeAdmin') window.renderFinanceAdmin();
+    };
+
+    // إذا كانت القائمة مرسومة مسبقًا (جلسة محفوظة)، أعد رسمها.
+    if(typeof window.renderNav==='function' && window.role==='admin'){
+      window.renderNav();
+    }
+  }
+  boot();
+})();
