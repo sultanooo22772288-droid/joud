@@ -4112,7 +4112,7 @@ function renderAdminManagement(){
     <div class="page-head"><div><h2>إدارة الطلاب 👨‍🎓</h2><p>إضافة الطلاب وتوزيعهم على المراحل والصفوف.</p></div><button class="btn primary" type="button" onclick="printStudentLoginList()">🖨️ طباعة بيانات الدخول</button></div>
     <div class="card" style="margin-bottom:16px">
       <h3 style="margin-top:0">📥 استيراد الطلاب دفعة واحدة</h3>
-      <p style="color:var(--muted);font-size:13px">ارفع ملف Excel فيه اسم الطالب والصف والشعبة (وهاتف ولي الأمر اختياريًا). اسم المستخدم يُعطى تلقائيًا بالتسلسل (101001، 101002…) ويكمل من آخر رقم، والرقم السري الموحد 123456 إذا تُرك فارغًا.</p>
+      <p style="color:var(--muted);font-size:13px">ارفع ملف Excel فيه: اسم الطالب، هاتف ولي الأمر، الصف، الشعبة. اسم المستخدم يُعطى تلقائيًا بالتسلسل (101001، 101002…) ويكمل من آخر رقم، والرقم السري الموحد 123456 إذا تُرك فارغًا.</p>
       <label class="btn primary" style="cursor:pointer">اختيار ملف Excel / PDF
         <input id="studentBulkFile" type="file" accept=".xlsx,.xls,.pdf" hidden onchange="previewBulkImport('student',this.files?.[0])">
       </label>
