@@ -113,6 +113,70 @@ export default async function handler(req, res) {
       return res.status(200).json({ statuses });
     }
 
+    if (b.action === 'send-finance-receipt') {
+      const apiKey = process.env.WASENDER_API_KEY;
+      if (!apiKey) return res.status(503).json({ error: 'لم يتم ربط واتساب بعد.', code: 'not_configured' });
+
+      const receiptNo = String(b.receipt_no || '').trim();
+      if (!receiptNo) return res.status(400).json({ error: 'receipt_no مطلوب.' });
+
+      const payment = await readKv(sb, 'finance:payment:' + receiptNo);
+      if (!payment || payment.voided) return res.status(404).json({ error: 'الإيصال غير موجود.' });
+
+      const account = await readKv(sb, 'finance:account:' + String(payment.student_auth_id || ''));
+      if (!account) return res.status(404).json({ error: 'الحساب المالي غير موجود.' });
+
+      const to = toWhatsAppNumber(account.guardian_phone);
+      if (!to) return res.status(400).json({ error: 'رقم ولي الأمر غير موجود.', code: 'no_phone' });
+
+      const fmt = n => Number(n || 0).toFixed(3);
+      const method = payment.method === 'bank' ? 'تحويل بنكي' : payment.method === 'card' ? 'بطاقة' : 'نقدي';
+      const balance = Math.max(0, Number(account.annual_fee || 0) - Number(account.paid_amount || 0));
+      const text =
+        'السلام عليكم ورحمة الله وبركاته 🌷\n\n' +
+        'ولي أمر الطالب/ة: *' + (account.student_name || 'الطالب') + '*\n' +
+        'تم استلام دفعة الرسوم الدراسية بنجاح، ونشكركم على تعاونكم.\n\n' +
+        '🧾 رقم الإيصال: *' + receiptNo + '*\n' +
+        '📅 تاريخ الدفع: ' + (payment.payment_date || '') + '\n' +
+        '💳 طريقة الدفع: ' + method + '\n' +
+        '💵 المبلغ المستلم: *' + fmt(payment.amount) + ' ر.ع*\n\n' +
+        '📊 ملخص الحساب:\n' +
+        '• إجمالي الرسوم السنوية: ' + fmt(account.annual_fee) + ' ر.ع\n' +
+        '• إجمالي المدفوع حتى الآن: ' + fmt(account.paid_amount) + ' ر.ع\n' +
+        '• المبلغ المتبقي: *' + fmt(balance) + ' ر.ع*\n\n' +
+        (payment.reference ? '🔖 المرجع: ' + payment.reference + '\n\n' : '') +
+        (balance <= 0 ? '✅ تم سداد الرسوم السنوية كاملة. شكرًا لكم.\n\n' : '') +
+        'مع خالص الشكر والتقدير،\nإدارة مدرسة نخل الخاصة 🏫';
+
+      const r = await fetch(WASENDER_URL, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to, text })
+      });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok || out.success === false) {
+        const message = out.message || out.error || ('HTTP ' + r.status);
+        return res.status(502).json({ error: 'تم حفظ الدفعة لكن تعذر إرسال الإيصال عبر واتساب: ' + message });
+      }
+
+      const msgId = out?.data?.msgId ?? out?.data?.id ?? null;
+      const now = new Date().toISOString();
+      const notificationId = 'FINPAY-' + receiptNo;
+      await writeKv(sb, 'finance:payment_message:' + receiptNo, {
+        notification_id: notificationId,
+        receipt_no: receiptNo,
+        student_auth_id: payment.student_auth_id,
+        student_name: payment.student_name || '',
+        guardian_phone: account.guardian_phone || '',
+        status: 'sent',
+        msg_id: msgId,
+        sent_at: now
+      });
+      await writeKv(sb, 'wa_status:' + notificationId, { status: 'sent', msg_id: msgId, to, sent_at: now, updated_at: now, error: '' });
+      if (msgId !== null) await writeKv(sb, 'wa_msg:' + msgId, { notification_id: notificationId });
+      return res.status(200).json({ ok: true, status: 'sent', msg_id: msgId });
+    }
+
     if (b.action === 'send-finance') {
       const apiKey = process.env.WASENDER_API_KEY;
       if (!apiKey) return res.status(503).json({ error: 'لم يتم ربط واتساب بعد. أضف WASENDER_API_KEY في إعدادات Vercel.', code: 'not_configured' });
