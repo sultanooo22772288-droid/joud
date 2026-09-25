@@ -257,10 +257,24 @@
   async function listClassStudents(grade,section){ const c=await init(); let q=c.from('profiles').select('id,auth_user_id,name,email,grade,section,role').eq('role','student'); if(grade) q=q.eq('grade',grade); if(section) q=q.eq('section',section); const {data,error}=await q.order('name',{ascending:true}); if(error) throw error; return data||[]; }
 
 
+  // تاريخ اليوم بتوقيت الجهاز (مسقط) وليس UTC.
+  function localToday(){ const d=new Date(); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+  function buildAbsenceMessage(studentName,session){
+    const date=session.attendance_date||localToday();
+    let day='';
+    try{ day=new Date(date+'T12:00:00').toLocaleDateString('ar-OM',{weekday:'long'}); }catch(_e){}
+    return 'السلام عليكم ورحمة الله وبركاته 🌷\n\n'+
+      'ولي أمر الطالب/ة: *'+studentName+'*\n'+
+      'نحيطكم علمًا بأن ابنكم/ابنتكم تغيّب/ت عن الحضور إلى المدرسة اليوم '+(day?day+' ':'')+date+'.\n'+
+      '📚 '+(session.grade||'')+' — الشعبة '+(session.section||'')+'\n\n'+
+      'نرجو التواصل مع إدارة المدرسة في حال وجود عذر، حرصًا منا على متابعة مسيرته الدراسية.\n\n'+
+      'مع خالص التحيات،\nإدارة مدرسة نخل الخاصة 🏫';
+  }
+
   async function saveAttendanceSession(payload){
     const c=await init(); const user=await currentUser();
     if(!user) throw new Error('يجب تسجيل الدخول أولاً.');
-    const date=payload.attendance_date||new Date().toISOString().slice(0,10);
+    const date=payload.attendance_date||localToday();
     const {data:profile,error:pe}=await c.from('profiles').select('role,name').eq('auth_user_id',user.id).single();
     if(pe) throw pe; if(profile?.role!=='teacher') throw new Error('هذه العملية متاحة للمعلم فقط.');
     const {data:existing,error:ee}=await c.from('attendance_sessions').select('*').eq('attendance_date',date).eq('grade',payload.grade).eq('section',payload.section).maybeSingle();
@@ -305,7 +319,8 @@
       rejection_note:next==='rejected'?(note||''):'',
       approved_by:next==='approved'?user.id:null,
       approved_at:next==='approved'?new Date().toISOString():null,
-      sync_status:next==='approved'?'pending':'not_ready'
+      // المزامنة مع موقع الوزارة تبدأ بزر منفصل بعد الاعتماد.
+      sync_status:'not_ready'
     };
     const {data,error}=await c.from('attendance_sessions').update(patch).eq('id',sessionId).select('*').single();
     if(error) throw error;
@@ -333,7 +348,7 @@
         const p=byId.get(String(x.student_id))||{};
         const guardianPhone=(p.guardian_phone||p.phone||'').replace(/\D/g,'');
         const studentName=x.student_name||p.name||'الطالب';
-        const message='السلام عليكم، نحيطكم علمًا بأن ابنكم/ابنتكم '+studentName+' من '+(data.grade||'')+' / الشعبة '+(data.section||'')+' متغيب/ة عن المدرسة اليوم '+(data.attendance_date||'')+'. في حال وجود عذر يرجى التواصل مع إدارة المدرسة.';
+        const message=buildAbsenceMessage(studentName,data);
         return {session_id:sessionId,student_id:x.student_id,student_name:studentName,guardian_phone:guardianPhone,message,status:'pending',sent_at:null};
       });
       if(notificationRows.length){
@@ -366,7 +381,7 @@
       const p=byId.get(String(x.student_id))||{};
       const guardianPhone=(p.guardian_phone||p.phone||'').replace(/\D/g,'');
       const studentName=x.student_name||p.name||'الطالب';
-      const message='السلام عليكم، نحيطكم علمًا بأن الطالب '+studentName+' من '+(session.grade||'')+' / الشعبة '+(session.section||'')+' تم تسجيله متغيبًا عن المدرسة اليوم '+(session.attendance_date||'')+'. في حال وجود عذر يرجى إبلاغ إدارة المدرسة.';
+      const message=buildAbsenceMessage(studentName,session);
       return {session_id:sessionId,student_id:x.student_id,student_name:studentName,guardian_phone:guardianPhone,message,status:'pending'};
     });
 
@@ -390,6 +405,23 @@
     if(error) throw error;
     return data;
   }
+
+  async function listNotificationsForSessions(ids){
+    const list=(ids||[]).filter(Boolean); if(!list.length) return [];
+    const c=await init();
+    const {data,error}=await c.from('attendance_notifications').select('*').in('session_id',list).order('student_name',{ascending:true});
+    if(error) throw error; return data||[];
+  }
+  async function whatsappRequest(payload){
+    const token=await getAccessToken();
+    const r=await fetch('/api/whatsapp',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
+    const out=await r.json().catch(()=>({}));
+    if(!r.ok){ const e=new Error(out.error||'تعذر تنفيذ عملية واتساب.'); e.status=r.status; e.code=out.code; e.retryAfter=out.retry_after; throw e; }
+    return out;
+  }
+  async function sendWhatsAppNotification(id){ return whatsappRequest({action:'send',notification_id:id}); }
+  async function whatsappStatuses(ids){ const out=await whatsappRequest({action:'statuses',ids}); return out.statuses||{}; }
+  async function whatsappConfig(){ return whatsappRequest({action:'status'}); }
 
   async function listAttendanceAudit(sessionId){
     const c=await init();
@@ -417,7 +449,7 @@
     submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,
     setHomeworkScoreVisibility,listClassStudents,
     saveStudentReport,myStudentReports,myStudentReportBundle,getTeacherStudentReport,
-    createTeacherContent,listTeacherContent,deleteTeacherContent,createTeacherHomework,listTeacherHomeworks,deleteTeacherHomework,adminAllTeacherContent,getSchoolTheme,setSchoolTheme,markOwnPasswordChanged,
+    createTeacherContent,listTeacherContent,deleteTeacherContent,createTeacherHomework,listTeacherHomeworks,deleteTeacherHomework,adminAllTeacherContent,getSchoolTheme,setSchoolTheme,markOwnPasswordChanged,listNotificationsForSessions,sendWhatsAppNotification,whatsappStatuses,whatsappConfig,localToday,
     demoVisitStats,saveAttendanceSession,listAttendanceSessions,getAttendanceRecords,updateAttendanceApproval,prepareAttendanceNotifications,listAttendanceNotifications,markAttendanceNotificationSent,listAttendanceAudit,updateAttendanceSyncStatus,
     get config(){return cfg;}
   };
