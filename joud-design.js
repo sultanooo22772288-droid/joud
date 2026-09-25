@@ -196,7 +196,80 @@
         <td style="padding:8px;border-bottom:1px solid var(--line);font-weight:800">${money(a.paid_amount||0)}</td>
         <td style="padding:8px;border-bottom:1px solid var(--line);font-weight:800">${money((Number(a.annual_fee)||0)-(Number(a.paid_amount)||0))}</td>
         <td style="padding:8px;border-bottom:1px solid var(--line)"><span class="tag ${Number(a.paid_amount)>=Number(a.annual_fee)&&Number(a.annual_fee)>0?'green':Number(a.paid_amount)>0?'orange':'blue'}">${Number(a.paid_amount)>=Number(a.annual_fee)&&Number(a.annual_fee)>0?'مكتمل':Number(a.paid_amount)>0?'جزئي':'غير مسدد'}</span></td>
-      </tr>`).join(''):'<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted)">لا توجد حسابات مطابقة.</td></tr>';
+        <td style="padding:8px;border-bottom:1px solid var(--line)">
+          <button class="btn primary" style="padding:7px 10px" onclick='jdOpenPaymentModal(${JSON.stringify(JSON.stringify(a))})' ${Number(a.annual_fee)<=Number(a.paid_amount)?'disabled':''}>+ دفعة</button>
+          <button class="btn soft" style="padding:7px 10px;margin-right:4px" onclick='jdShowPaymentHistory(${JSON.stringify(a.student_auth_id)})'>السجل</button>
+        </td>
+      </tr>`).join(''):'<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">لا توجد حسابات مطابقة.</td></tr>';
+  };
+
+
+  window.jdOpenPaymentModal=function(accountJson){
+    const a=typeof accountJson==='string'?JSON.parse(accountJson):accountJson;
+    document.getElementById('financePaymentModal')?.remove();
+    const balance=Math.max(0,(Number(a.annual_fee)||0)-(Number(a.paid_amount)||0));
+    const wrap=document.createElement('div');
+    wrap.id='financePaymentModal';
+    wrap.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(20,28,45,.38);display:grid;place-items:center;padding:16px';
+    wrap.innerHTML=`
+      <div class="card" style="width:min(560px,96vw);max-height:90vh;overflow:auto">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+          <div><h3 style="margin:0">💵 تسجيل دفعة</h3><small style="color:var(--muted)">${esc(a.student_name||'')} — ${esc(a.grade||'')} / ${esc(a.section||'')}</small></div>
+          <button class="btn soft" onclick="document.getElementById('financePaymentModal').remove()">✕</button>
+        </div>
+        <div class="grid grid-3" style="margin-top:14px">
+          <div class="card" style="padding:12px"><small>الرسوم السنوية</small><b style="display:block;margin-top:5px">${money(a.annual_fee)}</b></div>
+          <div class="card" style="padding:12px"><small>المدفوع</small><b style="display:block;margin-top:5px">${money(a.paid_amount||0)}</b></div>
+          <div class="card" style="padding:12px"><small>المتبقي</small><b style="display:block;margin-top:5px">${money(balance)}</b></div>
+        </div>
+        <div class="upload-row" style="margin-top:14px">
+          <div><label>المبلغ المدفوع</label><input id="financePayAmount" type="number" min="0.001" max="${balance}" step="0.001" placeholder="مثال: 100.000" dir="ltr"></div>
+          <div><label>تاريخ الدفع</label><input id="financePayDate" type="date" value="${new Date().toISOString().slice(0,10)}" dir="ltr"></div>
+          <div><label>طريقة الدفع</label><select id="financePayMethod"><option value="cash">نقدي</option><option value="bank">تحويل بنكي</option><option value="card">بطاقة</option></select></div>
+          <div><label>رقم المرجع (اختياري)</label><input id="financePayRef" placeholder="رقم التحويل / المرجع"></div>
+        </div>
+        <div style="margin-top:12px"><label>ملاحظة (اختياري)</label><textarea id="financePayNote" rows="2" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px"></textarea></div>
+        <div id="financePayStatus" style="margin-top:10px;font-size:13px;font-weight:800"></div>
+        <button class="btn primary" style="width:100%;margin-top:12px" onclick='jdSavePayment(${JSON.stringify(a.student_auth_id)})'>حفظ الدفعة وإصدار إيصال</button>
+      </div>`;
+    document.body.appendChild(wrap);
+  };
+
+  window.jdSavePayment=async function(studentAuthId){
+    const st=document.getElementById('financePayStatus');
+    try{
+      if(st){st.textContent='جاري حفظ الدفعة…';st.style.color='var(--muted)';}
+      const amount=Number(document.getElementById('financePayAmount')?.value)||0;
+      const payment_date=document.getElementById('financePayDate')?.value||'';
+      const method=document.getElementById('financePayMethod')?.value||'cash';
+      const reference=document.getElementById('financePayRef')?.value||'';
+      const note=document.getElementById('financePayNote')?.value||'';
+      const out=await NabdCloud.addFinancePayment({student_auth_id:studentAuthId,amount,payment_date,method,reference,note});
+      if(st){st.textContent='✓ تم تسجيل الدفعة — رقم الإيصال: '+out.payment.receipt_no;st.style.color='#178a5b';}
+      financeState.accounts=await NabdCloud.listFinanceAccounts();
+      setTimeout(()=>{document.getElementById('financePaymentModal')?.remove();window.renderFinanceAdmin();},900);
+    }catch(e){
+      if(st){st.textContent='تعذر الحفظ: '+(e.message||'');st.style.color='#c0392b';}
+    }
+  };
+
+  window.jdShowPaymentHistory=async function(studentAuthId){
+    try{
+      const list=await NabdCloud.listFinancePayments(studentAuthId);
+      document.getElementById('financeHistoryModal')?.remove();
+      const a=financeState.accounts.find(x=>String(x.student_auth_id)===String(studentAuthId))||{};
+      const wrap=document.createElement('div');
+      wrap.id='financeHistoryModal';
+      wrap.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(20,28,45,.38);display:grid;place-items:center;padding:16px';
+      wrap.innerHTML=`
+        <div class="card" style="width:min(760px,96vw);max-height:90vh;overflow:auto">
+          <div style="display:flex;justify-content:space-between;align-items:center"><div><h3 style="margin:0">🧾 سجل الدفعات</h3><small style="color:var(--muted)">${esc(a.student_name||'')}</small></div><button class="btn soft" onclick="document.getElementById('financeHistoryModal').remove()">✕</button></div>
+          <div style="overflow:auto;margin-top:14px"><table style="width:100%;border-collapse:collapse;min-width:650px"><thead><tr><th>الإيصال</th><th>التاريخ</th><th>المبلغ</th><th>الطريقة</th><th>المرجع</th><th>المسجل بواسطة</th></tr></thead><tbody>
+          ${list.length?list.map(p=>`<tr><td style="padding:8px;border-bottom:1px solid var(--line)">${esc(p.receipt_no||'')}</td><td style="padding:8px;border-bottom:1px solid var(--line)">${esc(p.payment_date||'')}</td><td style="padding:8px;border-bottom:1px solid var(--line);font-weight:800">${money(p.amount)}</td><td style="padding:8px;border-bottom:1px solid var(--line)">${p.method==='bank'?'تحويل بنكي':p.method==='card'?'بطاقة':'نقدي'}</td><td style="padding:8px;border-bottom:1px solid var(--line)">${esc(p.reference||'—')}</td><td style="padding:8px;border-bottom:1px solid var(--line)">${esc(p.created_by||'')}</td></tr>`).join(''):'<tr><td colspan="6" style="padding:22px;text-align:center;color:var(--muted)">لا توجد دفعات مسجلة.</td></tr>'}
+          </tbody></table></div>
+        </div>`;
+      document.body.appendChild(wrap);
+    }catch(e){alert('تعذر تحميل سجل الدفعات: '+(e.message||''));}
   };
 
   window.renderFinanceAdmin=async function(){
@@ -259,7 +332,7 @@
         <div style="overflow:auto">
           <table style="width:100%;border-collapse:collapse;min-width:900px">
             <thead><tr>
-              <th style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">الطالب</th><th>الصف</th><th>الشعبة</th><th>ولي الأمر</th><th>الرسوم السنوية</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th>
+              <th style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">الطالب</th><th>الصف</th><th>الشعبة</th><th>ولي الأمر</th><th>الرسوم السنوية</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th><th>إجراء</th>
             </tr></thead>
             <tbody id="financeAccountsBody"></tbody>
           </table>
