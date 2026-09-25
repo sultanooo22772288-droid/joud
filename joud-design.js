@@ -98,87 +98,160 @@
 })();
 
 
-/* ===== جود: الخطوة 1 — قسم المالية والأقساط ===== */
+/* ===== جود: المالية والأقساط — الخطوتان 1 و2 ===== */
 (function jdFinanceBootstrap(){
-  function boot(){
-    if(typeof window.navByRole==='undefined' || !document.querySelector('.content')){
-      return setTimeout(boot,60);
-    }
+  const GRADES=['روضة','تمهيدي','الصف الأول','الصف الثاني','الصف الثالث','الصف الرابع'];
+  let financeState={settings:null,loading:false,saving:false};
 
-    // إضافة الصفحة مرة واحدة.
+  function money(v){
+    const n=Number(v)||0;
+    return n.toLocaleString('ar-OM',{minimumFractionDigits:3,maximumFractionDigits:3})+' ر.ع';
+  }
+  function defaultRows(){
+    return GRADES.map(grade=>({grade,annual_fee:0,installments:10,installment_amount:0,first_due_date:'',due_day:1}));
+  }
+  async function ensureSettings(force=false){
+    if(financeState.settings&&!force) return financeState.settings;
+    financeState.loading=true;
+    try{
+      const s=await NabdCloud.getFinanceFeeSettings();
+      financeState.settings=s||{academic_year:'2026/2027',rows:defaultRows()};
+      if(!Array.isArray(financeState.settings.rows)) financeState.settings.rows=defaultRows();
+      return financeState.settings;
+    }finally{ financeState.loading=false; }
+  }
+
+  window.jdFinanceRecalc=function(i){
+    const annual=document.getElementById('feeAnnual'+i);
+    const count=document.getElementById('feeCount'+i);
+    const out=document.getElementById('feeInstallment'+i);
+    const a=Math.max(0,Number(annual?.value)||0);
+    const n=Math.max(1,Math.min(12,parseInt(count?.value||'1',10)||1));
+    if(out) out.textContent=money(a/n);
+  };
+
+  window.jdSaveFeeSettings=async function(){
+    if(financeState.saving) return;
+    const status=document.getElementById('financeSaveStatus');
+    try{
+      financeState.saving=true;
+      if(status){status.textContent='جاري الحفظ…';status.style.color='var(--muted)';}
+      const rows=GRADES.map((grade,i)=>({
+        grade,
+        annual_fee:Number(document.getElementById('feeAnnual'+i)?.value)||0,
+        installments:Number(document.getElementById('feeCount'+i)?.value)||1,
+        first_due_date:document.getElementById('feeFirst'+i)?.value||'',
+        due_day:Number(document.getElementById('feeDay'+i)?.value)||1
+      }));
+      const academic_year=(document.getElementById('financeAcademicYear')?.value||'2026/2027').trim();
+      const saved=await NabdCloud.saveFinanceFeeSettings({academic_year,rows});
+      financeState.settings=saved;
+      if(status){status.textContent='✓ تم حفظ إعدادات الرسوم بنجاح';status.style.color='#178a5b';}
+      await window.renderFinanceAdmin();
+    }catch(e){
+      if(status){status.textContent='تعذر الحفظ: '+(e.message||'');status.style.color='#c0392b';}
+      else alert('تعذر الحفظ: '+(e.message||''));
+    }finally{financeState.saving=false;}
+  };
+
+  window.renderFinanceAdmin=async function(){
+    const page=document.getElementById('financeAdmin');
+    if(!page) return;
+    if(window.role!=='admin'){
+      page.innerHTML='<div class="card"><h3>🔒 قسم المالية والأقساط متاح لإدارة المدرسة فقط.</h3></div>';
+      return;
+    }
+    page.innerHTML='<div class="card">جاري تحميل إعدادات الرسوم…</div>';
+    let settings;
+    try{settings=await ensureSettings();}
+    catch(e){
+      page.innerHTML='<div class="card"><h3>تعذر تحميل إعدادات الرسوم</h3><p style="color:var(--muted)">'+String(e.message||'')+'</p><button class="btn soft" onclick="financeState.settings=null;renderFinanceAdmin()">إعادة المحاولة</button></div>';
+      return;
+    }
+    const rows=GRADES.map(g=>(settings.rows||[]).find(x=>x.grade===g)||{grade:g,annual_fee:0,installments:10,first_due_date:'',due_day:1});
+    const configured=rows.filter(r=>Number(r.annual_fee)>0).length;
+    const annualTotal=rows.reduce((s,r)=>s+(Number(r.annual_fee)||0),0);
+
+    page.innerHTML=`
+      <div class="page-head">
+        <div>
+          <h2>المالية والأقساط 💳</h2>
+          <p>إدارة رسوم الطلاب والأقساط الشهرية والتحصيل والمتأخرات.</p>
+        </div>
+        <span class="tag green">الخطوة 2 جاهزة ✓</span>
+      </div>
+
+      <div class="grid grid-4">
+        ${stat('💰','#E7EFFD',configured,'صفوف تم تسعيرها')}
+        ${stat('📚','#E3F5EC',GRADES.length,'إجمالي الصفوف')}
+        ${stat('🧾','#FDF0DA',money(annualTotal),'مجموع رسوم الصفوف')}
+        ${stat('📅','#FCE6DE',esc(settings.academic_year||'2026/2027'),'العام الدراسي')}
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="jd-section-head" style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
+          <div><h3 style="margin:0">⚙️ إعداد رسوم الصفوف</h3><small style="color:var(--muted)">حدّد الرسوم وخطة التقسيط لكل صف. قيمة القسط تُحسب تلقائيًا.</small></div>
+          <div style="min-width:170px">
+            <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">العام الدراسي</label>
+            <input id="financeAcademicYear" value="${esc(settings.academic_year||'2026/2027')}" placeholder="2026/2027" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:10px">
+          </div>
+        </div>
+        <div style="overflow:auto;margin-top:14px">
+          <table style="width:100%;border-collapse:collapse;min-width:850px">
+            <thead>
+              <tr>
+                <th style="text-align:right;padding:10px;border-bottom:1px solid var(--line)">الصف</th>
+                <th style="padding:10px;border-bottom:1px solid var(--line)">إجمالي الرسوم (ر.ع)</th>
+                <th style="padding:10px;border-bottom:1px solid var(--line)">عدد الأقساط</th>
+                <th style="padding:10px;border-bottom:1px solid var(--line)">قيمة القسط</th>
+                <th style="padding:10px;border-bottom:1px solid var(--line)">أول استحقاق</th>
+                <th style="padding:10px;border-bottom:1px solid var(--line)">يوم الاستحقاق الشهري</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((r,i)=>`
+                <tr>
+                  <td style="padding:10px;border-bottom:1px solid var(--line)"><b>${esc(r.grade)}</b></td>
+                  <td style="padding:8px;border-bottom:1px solid var(--line)"><input id="feeAnnual${i}" type="number" min="0" step="0.001" value="${Number(r.annual_fee)||0}" oninput="jdFinanceRecalc(${i})" style="width:125px;padding:8px;border:1px solid var(--line);border-radius:9px" dir="ltr"></td>
+                  <td style="padding:8px;border-bottom:1px solid var(--line)"><select id="feeCount${i}" onchange="jdFinanceRecalc(${i})" style="padding:8px;border:1px solid var(--line);border-radius:9px">${Array.from({length:12},(_,k)=>`<option value="${k+1}" ${Number(r.installments)===(k+1)?'selected':''}>${k+1}</option>`).join('')}</select></td>
+                  <td id="feeInstallment${i}" style="padding:8px;border-bottom:1px solid var(--line);font-weight:800">${money((Number(r.annual_fee)||0)/(Number(r.installments)||1))}</td>
+                  <td style="padding:8px;border-bottom:1px solid var(--line)"><input id="feeFirst${i}" type="date" value="${esc(r.first_due_date||'')}" style="padding:8px;border:1px solid var(--line);border-radius:9px" dir="ltr"></td>
+                  <td style="padding:8px;border-bottom:1px solid var(--line)"><input id="feeDay${i}" type="number" min="1" max="28" value="${Number(r.due_day)||1}" style="width:80px;padding:8px;border:1px solid var(--line);border-radius:9px" dir="ltr"></td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px">
+          <button class="btn primary" type="button" onclick="jdSaveFeeSettings()">💾 حفظ إعدادات الرسوم</button>
+          <span id="financeSaveStatus" style="font-size:13px;font-weight:800"></span>
+        </div>
+      </div>
+
+      <div class="grid grid-3" style="margin-top:16px">
+        <div class="card"><h3 style="margin-top:0">✅ إعداد الرسوم</h3><p style="color:var(--muted)">تم تفعيل الرسوم وخطط الأقساط لكل صف.</p><span class="tag green">جاهز</span></div>
+        <div class="card"><h3 style="margin-top:0">👨‍🎓 حسابات الطلاب</h3><p style="color:var(--muted)">إنشاء الحساب المالي لكل طالب تلقائيًا.</p><span class="tag orange">الخطوة 3</span></div>
+        <div class="card"><h3 style="margin-top:0">💵 التحصيل</h3><p style="color:var(--muted)">تسجيل الدفعات وإصدار الإيصالات.</p><span class="tag blue">بعدها</span></div>
+      </div>`;
+  };
+
+  function boot(){
+    if(typeof window.navByRole==='undefined' || !document.querySelector('.content')) return setTimeout(boot,60);
     if(!document.getElementById('financeAdmin')){
       const page=document.createElement('section');
-      page.id='financeAdmin';
-      page.className='page';
+      page.id='financeAdmin'; page.className='page';
       document.querySelector('.content').appendChild(page);
     }
-
-    // إضافة القسم لقائمة الإدارة فقط.
     const admin=window.navByRole.admin||[];
     if(!admin.some(x=>x[0]==='financeAdmin')){
       const attendanceIndex=admin.findIndex(x=>x[0]==='attendance');
       admin.splice(attendanceIndex>=0?attendanceIndex+1:1,0,['financeAdmin','💳','المالية والأقساط']);
     }
-
-    window.renderFinanceAdmin=function(){
-      const page=document.getElementById('financeAdmin');
-      if(!page) return;
-      if(window.role!=='admin'){
-        page.innerHTML='<div class="card"><h3>🔒 قسم المالية والأقساط متاح لإدارة المدرسة فقط.</h3></div>';
-        return;
-      }
-      page.innerHTML=`
-        <div class="page-head">
-          <div>
-            <h2>المالية والأقساط 💳</h2>
-            <p>إدارة رسوم الطلاب، الأقساط الشهرية، التحصيل، المتأخرات والتقارير من مكان واحد.</p>
-          </div>
-          <span class="tag blue">الخطوة 1 جاهزة</span>
-        </div>
-
-        <div class="grid grid-4">
-          ${stat('💰','#E7EFFD','—','إجمالي الرسوم')}
-          ${stat('✅','#E3F5EC','—','المحصل')}
-          ${stat('⏳','#FDF0DA','—','المتبقي')}
-          ${stat('⚠️','#FCE6DE','—','المتأخر')}
-        </div>
-
-        <div class="grid grid-3" style="margin-top:16px">
-          <div class="card">
-            <h3 style="margin-top:0">⚙️ إعداد الرسوم</h3>
-            <p style="color:var(--muted)">حدد رسوم كل صف وعدد الأقساط ومواعيد الاستحقاق.</p>
-            <button class="btn primary" type="button" onclick="alert('سيتم تفعيل إعداد رسوم الصفوف في الخطوة رقم 2.')">إعداد الرسوم</button>
-          </div>
-          <div class="card">
-            <h3 style="margin-top:0">💵 تحصيل دفعة</h3>
-            <p style="color:var(--muted)">تسجيل دفعات الطلاب والدفع الجزئي وإصدار الإيصالات.</p>
-            <button class="btn soft" type="button" disabled>قريبًا</button>
-          </div>
-          <div class="card">
-            <h3 style="margin-top:0">📊 الجرد والتقارير</h3>
-            <p style="color:var(--muted)">عرض المدفوع والمتبقي والمتأخر حسب الصف والشعبة.</p>
-            <button class="btn soft" type="button" disabled>قريبًا</button>
-          </div>
-        </div>
-
-        <div class="card" style="margin-top:16px">
-          <h3 style="margin-top:0">حالة نظام الأقساط</h3>
-          <div class="task"><div class="dot">✓</div><div><strong>قسم المالية والأقساط</strong><small>تمت إضافته إلى لوحة الإدارة</small></div><span class="tag green">جاهز</span></div>
-          <div class="task"><div class="dot">2</div><div><strong>إعداد رسوم الصفوف</strong><small>الخطوة التالية</small></div><span class="tag orange">التالي</span></div>
-        </div>`;
-    };
-
-    // افتح الصفحة مع إعادة رسم محتواها.
     const oldAfter=window.jdAfterShow;
     window.jdAfterShow=function(id){
       if(typeof oldAfter==='function') oldAfter(id);
       if(id==='financeAdmin') window.renderFinanceAdmin();
     };
-
-    // إذا كانت القائمة مرسومة مسبقًا (جلسة محفوظة)، أعد رسمها.
-    if(typeof window.renderNav==='function' && window.role==='admin'){
-      window.renderNav();
-    }
+    if(typeof window.renderNav==='function' && window.role==='admin') window.renderNav();
   }
   boot();
 })();
