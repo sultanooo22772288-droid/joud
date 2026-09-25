@@ -423,6 +423,8 @@
   async function saveFinanceFeeSettings(settings){ const out=await financeRequest({action:'save-settings',settings}); return out.settings; }
   async function syncFinanceAccounts(){ const out=await financeRequest({action:'sync-accounts'}); return out; }
   async function listFinanceAccounts(){ const out=await financeRequest({action:'list-accounts'}); return out.accounts||[]; }
+  async function addFinancePayment(payload){ const out=await financeRequest({action:'add-payment',...payload}); return out; }
+  async function listFinancePayments(studentAuthId=''){ const out=await financeRequest({action:'list-payments',student_auth_id:studentAuthId}); return out.payments||[]; }
 
   async function whatsappRequest(payload){
     const token=await getAccessToken();
@@ -461,7 +463,7 @@
     submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,
     setHomeworkScoreVisibility,listClassStudents,
     saveStudentReport,myStudentReports,myStudentReportBundle,getTeacherStudentReport,
-    createTeacherContent,listTeacherContent,deleteTeacherContent,createTeacherHomework,listTeacherHomeworks,deleteTeacherHomework,adminAllTeacherContent,getSchoolTheme,setSchoolTheme,markOwnPasswordChanged,getFinanceFeeSettings,saveFinanceFeeSettings,syncFinanceAccounts,listFinanceAccounts,listNotificationsForSessions,sendWhatsAppNotification,whatsappStatuses,whatsappConfig,localToday,
+    createTeacherContent,listTeacherContent,deleteTeacherContent,createTeacherHomework,listTeacherHomeworks,deleteTeacherHomework,adminAllTeacherContent,getSchoolTheme,setSchoolTheme,markOwnPasswordChanged,getFinanceFeeSettings,saveFinanceFeeSettings,syncFinanceAccounts,listFinanceAccounts,addFinancePayment,listFinancePayments,listNotificationsForSessions,sendWhatsAppNotification,whatsappStatuses,whatsappConfig,localToday,
     demoVisitStats,saveAttendanceSession,listAttendanceSessions,getAttendanceRecords,updateAttendanceApproval,prepareAttendanceNotifications,listAttendanceNotifications,markAttendanceNotificationSent,listAttendanceAudit,updateAttendanceSyncStatus,
     get config(){return cfg;}
   };
