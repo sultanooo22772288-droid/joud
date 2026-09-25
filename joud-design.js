@@ -173,12 +173,12 @@
     }
   };
 
-  window.jdFilterFinanceAccounts=function(){
+  function jdFinanceFilteredRows(){
     const grade=document.getElementById('financeAccountGrade')?.value||'';
     const section=document.getElementById('financeAccountSection')?.value||'';
     const status=document.getElementById('financeAccountStatus')?.value||'';
     const q=(document.getElementById('financeAccountSearch')?.value||'').trim().toLowerCase();
-    const rows=financeState.accounts.filter(a=>{
+    return financeState.accounts.filter(a=>{
       const annual=Number(a.annual_fee)||0;
       const paid=Number(a.paid_amount)||0;
       const st=annual<=0?'no_fee':paid>=annual?'paid':paid>0?'partial':'unpaid';
@@ -187,6 +187,77 @@
         (!status||st===status)&&
         (!q||String(a.student_name||'').toLowerCase().includes(q)||String(a.student_id||'').toLowerCase().includes(q)||String(a.guardian_phone||'').includes(q));
     });
+  }
+
+  function jdFinanceStatusLabel(a){
+    const annual=Number(a.annual_fee)||0, paid=Number(a.paid_amount)||0;
+    return annual<=0?'بلا رسوم محددة':paid>=annual?'مكتمل السداد':paid>0?'سداد جزئي':'غير مسدد';
+  }
+
+  window.jdExportFinanceExcel=function(){
+    const rows=jdFinanceFilteredRows();
+    if(!rows.length){alert('لا توجد بيانات لتصديرها حسب الفلاتر الحالية.');return;}
+    if(!window.XLSX){alert('مكتبة Excel لم تكتمل بعد. حاول مرة أخرى بعد لحظات.');return;}
+    const data=rows.map((a,i)=>({
+      'م':i+1,
+      'اسم الطالب':a.student_name||'',
+      'رقم الطالب':a.student_id||'',
+      'الصف':a.grade||'',
+      'الشعبة':a.section||'',
+      'هاتف ولي الأمر':a.guardian_phone||'',
+      'الرسوم السنوية (ر.ع)':Number(a.annual_fee)||0,
+      'المدفوع (ر.ع)':Number(a.paid_amount)||0,
+      'المتبقي (ر.ع)':Math.max(0,(Number(a.annual_fee)||0)-(Number(a.paid_amount)||0)),
+      'حالة السداد':jdFinanceStatusLabel(a)
+    }));
+    const ws=XLSX.utils.json_to_sheet(data);
+    ws['!cols']=[{wch:6},{wch:28},{wch:16},{wch:16},{wch:10},{wch:18},{wch:18},{wch:16},{wch:16},{wch:18}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'التقرير المالي');
+    const grade=document.getElementById('financeAccountGrade')?.value||'الكل';
+    const section=document.getElementById('financeAccountSection')?.value||'الكل';
+    XLSX.writeFile(wb,`تقرير-الرسوم-${grade}-${section}.xlsx`);
+  };
+
+  window.jdExportFinancePdf=function(){
+    const rows=jdFinanceFilteredRows();
+    if(!rows.length){alert('لا توجد بيانات لتصديرها حسب الفلاتر الحالية.');return;}
+    const totalFees=rows.reduce((s,a)=>s+(Number(a.annual_fee)||0),0);
+    const totalPaid=rows.reduce((s,a)=>s+(Number(a.paid_amount)||0),0);
+    const totalBalance=Math.max(0,totalFees-totalPaid);
+    const grade=document.getElementById('financeAccountGrade')?.value||'كل الصفوف';
+    const section=document.getElementById('financeAccountSection')?.value||'كل الشعب';
+    const statusText=document.getElementById('financeAccountStatus')?.selectedOptions?.[0]?.textContent||'كل حالات السداد';
+    const win=window.open('','_blank','noopener,noreferrer');
+    if(!win){alert('اسمح بفتح النوافذ المنبثقة حتى يتم تجهيز تقرير PDF.');return;}
+    const report=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>التقرير المالي</title>
+      <style>
+        @page{size:A4 landscape;margin:10mm}
+        body{font-family:Arial,Tahoma,sans-serif;color:#222;margin:0}
+        h1{margin:0 0 6px;font-size:22px}.sub{color:#666;margin-bottom:14px}
+        .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0 16px}
+        .box{border:1px solid #ddd;border-radius:8px;padding:10px}.box b{display:block;font-size:17px;margin-top:4px}
+        table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #ccc;padding:6px;text-align:center}th{background:#f2f4f7}td:first-child{text-align:right}
+        .foot{margin-top:10px;color:#777;font-size:10px}
+      </style></head><body>
+      <h1>التقرير المالي — مدرسة نخل الخاصة</h1>
+      <div class="sub">العام الدراسي: ${esc(financeState.settings?.academic_year||'')} | الصف: ${esc(grade)} | الشعبة: ${esc(section)} | الحالة: ${esc(statusText)}</div>
+      <div class="summary">
+        <div class="box">إجمالي الرسوم<b>${money(totalFees)}</b></div>
+        <div class="box">إجمالي المحصل<b>${money(totalPaid)}</b></div>
+        <div class="box">إجمالي المتبقي<b>${money(totalBalance)}</b></div>
+      </div>
+      <table><thead><tr><th>الطالب</th><th>الصف</th><th>الشعبة</th><th>ولي الأمر</th><th>الرسوم السنوية</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th></tr></thead><tbody>
+      ${rows.map(a=>`<tr><td>${esc(a.student_name||'')}</td><td>${esc(a.grade||'')}</td><td>${esc(a.section||'')}</td><td dir="ltr">${esc(a.guardian_phone||'')}</td><td>${money(a.annual_fee)}</td><td>${money(a.paid_amount||0)}</td><td>${money(Math.max(0,(Number(a.annual_fee)||0)-(Number(a.paid_amount)||0)))}</td><td>${jdFinanceStatusLabel(a)}</td></tr>`).join('')}
+      </tbody></table>
+      <div class="foot">عدد الطلاب: ${rows.length} — تاريخ التقرير: ${new Date().toLocaleDateString('ar-OM')}</div>
+      <script>window.onload=()=>setTimeout(()=>window.print(),250);<\/script>
+      </body></html>`;
+    win.document.open();win.document.write(report);win.document.close();
+  };
+
+  window.jdFilterFinanceAccounts=function(){
+    const rows=jdFinanceFilteredRows();
     const body=document.getElementById('financeAccountsBody');
     const count=document.getElementById('financeAccountsCount');
     if(count) count.textContent=rows.length;
@@ -324,7 +395,7 @@
     page.innerHTML=`
       <div class="page-head">
         <div><h2>المالية والرسوم 💳</h2><p>إدارة الرسوم السنوية والتحصيل المرن والرصيد المتبقي لكل طالب.</p></div>
-        <span class="tag green">الخطوة 5 جاهزة ✓</span>
+        <span class="tag green">الخطوة 6 جاهزة ✓</span>
       </div>
 
       <div class="grid grid-4">
@@ -343,6 +414,8 @@
         <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
           <div><h3 style="margin:0">👨‍🎓 الحسابات المالية للطلاب</h3><small style="color:var(--muted)">مرتبطة تلقائيًا ببيانات الطالب وصفه وشعبته ورقم ولي الأمر ورسوم صفه.</small></div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="btn soft" type="button" onclick="jdExportFinanceExcel()">📊 تصدير Excel</button>
+            <button class="btn soft" type="button" onclick="jdExportFinancePdf()">📄 تصدير PDF</button>
             <button id="financeSyncBtn" class="btn primary" type="button" onclick="jdSyncFinanceAccounts()">↻ مزامنة الطلاب</button>
             <span id="financeSyncStatus" style="font-size:12px;font-weight:800"></span>
           </div>
@@ -390,10 +463,11 @@
         </div>
       </details>
 
-      <div class="grid grid-3" style="margin-top:16px">
+      <div class="grid grid-4" style="margin-top:16px">
         <div class="card"><h3 style="margin-top:0">✅ إعداد الرسوم</h3><p style="color:var(--muted)">رسوم سنوية لكل صف بدون أقساط ثابتة.</p><span class="tag green">جاهز</span></div>
         <div class="card"><h3 style="margin-top:0">✅ سجل الدفعات</h3><p style="color:var(--muted)">أي مبلغ يُسجل ويخصم من الرصيد السنوي.</p><span class="tag green">جاهز</span></div>
         <div class="card"><h3 style="margin-top:0">✅ الجرد والتحصيل</h3><p style="color:var(--muted)">المحصل والمتبقي وحالات السداد حسب الصف والشعبة.</p><span class="tag green">جاهز</span></div>
+        <div class="card"><h3 style="margin-top:0">✅ التقارير</h3><p style="color:var(--muted)">تصدير الكشف الحالي إلى Excel أو PDF.</p><span class="tag green">جاهز</span></div>
       </div>`;
 
     window.jdFilterFinanceAccounts();
