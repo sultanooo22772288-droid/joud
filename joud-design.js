@@ -354,12 +354,89 @@
       wrap.innerHTML=`
         <div class="card" style="width:min(760px,96vw);max-height:90vh;overflow:auto">
           <div style="display:flex;justify-content:space-between;align-items:center"><div><h3 style="margin:0">🧾 سجل الدفعات</h3><small style="color:var(--muted)">${esc(a.student_name||'')}</small></div><button class="btn soft" onclick="document.getElementById('financeHistoryModal').remove()">✕</button></div>
-          <div style="overflow:auto;margin-top:14px"><table style="width:100%;border-collapse:collapse;min-width:650px"><thead><tr><th>الإيصال</th><th>التاريخ</th><th>المبلغ</th><th>الطريقة</th><th>المرجع</th><th>المسجل بواسطة</th></tr></thead><tbody>
-          ${list.length?list.map(p=>`<tr><td style="padding:8px;border-bottom:1px solid var(--line)">${esc(p.receipt_no||'')}</td><td style="padding:8px;border-bottom:1px solid var(--line)">${esc(p.payment_date||'')}</td><td style="padding:8px;border-bottom:1px solid var(--line);font-weight:800">${money(p.amount)}</td><td style="padding:8px;border-bottom:1px solid var(--line)">${p.method==='bank'?'تحويل بنكي':p.method==='card'?'بطاقة':'نقدي'}</td><td style="padding:8px;border-bottom:1px solid var(--line)">${esc(p.reference||'—')}</td><td style="padding:8px;border-bottom:1px solid var(--line)">${esc(p.created_by||'')}</td></tr>`).join(''):'<tr><td colspan="6" style="padding:22px;text-align:center;color:var(--muted)">لا توجد دفعات مسجلة.</td></tr>'}
+          <div style="overflow:auto;margin-top:14px"><table style="width:100%;border-collapse:collapse;min-width:650px"><thead><tr><th>الإيصال</th><th>التاريخ</th><th>المبلغ</th><th>الطريقة</th><th>المرجع</th><th>المسجل بواسطة</th><th>إجراء</th></tr></thead><tbody>
+          ${list.length?list.map(p=>`<tr><td style="padding:8px;border-bottom:1px solid var(--line)">${esc(p.receipt_no||'')}</td><td style="padding:8px;border-bottom:1px solid var(--line)">${esc(p.payment_date||'')}</td><td style="padding:8px;border-bottom:1px solid var(--line);font-weight:800">${money(p.amount)}</td><td style="padding:8px;border-bottom:1px solid var(--line)">${p.method==='bank'?'تحويل بنكي':p.method==='card'?'بطاقة':'نقدي'}</td><td style="padding:8px;border-bottom:1px solid var(--line)">${esc(p.reference||'—')}</td><td style="padding:8px;border-bottom:1px solid var(--line)">${esc(p.created_by||'')}</td><td style="padding:8px;border-bottom:1px solid var(--line)"><button class="btn soft" style="padding:6px 8px" onclick='jdEditPayment(${JSON.stringify(JSON.stringify(p))})'>تعديل</button><button class="btn soft" style="padding:6px 8px;margin-right:4px" onclick='jdVoidPayment(${JSON.stringify(p.receipt_no)},${JSON.stringify(studentAuthId)})'>إلغاء</button></td></tr>`).join(''):'<tr><td colspan="7" style="padding:22px;text-align:center;color:var(--muted)">لا توجد دفعات مسجلة.</td></tr>'}
           </tbody></table></div>
+          <div style="margin-top:12px"><button class="btn soft" onclick='jdShowFinanceAudit(${JSON.stringify(studentAuthId)})'>🧾 عرض سجل التدقيق</button></div>
         </div>`;
       document.body.appendChild(wrap);
     }catch(e){alert('تعذر تحميل سجل الدفعات: '+(e.message||''));}
+  };
+
+
+  window.jdEditPayment=function(paymentJson){
+    const p=typeof paymentJson==='string'?JSON.parse(paymentJson):paymentJson;
+    document.getElementById('financeEditPaymentModal')?.remove();
+    const wrap=document.createElement('div');
+    wrap.id='financeEditPaymentModal';
+    wrap.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(20,28,45,.38);display:grid;place-items:center;padding:16px';
+    wrap.innerHTML=`
+      <div class="card" style="width:min(540px,96vw);max-height:90vh;overflow:auto">
+        <div style="display:flex;justify-content:space-between;align-items:center"><div><h3 style="margin:0">✏️ تعديل دفعة</h3><small style="color:var(--muted)">${esc(p.receipt_no||'')}</small></div><button class="btn soft" onclick="document.getElementById('financeEditPaymentModal').remove()">✕</button></div>
+        <div class="upload-row" style="margin-top:14px">
+          <div><label>المبلغ</label><input id="financeEditAmount" type="number" min="0.001" step="0.001" value="${Number(p.amount)||0}" dir="ltr"></div>
+          <div><label>التاريخ</label><input id="financeEditDate" type="date" value="${esc(p.payment_date||'')}" dir="ltr"></div>
+          <div><label>طريقة الدفع</label><select id="financeEditMethod"><option value="cash" ${p.method==='cash'?'selected':''}>نقدي</option><option value="bank" ${p.method==='bank'?'selected':''}>تحويل بنكي</option><option value="card" ${p.method==='card'?'selected':''}>بطاقة</option></select></div>
+          <div><label>المرجع</label><input id="financeEditRef" value="${esc(p.reference||'')}"></div>
+        </div>
+        <div style="margin-top:10px"><label>ملاحظة</label><textarea id="financeEditNote" rows="2" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px">${esc(p.note||'')}</textarea></div>
+        <div style="margin-top:10px"><label>سبب التعديل *</label><textarea id="financeEditReason" rows="2" placeholder="مثال: تصحيح مبلغ أدخل بالخطأ" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px"></textarea></div>
+        <div id="financeEditStatus" style="margin-top:10px;font-size:13px;font-weight:800"></div>
+        <button class="btn primary" style="width:100%;margin-top:12px" onclick='jdSaveEditedPayment(${JSON.stringify(p.receipt_no)},${JSON.stringify(p.student_auth_id)})'>حفظ التعديل</button>
+      </div>`;
+    document.body.appendChild(wrap);
+  };
+
+  window.jdSaveEditedPayment=async function(receiptNo,studentAuthId){
+    const st=document.getElementById('financeEditStatus');
+    try{
+      const payload={
+        receipt_no:receiptNo,
+        amount:Number(document.getElementById('financeEditAmount')?.value)||0,
+        payment_date:document.getElementById('financeEditDate')?.value||'',
+        method:document.getElementById('financeEditMethod')?.value||'cash',
+        reference:document.getElementById('financeEditRef')?.value||'',
+        note:document.getElementById('financeEditNote')?.value||'',
+        reason:(document.getElementById('financeEditReason')?.value||'').trim()
+      };
+      if(st){st.textContent='جاري حفظ التعديل…';st.style.color='var(--muted)';}
+      await NabdCloud.updateFinancePayment(payload);
+      financeState.accounts=await NabdCloud.listFinanceAccounts();
+      if(st){st.textContent='✓ تم تعديل الدفعة وتسجيل العملية في سجل التدقيق';st.style.color='#178a5b';}
+      setTimeout(()=>{document.getElementById('financeEditPaymentModal')?.remove();document.getElementById('financeHistoryModal')?.remove();jdShowPaymentHistory(studentAuthId);window.renderFinanceAdmin();},800);
+    }catch(e){if(st){st.textContent='تعذر التعديل: '+(e.message||'');st.style.color='#c0392b';}}
+  };
+
+  window.jdVoidPayment=async function(receiptNo,studentAuthId){
+    const reason=prompt('اكتب سبب إلغاء هذه الدفعة:');
+    if(reason===null) return;
+    if(!String(reason).trim()){alert('سبب الإلغاء مطلوب.');return;}
+    if(!confirm('تأكيد إلغاء الدفعة '+receiptNo+'؟ لن يتم حذفها من سجل التدقيق.')) return;
+    try{
+      await NabdCloud.voidFinancePayment(receiptNo,String(reason).trim());
+      financeState.accounts=await NabdCloud.listFinanceAccounts();
+      document.getElementById('financeHistoryModal')?.remove();
+      await jdShowPaymentHistory(studentAuthId);
+      window.renderFinanceAdmin();
+    }catch(e){alert('تعذر إلغاء الدفعة: '+(e.message||''));}
+  };
+
+  window.jdShowFinanceAudit=async function(studentAuthId){
+    try{
+      const list=await NabdCloud.listFinanceAudit(studentAuthId);
+      document.getElementById('financeAuditModal')?.remove();
+      const wrap=document.createElement('div');
+      wrap.id='financeAuditModal';
+      wrap.style.cssText='position:fixed;inset:0;z-index:10001;background:rgba(20,28,45,.42);display:grid;place-items:center;padding:16px';
+      wrap.innerHTML=`
+        <div class="card" style="width:min(820px,96vw);max-height:90vh;overflow:auto">
+          <div style="display:flex;justify-content:space-between;align-items:center"><div><h3 style="margin:0">🧾 سجل تدقيق الدفعات</h3><small style="color:var(--muted)">لا يمكن حذف هذا السجل من الواجهة.</small></div><button class="btn soft" onclick="document.getElementById('financeAuditModal').remove()">✕</button></div>
+          <div style="margin-top:14px">
+          ${list.length?list.map(x=>`<div class="card" style="padding:12px;margin-bottom:9px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><b>${x.action==='payment_voided'?'إلغاء دفعة':'تعديل دفعة'} — ${esc(x.receipt_no||'')}</b><span class="tag ${x.action==='payment_voided'?'red':'orange'}">${new Date(x.created_at).toLocaleString('ar-OM')}</span></div><div style="margin-top:6px;color:var(--muted);font-size:12px">بواسطة: ${esc(x.actor_name||'')} — السبب: ${esc(x.reason||'')}</div>${x.action==='payment_updated'?'<div style="margin-top:6px;font-size:12px">المبلغ قبل: <b>'+money(x.before?.amount||0)+'</b> — بعد: <b>'+money(x.after?.amount||0)+'</b></div>':''}</div>`).join(''):'<div style="padding:20px;text-align:center;color:var(--muted)">لا توجد تعديلات أو إلغاءات مسجلة.</div>'}
+          </div>
+        </div>`;
+      document.body.appendChild(wrap);
+    }catch(e){alert('تعذر تحميل سجل التدقيق: '+(e.message||''));}
   };
 
   window.renderFinanceAdmin=async function(){
@@ -395,7 +472,7 @@
     page.innerHTML=`
       <div class="page-head">
         <div><h2>المالية والرسوم 💳</h2><p>إدارة الرسوم السنوية والتحصيل المرن والرصيد المتبقي لكل طالب.</p></div>
-        <span class="tag green">الخطوة 6 جاهزة ✓</span>
+        <span class="tag green">الخطوة 8 جاهزة ✓</span>
       </div>
 
       <div class="grid grid-4">
