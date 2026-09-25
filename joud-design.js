@@ -336,9 +336,21 @@
       const reference=document.getElementById('financePayRef')?.value||'';
       const note=document.getElementById('financePayNote')?.value||'';
       const out=await NabdCloud.addFinancePayment({student_auth_id:studentAuthId,amount,payment_date,method,reference,note});
-      if(st){st.textContent='✓ تم تسجيل الدفعة — رقم الإيصال: '+out.payment.receipt_no;st.style.color='#178a5b';}
+      let waSent=false,waError='';
+      try{
+        await NabdCloud.sendFinancePaymentReceipt(out.payment.receipt_no);
+        waSent=true;
+      }catch(wa){
+        waError=wa?.message||'تعذر إرسال رسالة واتساب.';
+      }
+      if(st){
+        st.textContent=waSent
+          ? '✓ تم تسجيل الدفعة وإرسال الإيصال لولي الأمر — رقم الإيصال: '+out.payment.receipt_no
+          : '✓ تم تسجيل الدفعة — رقم الإيصال: '+out.payment.receipt_no+' | ملاحظة: '+waError;
+        st.style.color=waSent?'#178a5b':'#b87100';
+      }
       financeState.accounts=await NabdCloud.listFinanceAccounts();
-      setTimeout(()=>{document.getElementById('financePaymentModal')?.remove();window.renderFinanceAdmin();},900);
+      setTimeout(()=>{document.getElementById('financePaymentModal')?.remove();window.renderFinanceAdmin();},waSent?1200:1800);
     }catch(e){
       if(st){st.textContent='تعذر الحفظ: '+(e.message||'');st.style.color='#c0392b';}
     }
