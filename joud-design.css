@@ -384,3 +384,9 @@ body:not([data-theme]) .btn.soft,body[data-theme="default"] .btn.soft{background
 .jd-field label{text-align:center}
 .jd-remember{justify-content:center}
 .jd-login-copy{text-align:center}
+
+/* ---------- الإشعارات المقروءة ---------- */
+#notifications .task.is-read strong{font-weight:500;color:var(--muted)}
+#notifications .task.is-read .dot{opacity:.55}
+#notifications .task.is-read .tag{background:#F1EADF !important;color:#6B7183 !important}
+#markAllReadBtn:disabled{opacity:.7;cursor:default}

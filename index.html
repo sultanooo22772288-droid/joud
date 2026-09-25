@@ -1978,6 +1978,7 @@ function showPage(id){
   (document.getElementById(id)||document.getElementById('dashboard')).classList.add('active');
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));
   if(window.jdAfterShow) jdAfterShow(id);
+  if(typeof applyNotificationsReadState==='function') applyNotificationsReadState();
 }
 function stat(icon,bg,num,label){return `<div class="card stat"><div class="bubble" style="background:${bg}">${window.jdIcon?jdIcon(icon):icon}</div><div><h4>${num}</h4><p>${label}</p></div></div>`}
 function task(icon,title,sub,tag,cls){return `<div class="task"><div class="dot">${window.jdIcon?jdIcon(icon):icon}</div><div><strong>${title}</strong><small>${sub}</small></div><span class="tag ${cls}">${tag}</span></div>`}
@@ -2256,8 +2257,24 @@ function searchTeacherSchedule(){
 }
 
 document.getElementById('notifications').innerHTML=`
- <div class="page-head"><div><h2>الإشعارات 🔔</h2><p>آخر التنبيهات من المدرسة والمعلمين.</p></div><button class="btn soft">تحديد الكل كمقروء</button></div>
+ <div class="page-head"><div><h2>الإشعارات 🔔</h2><p>آخر التنبيهات من المدرسة والمعلمين.</p></div><button id="markAllReadBtn" class="btn soft" type="button" onclick="markAllNotificationsRead()">تحديد الكل كمقروء</button></div>
  <div class="card">${task('📝','واجب جديد في الرياضيات','قبل 10 دقائق','جديد','orange')}${task('✅','ظهرت نتيجة اختبار العلوم','قبل ساعة','88%','green')}${task('📣','إعلان من إدارة المدرسة','الرحلة المدرسية يوم الخميس','إعلان','blue')}${task('🗓️','تم تعديل جدول الأربعاء','أضيفت حصة علوم','تحديث','red')}</div>`;
+
+// حالة «مقروء» تُحفظ لكل مستخدم على جهازه.
+function notificationsReadKey(){return 'jdNotificationsRead:'+String(currentLoginEmail||role||'guest').toLowerCase();}
+function applyNotificationsReadState(){
+  let read=false;
+  try{read=localStorage.getItem(notificationsReadKey())==='1';}catch(_e){}
+  document.querySelectorAll('#notifications .task').forEach(t=>t.classList.toggle('is-read',read));
+  document.querySelectorAll('.jd-dot').forEach(d=>d.style.display=read?'none':'');
+  const btn=document.getElementById('markAllReadBtn');
+  if(btn){btn.disabled=read;btn.textContent=read?'✓ تمت قراءة الكل':'تحديد الكل كمقروء';}
+}
+function markAllNotificationsRead(){
+  try{localStorage.setItem(notificationsReadKey(),'1');}catch(_e){}
+  applyNotificationsReadState();
+}
+applyNotificationsReadState();
 
 document.getElementById('ai').innerHTML=`
  <div class="page-head"><div><h2>مساعد جود الذكي 🤖</h2><p>اسأل، تعلّم، وتدرّب خطوة بخطوة.</p></div></div>
