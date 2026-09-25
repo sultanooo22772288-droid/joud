@@ -146,6 +146,7 @@
   async function listTeacherHomeworks(){ const out=await contentRequest({action:'teacher-list-homeworks'}); return out.items||[]; }
   async function deleteTeacherHomework(id){ return contentRequest({action:'teacher-delete-homework',id}); }
   async function adminAllTeacherContent(){ return contentRequest({action:'admin-list-all'}); }
+  async function markOwnPasswordChanged(){ return contentRequest({action:'own-password-changed'}); }
   async function getSchoolTheme(){ const out=await contentRequest({action:'theme-get'}); return out.theme||'default'; }
   async function setSchoolTheme(theme){ const out=await contentRequest({action:'theme-set',theme}); return out.theme; }
 
@@ -192,7 +193,7 @@
   async function syncOwnCredential(email,password){ return adminRequest({action:'sync-self',email,password}); }
 
   async function createUser(role,legacy,password){
-    const p={role,name:legacy.name||'',phone:legacy.phone||'',guardian_phone:legacy.guardianPhone||'',email:legacy.email||'',external_id:role==='student'?(legacy.studentId||''):(legacy.teacherId||''),stage:legacy.stage||'',grade:legacy.grade||'',section:legacy.section||'',subject:legacy.subject||'',stages:legacy.stages||[]};
+    const p={role,auto_username:!!legacy.autoUsername,name:legacy.name||'',phone:legacy.phone||'',guardian_phone:legacy.guardianPhone||'',email:legacy.email||'',external_id:role==='student'?(legacy.studentId||''):(legacy.teacherId||''),stage:legacy.stage||'',grade:legacy.grade||'',section:legacy.section||'',subject:legacy.subject||'',stages:legacy.stages||[]};
     const out=await adminRequest({action:'create',profile:p,password});
     return toLegacyProfile(out.profile);
   }
@@ -416,7 +417,7 @@
     submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,
     setHomeworkScoreVisibility,listClassStudents,
     saveStudentReport,myStudentReports,myStudentReportBundle,getTeacherStudentReport,
-    createTeacherContent,listTeacherContent,deleteTeacherContent,createTeacherHomework,listTeacherHomeworks,deleteTeacherHomework,adminAllTeacherContent,getSchoolTheme,setSchoolTheme,
+    createTeacherContent,listTeacherContent,deleteTeacherContent,createTeacherHomework,listTeacherHomeworks,deleteTeacherHomework,adminAllTeacherContent,getSchoolTheme,setSchoolTheme,markOwnPasswordChanged,
     demoVisitStats,saveAttendanceSession,listAttendanceSessions,getAttendanceRecords,updateAttendanceApproval,prepareAttendanceNotifications,listAttendanceNotifications,markAttendanceNotificationSent,listAttendanceAudit,updateAttendanceSyncStatus,
     get config(){return cfg;}
   };
