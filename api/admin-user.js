@@ -77,7 +77,7 @@ module.exports = async function handler(req, res) {
       });
       if (createError) throw createError;
       const row = {
-        auth_user_id: created.user.id, role: p.role, name: p.name || '', phone: p.phone || '', email,
+        auth_user_id: created.user.id, role: p.role, name: p.name || '', phone: p.phone || '', guardian_phone: p.guardian_phone || '', email,
         external_id: await nextExternalId(p.role), stage: p.stage || '', grade: p.grade || '', section: p.section || '',
         subject: p.subject || '', stages: Array.isArray(p.stages) ? p.stages : []
       };
@@ -109,7 +109,7 @@ module.exports = async function handler(req, res) {
         try{
           const {data:u,error:ue}=await admin.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{role,name:p.name||''}});
           if(ue) throw ue; authId=u.user.id;
-          const row={auth_user_id:authId,role,name:p.name||'',phone:p.phone||'',email,external_id:String(next++),stage:p.stage||'',grade:p.grade||'',section:p.section||'',subject:p.subject||'',stages:Array.isArray(p.stages)?p.stages:[]};
+          const row={auth_user_id:authId,role,name:p.name||'',phone:p.phone||'',guardian_phone:p.guardian_phone||'',email,external_id:String(next++),stage:p.stage||'',grade:p.grade||'',section:p.section||'',subject:p.subject||'',stages:Array.isArray(p.stages)?p.stages:[]};
           const {data:saved,error:se}=await admin.from('profiles').insert(row).select().single();
           if(se){await admin.auth.admin.deleteUser(authId);throw se}
           emails.add(email);created.push(saved);
@@ -129,7 +129,7 @@ module.exports = async function handler(req, res) {
         if (error) throw error;
       }
       const row = {
-        name: p.name || '', phone: p.phone || '', email: p.email || '', external_id: p.external_id || '',
+        name: p.name || '', phone: p.phone || '', guardian_phone: p.guardian_phone || '', email: p.email || '', external_id: p.external_id || '',
         stage: p.stage || '', grade: p.grade || '', section: p.section || '', subject: p.subject || '',
         stages: Array.isArray(p.stages) ? p.stages : []
       };

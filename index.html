@@ -1436,8 +1436,8 @@ body[data-theme] .app-shell,body[data-theme] .login-screen{position:relative;z-i
           <p class="jd-sub">سجّل الدخول للوصول إلى حسابك</p>
         </div>
         <div class="jd-field">
-          <label for="loginEmail">البريد الإلكتروني</label>
-          <div class="jd-input"><svg class="jd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18v14H3zM3 6l9 7 9-7"/></svg><input id="loginEmail" type="email" placeholder="أدخل البريد الإلكتروني" autocomplete="username"></div>
+          <label for="loginEmail">البريد الإلكتروني أو اسم المستخدم</label>
+          <div class="jd-input"><svg class="jd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18v14H3zM3 6l9 7 9-7"/></svg><input id="loginEmail" type="text" inputmode="email" placeholder="البريد الإلكتروني أو اسم المستخدم" autocomplete="username" autocapitalize="none" spellcheck="false" dir="ltr"></div>
         </div>
         <div class="jd-field">
           <label for="loginPassword">كلمة المرور</label>
@@ -1917,7 +1917,7 @@ async function restoreLoggedInUser(){
 }
 
 async function enterDemo(){
-  const enteredEmail=(document.getElementById('loginEmail')?.value||'').trim().toLowerCase();
+  const enteredEmail=studentUsernameToEmail(document.getElementById('loginEmail')?.value);
   const enteredPassword=(document.getElementById('loginPassword')?.value||'').trim();
   if(!enteredEmail || !enteredPassword){ alert('يرجى إدخال البريد الإلكتروني وكلمة المرور.'); return; }
   const btn=document.querySelector('.login-main-btn');
@@ -4121,19 +4121,18 @@ function renderAdminManagement(){
     <div class="teacher-tool" id="studentFormCard">
       <h3 id="studentFormTitle">➕ إضافة طالب</h3>
       <div class="upload-row">
-        <input id="newStudentName" placeholder="اسم الطالب">
+        <input id="newStudentName" placeholder="اسم الطالب" aria-label="اسم الطالب">
         <div>
-          <input id="newStudentPhone" type="tel" inputmode="numeric" maxlength="8" placeholder="رقم هاتف الطالب - 8 أرقام" dir="ltr"
+          <input id="newGuardianPhone" type="tel" inputmode="numeric" maxlength="8" placeholder="هاتف ولي الأمر - 8 أرقام" aria-label="هاتف ولي الأمر" dir="ltr"
             oninput="validateStudentPhoneField()" onblur="validateStudentPhoneField()">
-          <span id="newStudentPhoneError" class="student-field-error"></span>
+          <span id="newGuardianPhoneError" class="student-field-error"></span>
         </div>
-        <input id="newGuardianPhone" type="tel" inputmode="numeric" maxlength="8" placeholder="رقم ولي الأمر - 8 أرقام" dir="ltr">
         <div>
-          <input id="newStudentEmail" type="email" placeholder="example@email.com" dir="ltr"
+          <input id="newStudentUsername" type="text" placeholder="اسم المستخدم (بالإنجليزي)" aria-label="اسم المستخدم" dir="ltr" autocomplete="off" autocapitalize="none" spellcheck="false"
             oninput="validateStudentEmailField()" onblur="validateStudentEmailField()">
-          <span id="newStudentEmailError" class="student-field-error"></span>
+          <span id="newStudentUsernameError" class="student-field-error"></span>
         </div>
-        <input id="newStudentPassword" type="password" placeholder="الرقم السري">
+        <input id="newStudentPassword" type="password" placeholder="الرقم السري" aria-label="الرقم السري">
         <select id="newStudentGrade" aria-label="الصف" onchange="ensureNumericStudentSections()">${gradeOptions}</select>
         <select id="newStudentSection" aria-label="الشعبة"><option>1</option><option>2</option><option>3</option><option>4</option></select>
       </div>
@@ -4183,10 +4182,10 @@ function renderAdminManagement(){
           <tr>
             <th style="padding:12px;text-align:right">اسم الطالب</th>
             <th style="padding:12px">الرقم</th>
-            <th style="padding:12px">رقم الهاتف</th>
+            <th style="padding:12px">هاتف ولي الأمر</th>
             <th style="padding:12px">الصف</th>
             <th style="padding:12px">الشعبة</th>
-            <th style="padding:12px">الإيميل</th>
+            <th style="padding:12px">اسم المستخدم</th>
             <th style="padding:12px">الباسوورد</th>
             <th style="padding:12px">الإجراء</th>
           </tr>
@@ -4228,7 +4227,7 @@ function renderAdminManagement(){
       </div>
       <div class="credentials-fit-wrap">
         <table class="credentials-fit-table" style="width:100%;border-collapse:collapse;table-layout:fixed">
-          <thead><tr><th>الطالب</th><th>الصف</th><th>الشعبة</th><th>البريد الإلكتروني</th><th>كلمة المرور</th><th>الإجراء</th></tr></thead>
+          <thead><tr><th>الطالب</th><th>الصف</th><th>الشعبة</th><th>اسم المستخدم</th><th>كلمة المرور</th><th>الإجراء</th></tr></thead>
           <tbody id="studentCredentialsBody">${renderStudentCredentialsRows()}</tbody>
         </table>
       </div>
@@ -4359,10 +4358,10 @@ function renderStudentRows(list){
   return list.map((s,i)=>`<tr style="border-top:1px solid var(--line)">
     <td style="padding:13px;font-weight:800;min-width:150px">${esc(s.name)}</td>
     <td style="padding:13px;white-space:nowrap">${i+1}</td>
-    <td style="padding:13px;white-space:nowrap" dir="ltr">${esc(s.phone||'—')}</td>
+    <td style="padding:13px;white-space:nowrap" dir="ltr">${esc(s.guardianPhone||'—')}</td>
     <td style="padding:13px;white-space:nowrap">${esc(s.grade)}</td>
     <td style="padding:13px"><span class="tag blue">(${esc(s.section)})</span></td>
-    <td style="padding:13px;min-width:210px" dir="ltr">${esc(s.email||'—')}</td>
+    <td style="padding:13px;min-width:210px" dir="ltr">${esc(studentEmailToUsername(s.email)||'—')}</td>
     <td style="padding:13px;min-width:130px" dir="ltr"><span style="font-family:monospace;font-weight:700">${esc(s.password||'—')}</span></td>
     <td style="padding:13px;min-width:180px">
       <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -4380,7 +4379,7 @@ function renderStudentCredentialsRows(list=demoData.students){list=[...(list||[]
     <td>${esc(s.grade)}</td>
     <td><span class="tag blue">(${esc(s.section)})</span></td>
     <td style="min-width:230px">
-      <input id="adminStudentEmail_${s.id}" type="email" value="${esc(s.email||'')}" dir="ltr"
+      <input id="adminStudentEmail_${s.id}" type="text" value="${esc(studentEmailToUsername(s.email))}" dir="ltr" aria-label="اسم المستخدم" autocapitalize="none" spellcheck="false"
         style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff">
     </td>
     <td style="min-width:180px">
@@ -4405,12 +4404,13 @@ function toggleAdminStudentPassword(id){
 async function saveStudentCredentialsAdmin(id){
   if(role!=='admin'){ alert('هذا الخيار متاح للإدارة فقط.'); return; }
   const s=demoData.students.find(x=>String(x.id||'')===String(id||'')); if(!s)return;
-  const email=(document.getElementById('adminStudentEmail_'+id)?.value||'').trim().toLowerCase();
+  const username=(document.getElementById('adminStudentEmail_'+id)?.value||'').trim().toLowerCase();
   const password=(document.getElementById('adminStudentPassword_'+id)?.value||'').trim();
-  if(!email){alert('البريد الإلكتروني مطلوب.');return;}
+  if(!username){alert('اسم المستخدم مطلوب.');return;}
   if(!password){alert('اكتب كلمة مرور جديدة للحساب.');return;}
-  const emailPattern=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if(!emailPattern.test(email)){alert('صيغة البريد الإلكتروني غير صحيحة.');return;}
+  if(username.includes('@') ? !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username) : !/^[a-z0-9._-]{3,30}$/.test(username)){alert('اسم المستخدم من 3 إلى 30 حرفًا إنجليزيًا أو أرقامًا، بدون مسافات.');return;}
+  const email=studentUsernameToEmail(username);
+  if(demoData.students.some(x=>x.id!==s.id && String(x.email||'').toLowerCase()===email)){alert('اسم المستخدم هذا مستخدم لطالب آخر.');return;}
   try{
     await NabdCloud.updateUser({...s,role:'student',email},password);
     await syncCloudProfiles(); renderAdminManagement();
@@ -4454,15 +4454,14 @@ function editStudentAdmin(id){
   const name=document.getElementById('newStudentName');
   const phone=document.getElementById('newStudentPhone');
   const guardianPhone=document.getElementById('newGuardianPhone');
-  const email=document.getElementById('newStudentEmail');
+  const username=document.getElementById('newStudentUsername');
   const password=document.getElementById('newStudentPassword');
   const grade=document.getElementById('newStudentGrade');
   const section=document.getElementById('newStudentSection');
 
   if(name) name.value=s.name||'';
-  if(phone) phone.value=s.phone||'';
   if(guardianPhone) guardianPhone.value=s.guardianPhone||'';
-  if(email) email.value=s.email||'';
+  if(username) username.value=studentEmailToUsername(s.email);
   if(password) password.value=s.password||'';
 
   if(grade){
@@ -4524,10 +4523,10 @@ function printFilteredStudentsAdmin(){
       <td>${i+1}</td>
       <td>${esc(s.name)}</td>
       <td>${i+1}</td>
-      <td dir="ltr">${esc(s.phone||'—')}</td>
+      <td dir="ltr">${esc(s.guardianPhone||'—')}</td>
       <td>${esc(s.grade||'')}</td>
       <td>${esc(s.section||'')}</td>
-      <td dir="ltr">${esc(s.email||'—')}</td>
+      <td dir="ltr">${esc(studentEmailToUsername(s.email)||'—')}</td>
       <td dir="ltr">${esc(s.password||'—')}</td>
     </tr>`).join('');
 
@@ -4566,10 +4565,10 @@ function printFilteredStudentsAdmin(){
           <th>م</th>
           <th>اسم الطالب</th>
           <th>الرقم</th>
-          <th>رقم الهاتف</th>
+          <th>هاتف ولي الأمر</th>
           <th>الصف</th>
           <th>الشعبة</th>
-          <th>الإيميل</th>
+          <th>اسم المستخدم</th>
           <th>الباسوورد</th>
         </tr>
       </thead>
@@ -4593,23 +4592,35 @@ function showAllStudentsAdmin(){
 let editingStudentId=null;
 
 
+// الطلاب يدخلون باسم مستخدم؛ يتحول داخليًا إلى عنوان على نطاق المدرسة لأن Supabase يتطلب بريدًا.
+const STUDENT_LOGIN_DOMAIN='students.nakhalschool.com';
+function studentUsernameToEmail(value){
+  const v=String(value||'').trim().toLowerCase();
+  if(!v) return '';
+  return v.includes('@')?v:v+'@'+STUDENT_LOGIN_DOMAIN;
+}
+function studentEmailToUsername(email){
+  const e=String(email||'').trim().toLowerCase();
+  const suffix='@'+STUDENT_LOGIN_DOMAIN;
+  return e.endsWith(suffix)?e.slice(0,-suffix.length):e;
+}
+
 function validateStudentPhoneField(){
-  const input=document.getElementById('newStudentPhone');
-  const error=document.getElementById('newStudentPhoneError');
+  const input=document.getElementById('newGuardianPhone');
+  const error=document.getElementById('newGuardianPhoneError');
   if(!input) return false;
 
-  // Allow digits only and limit to exactly 8.
   input.value=input.value.replace(/\D/g,'').slice(0,8);
   const value=input.value.trim();
 
   input.classList.remove('field-invalid','field-valid');
   if(!value){
-    if(error) error.textContent='رقم الهاتف مطلوب.';
+    if(error) error.textContent='هاتف ولي الأمر مطلوب.';
     input.classList.add('field-invalid');
     return false;
   }
   if(!/^\d{8}$/.test(value)){
-    if(error) error.textContent='⚠️ رقم الهاتف يجب أن يتكون من 8 أرقام بالضبط.';
+    if(error) error.textContent='⚠️ هاتف ولي الأمر يجب أن يتكون من 8 أرقام بالضبط.';
     input.classList.add('field-invalid');
     return false;
   }
@@ -4620,32 +4631,33 @@ function validateStudentPhoneField(){
 }
 
 function validateStudentEmailField(){
-  const input=document.getElementById('newStudentEmail');
-  const error=document.getElementById('newStudentEmailError');
+  const input=document.getElementById('newStudentUsername');
+  const error=document.getElementById('newStudentUsernameError');
   if(!input) return false;
 
   const value=input.value.trim().toLowerCase();
   input.classList.remove('field-invalid','field-valid');
 
   if(!value){
-    if(error) error.textContent='البريد الإلكتروني مطلوب.';
+    if(error) error.textContent='اسم المستخدم مطلوب.';
     input.classList.add('field-invalid');
     return false;
   }
 
-  const emailPattern=/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-  if(!emailPattern.test(value)){
-    if(error) error.textContent='⚠️ البريد الإلكتروني غير صحيح. مثال: name@gmail.com';
+  const legacyEmail=value.includes('@');
+  if(legacyEmail ? !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value) : !/^[a-z0-9._-]{3,30}$/.test(value)){
+    if(error) error.textContent='⚠️ اسم المستخدم من 3 إلى 30 حرفًا إنجليزيًا أو أرقامًا، بدون مسافات. مثال: ahmed.salim';
     input.classList.add('field-invalid');
     return false;
   }
 
+  const email=studentUsernameToEmail(value);
   const duplicate=demoData.students.some(x=>
     x.id!==editingStudentId &&
-    String(x.email||'').trim().toLowerCase()===value
+    String(x.email||'').trim().toLowerCase()===email
   );
   if(duplicate){
-    if(error) error.textContent='⚠️ هذا البريد الإلكتروني مستخدم لطالب آخر.';
+    if(error) error.textContent='⚠️ اسم المستخدم هذا مستخدم لطالب آخر.';
     input.classList.add('field-invalid');
     return false;
   }
@@ -4675,9 +4687,9 @@ function ensureNumericStudentFilterSections(){
 
 function getStudentFormValues(){
   const name=document.getElementById('newStudentName')?.value.trim()||'';
-  const phone=document.getElementById('newStudentPhone')?.value.trim()||'';
+  const phone='';
   const guardianPhone=(document.getElementById('newGuardianPhone')?.value||'').replace(/\D/g,'').slice(0,8);
-  const email=(document.getElementById('newStudentEmail')?.value||'').trim().toLowerCase();
+  const email=studentUsernameToEmail(document.getElementById('newStudentUsername')?.value);
   const password=document.getElementById('newStudentPassword')?.value.trim()||'';
   const pair=(document.getElementById('newStudentGrade')?.value||'').split('||');
   const section=document.getElementById('newStudentSection')?.value.trim()||'1';
@@ -4685,18 +4697,18 @@ function getStudentFormValues(){
 }
 
 function clearStudentAdminForm(){
-  const ids=['newStudentName','newStudentPhone','newGuardianPhone','newStudentEmail','newStudentPassword'];
+  const ids=['newStudentName','newGuardianPhone','newStudentUsername','newStudentPassword'];
   ids.forEach(id=>{const el=document.getElementById(id);if(el) el.value='';});
   const grade=document.getElementById('newStudentGrade');
   const section=document.getElementById('newStudentSection');
   if(grade) grade.selectedIndex=0;
   if(section) section.value='1';
-  ['newStudentPhone','newStudentEmail'].forEach(id=>{
+  ['newGuardianPhone','newStudentUsername'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.classList.remove('field-invalid','field-valid');
   });
-  const pe=document.getElementById('newStudentPhoneError');
-  const ee=document.getElementById('newStudentEmailError');
+  const pe=document.getElementById('newGuardianPhoneError');
+  const ee=document.getElementById('newStudentUsernameError');
   if(pe) pe.textContent='';
   if(ee) ee.textContent='';
 }
@@ -4717,22 +4729,22 @@ const bulkImportState={student:[],teacher:[]};
 function normH(v){return String(v||'').trim().toLowerCase().replace(/\s+/g,' ').replace(/[أإآ]/g,'ا')}
 function pv(row,aliases){for(const k of Object.keys(row||{})){if(aliases.map(normH).includes(normH(k)))return String(row[k]??'').trim()}return ''}
 function nr(role,row){
- if(role==='student')return {name:pv(row,['الاسم','اسم الطالب','name']),phone:pv(row,['رقم الهاتف','الهاتف','phone']),email:pv(row,['البريد الإلكتروني','الايميل','email']),password:pv(row,['كلمة المرور','الرقم السري','password']),grade:pv(row,['الصف','grade']),section:pv(row,['الشعبة','section']),stage:pv(row,['المرحلة','stage'])};
+ if(role==='student')return {name:pv(row,['الاسم','اسم الطالب','name']),phone:'',guardianPhone:pv(row,['هاتف ولي الأمر','رقم ولي الأمر','ولي الأمر','guardian phone','guardian']),email:studentUsernameToEmail(pv(row,['اسم المستخدم','username','user'])||pv(row,['البريد الإلكتروني','الايميل','email'])),password:pv(row,['كلمة المرور','الرقم السري','password']),grade:pv(row,['الصف','grade']),section:pv(row,['الشعبة','section']),stage:pv(row,['المرحلة','stage'])};
  return {name:pv(row,['الاسم','اسم المعلم','name']),phone:pv(row,['رقم الهاتف','الهاتف','phone']),email:pv(row,['البريد الإلكتروني','الايميل','email']),password:pv(row,['كلمة المرور','الرقم السري','password']),subject:pv(row,['المادة','subject']),stagesRaw:pv(row,['الصفوف والشعب','الصفوف','stages','classes'])};
 }
-function verr(role,r){const e=[];if(!r.name)e.push('الاسم مفقود');if(!/^\d{8}$/.test(r.phone||''))e.push('الهاتف 8 أرقام');if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email||''))e.push('البريد غير صحيح');if(!r.password||r.password.length<6)e.push('كلمة المرور قصيرة');if(role==='student'){if(!['روضة','تمهيدي','الصف الأول','الصف الثاني','الصف الثالث','الصف الرابع'].includes(r.grade))e.push('الصف غير صحيح');if(!['أ','ب','ج','د'].includes(r.section))e.push('الشعبة غير صحيحة');if(!r.stage)r.stage=(r.grade==='روضة'||r.grade==='تمهيدي')?'رياض الأطفال':'الحلقة الأولى'}else if(!r.subject)e.push('المادة مفقودة');return e}
+function verr(role,r){const e=[];if(!r.name)e.push('الاسم مفقود');if(role==='student'){if(r.guardianPhone&&!/^\d{8}$/.test(r.guardianPhone))e.push('هاتف ولي الأمر 8 أرقام')}else if(!/^\d{8}$/.test(r.phone||''))e.push('الهاتف 8 أرقام');if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email||''))e.push(role==='student'?'اسم المستخدم غير صحيح':'البريد غير صحيح');if(!r.password||r.password.length<6)e.push('كلمة المرور قصيرة');if(role==='student'){if(!['روضة','تمهيدي','الصف الأول','الصف الثاني','الصف الثالث','الصف الرابع'].includes(r.grade))e.push('الصف غير صحيح');if(!['أ','ب','ج','د'].includes(r.section))e.push('الشعبة غير صحيحة');if(!r.stage)r.stage=(r.grade==='روضة'||r.grade==='تمهيدي')?'رياض الأطفال':'الحلقة الأولى'}else if(!r.subject)e.push('المادة مفقودة');return e}
 async function readX(file){const b=await file.arrayBuffer(),wb=XLSX.read(b,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];return XLSX.utils.sheet_to_json(ws,{defval:''})}
 async function readP(file){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise,lines=[];for(let n=1;n<=pdf.numPages;n++){const p=await pdf.getPage(n),tc=await p.getTextContent(),g={};tc.items.forEach(i=>{const y=Math.round((i.transform?.[5]||0)/3)*3;(g[y]||(g[y]=[])).push({x:i.transform?.[4]||0,t:i.str||''})});Object.keys(g).sort((a,b)=>b-a).forEach(y=>lines.push(g[y].sort((a,b)=>a.x-b.x).map(x=>x.t.trim()).filter(Boolean).join(' | ')))}if(lines.length<2)return[];const sp=l=>l.split(/\s*\|\s*|\t+|\s{3,}/).filter(Boolean),h=sp(lines[0]);return lines.slice(1).map(l=>{const v=sp(l),o={};h.forEach((x,i)=>o[x]=v[i]||'');return o})}
 async function previewBulkImport(role,file){const box=document.getElementById(role==='student'?'studentBulkPreview':'teacherBulkPreview');if(!file||!box)return;box.innerHTML='جاري قراءة الملف...';try{const raw=/\.pdf$/i.test(file.name)?await readP(file):await readX(file),seen=new Set();bulkImportState[role]=raw.map(nr.bind(null,role)).map((r,i)=>{const e=verr(role,r),k=(r.email||'').toLowerCase();if(k&&seen.has(k))e.push('البريد مكرر');if(k)seen.add(k);return {...r,_row:i+2,_errors:e}}).filter(r=>r.name||r.email);renderBulkPreview(role)}catch(e){box.innerHTML='<span style="color:#c0392b">تعذر القراءة: '+esc(e.message||'')+'</span>'}}
 function renderBulkPreview(role){const box=document.getElementById(role==='student'?'studentBulkPreview':'teacherBulkPreview'),rows=bulkImportState[role]||[],ok=rows.filter(r=>!r._errors.length);if(!rows.length){box.innerHTML='لا توجد بيانات.';return}box.innerHTML=`<div style="margin-bottom:10px"><span class="tag blue">الإجمالي ${rows.length}</span> <span class="tag green">صحيحة ${ok.length}</span> <button class="btn primary" onclick="confirmBulkImport('${role}')" ${ok.length?'':'disabled'}>إضافة الجميع</button></div><div style="overflow:auto;max-height:350px"><table style="width:100%;min-width:850px;border-collapse:collapse"><thead><tr><th>#</th><th>الاسم</th><th>الهاتف</th><th>البريد</th><th>${role==='student'?'الصف':'المادة'}</th><th>الحالة</th></tr></thead><tbody>${rows.map(r=>`<tr style="border-top:1px solid var(--line)"><td>${r._row}</td><td>${esc(r.name)}</td><td>${esc(r.phone)}</td><td>${esc(r.email)}</td><td>${esc(role==='student'?r.grade:r.subject)}</td><td>${r._errors.length?'<span style="color:#c0392b">'+esc(r._errors.join('، '))+'</span>':'<span style="color:#178a5b">جاهز ✓</span>'}</td></tr>`).join('')}</tbody></table></div>`}
 function parseStages(v){return String(v||'').split(/[،,;|]+/).map(x=>x.trim()).filter(Boolean)}
-async function confirmBulkImport(role){const rows=(bulkImportState[role]||[]).filter(r=>!r._errors.length);if(!rows.length)return;if(!confirm(`إضافة ${rows.length} حسابًا الآن؟`))return;try{const users=rows.map(r=>role==='student'?{password:r.password,profile:{role:'student',name:r.name,phone:r.phone,email:r.email,external_id:'',stage:r.stage,grade:r.grade,section:r.section,subject:'',stages:[]}}:{password:r.password,profile:{role:'teacher',name:r.name,phone:r.phone,email:r.email,external_id:'',stage:'',grade:'',section:'',subject:r.subject,stages:parseStages(r.stagesRaw)}});const res=await NabdCloud.bulkCreateUsers(role,users);await syncCloudProfiles();renderAdminManagement();alert(`تمت إضافة ${res.created?.length||0} بنجاح${res.errors?.length?`، وتعذر ${res.errors.length}`:''}.`)}catch(e){alert('تعذر الاستيراد: '+(e.message||''))}}
+async function confirmBulkImport(role){const rows=(bulkImportState[role]||[]).filter(r=>!r._errors.length);if(!rows.length)return;if(!confirm(`إضافة ${rows.length} حسابًا الآن؟`))return;try{const users=rows.map(r=>role==='student'?{password:r.password,profile:{role:'student',name:r.name,phone:r.phone,guardian_phone:r.guardianPhone||'',email:r.email,external_id:'',stage:r.stage,grade:r.grade,section:r.section,subject:'',stages:[]}}:{password:r.password,profile:{role:'teacher',name:r.name,phone:r.phone,email:r.email,external_id:'',stage:'',grade:'',section:'',subject:r.subject,stages:parseStages(r.stagesRaw)}});const res=await NabdCloud.bulkCreateUsers(role,users);await syncCloudProfiles();renderAdminManagement();alert(`تمت إضافة ${res.created?.length||0} بنجاح${res.errors?.length?`، وتعذر ${res.errors.length}`:''}.`)}catch(e){alert('تعذر الاستيراد: '+(e.message||''))}}
 
 async function saveStudentAdminForm(){
   if(role!=='admin'){alert('هذا الخيار متاح لإدارة المدرسة فقط.');return;}
   const v=getStudentFormValues();
   const status=document.getElementById('studentFormStatus');
-  if(!v.name || !v.phone || !v.email || !v.password || !v.grade || !v.section){
+  if(!v.name || !v.guardianPhone || !v.email || !v.password || !v.grade || !v.section){
     if(status){status.style.color='#c0392b';status.textContent='يرجى تعبئة جميع بيانات الطالب.';} return;
   }
   const phoneValid=validateStudentPhoneField();
@@ -4745,7 +4757,7 @@ async function saveStudentAdminForm(){
     if(editingStudentId){
       const s=demoData.students.find(x=>x.id===editingStudentId); if(!s)return;
       const oldEmail=(s.email||'').trim().toLowerCase();
-      const updated=await NabdCloud.updateUser({...s,role:'student',name:v.name,phone:v.phone,guardianPhone:v.guardianPhone,email:v.email,stage:v.stage,grade:v.grade,section:v.section},v.password);
+      const updated=await NabdCloud.updateUser({...s,role:'student',name:v.name,phone:s.phone||'',guardianPhone:v.guardianPhone,email:v.email,stage:v.stage,grade:v.grade,section:v.section},v.password);
       Object.assign(s,updated);
       if(currentLoginEmail && currentLoginEmail.toLowerCase()===oldEmail) currentLoginEmail=v.email;
       editingStudentId=null;
