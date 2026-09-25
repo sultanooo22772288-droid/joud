@@ -397,3 +397,57 @@ body:not([data-theme]) .btn.soft,body[data-theme="default"] .btn.soft{background
 .jd-subject-pick input{width:18px;height:18px;margin:0;accent-color:var(--primary)}
 .jd-subject-pick:has(input:checked){border-color:var(--primary);background:var(--theme-soft,#EEF1FB);color:var(--primary);font-weight:700}
 .jd-subject-pick:focus-within{box-shadow:0 0 0 3px rgba(34,53,138,.15)}
+
+/* ---------- الحضور والغياب: اللوحة المباشرة ---------- */
+#jdAttLive{display:flex;flex-direction:column;gap:16px;margin-bottom:18px}
+.jd-live-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.jd-live-head h3{margin:0;font-size:21px}
+.jd-live-head small{color:var(--muted);font-size:13px}
+.jd-live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#1E9A6E;margin:0 4px;animation:jdPing 1.8s ease-out infinite}
+.jd-live-card{display:flex;flex-direction:column;gap:14px}
+.jd-progress-row{display:flex;justify-content:space-between;font-size:15px}
+.jd-prep-progress{height:12px;margin:0}.jd-prep-progress span{background:linear-gradient(90deg,#1E9A6E,#4CC79A) !important}
+.jd-waiting{padding:14px 16px;border-radius:16px;background:#FDF0DA;border:1px solid #F4D9A8;display:flex;flex-direction:column;gap:10px}
+.jd-waiting > div{display:flex;flex-wrap:wrap;gap:8px}
+.jd-wait-chip{padding:7px 12px;border-radius:12px;background:#fff;border:1px dashed #D9A34A;font-size:13px;font-weight:600;color:#7A4B00;animation:jdWait 2.4s ease-in-out infinite}
+.jd-waiting.done{background:#E3F5EC;border-color:#BFE6D1;color:#17805A;font-weight:700;font-size:16px;text-align:center}
+@keyframes jdWait{0%,100%{opacity:1}50%{opacity:.6}}
+.jd-class-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.jd-class-tile{padding:12px 14px;border-radius:16px;border:1.5px solid var(--line);background:#fff;display:flex;flex-direction:column;gap:3px}
+.jd-class-tile b{font-size:14px}.jd-class-tile span{font-size:12px;font-weight:700}.jd-class-tile small{font-size:12px;color:var(--muted)}
+.jd-class-tile.wait{border-style:dashed}.jd-class-tile.wait span{color:#A8650B}
+.jd-class-tile.review{border-color:#F2A93B;background:#FFFBF2}.jd-class-tile.review span{color:#A8650B}
+.jd-class-tile.ok{border-color:#9ED9BC;background:#F2FBF6}.jd-class-tile.ok span{color:#17805A}
+.jd-class-tile.bad{border-color:#F0B3A0;background:#FFF6F3}.jd-class-tile.bad span{color:#B8431F}
+.jd-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.jd-section-head h3{margin:0;font-size:18px}
+.jd-sess{border:1.5px solid var(--line);border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.jd-sess.pending{border-color:#F2C27A}
+.jd-sess-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.jd-sess-head small{display:block;color:var(--muted);font-size:12px;margin-top:3px}
+.jd-sess-counts{display:flex;gap:6px;align-items:center}
+.jd-absent-names{display:flex;flex-wrap:wrap;gap:6px}
+.jd-absent-names span{padding:5px 10px;border-radius:10px;background:#FCE6DE;color:#8E2F12;font-size:13px}
+.jd-absent-names.none{color:#17805A;font-size:13px;font-weight:600}
+.jd-sess-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.jd-wa-setup{padding:12px 14px;border-radius:14px;background:#FFF6F3;border:1px solid #F0B3A0;color:#7A2A10;font-size:13px;line-height:1.9}
+.jd-wa-setup code{background:#fff;padding:1px 6px;border-radius:6px;font-size:12px}
+.jd-wa-progress{font-size:13px;font-weight:600;color:var(--primary);min-height:1em}
+.jd-wa-summary{display:flex;gap:8px;flex-wrap:wrap}
+.jd-wa-table{width:100%;border-collapse:collapse;min-width:640px}
+.jd-wa-table th,.jd-wa-table td{padding:10px;border-bottom:1px solid var(--line);text-align:right;font-size:14px}
+.jd-wa-chip{white-space:nowrap}
+.jd-msg-preview summary{cursor:pointer;color:var(--primary);font-weight:600;font-size:14px}
+.jd-msg-preview pre{white-space:pre-wrap;font-family:inherit;background:#F7F4EE;border-radius:14px;padding:14px;line-height:1.9;margin:10px 0 0}
+.jd-empty{padding:18px;text-align:center;color:var(--muted)}
+/* المعلم */
+.jd-att-note{padding:11px 14px;border-radius:14px;background:#FDF0DA;color:#7A4B00;font-size:14px;margin-bottom:12px}
+.jd-att-note.ok{background:#E3F5EC;color:#17805A}.jd-att-note.bad{background:#FCE6DE;color:#8E2F12}
+.jd-att-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.jd-att-list{display:grid;gap:8px}
+.jd-att-item{display:flex;align-items:center;justify-content:space-between;min-height:52px;padding:8px 14px;border:1.5px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;transition:background .2s,border-color .2s}
+.jd-att-item.is-absent{background:#FFF3EF;border-color:#F0B3A0}
+.jd-att-toggle{display:flex;align-items:center;gap:8px;font-weight:600}
+.jd-att-toggle input{width:22px;height:22px;accent-color:#C0392B}
+.jd-my-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.jd-my-row:last-child{border-bottom:0}
