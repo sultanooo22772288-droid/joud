@@ -32,16 +32,9 @@ async function requireAdmin(req) {
 
 function normalizeRow(row, grade) {
   const annual = Math.max(0, Number(row?.annual_fee) || 0);
-  const installments = Math.max(1, Math.min(12, Math.trunc(Number(row?.installments) || 1)));
-  const dueDay = Math.max(1, Math.min(28, Math.trunc(Number(row?.due_day) || 1)));
-  const firstDueDate = /^\d{4}-\d{2}-\d{2}$/.test(String(row?.first_due_date || '')) ? String(row.first_due_date) : '';
   return {
     grade,
-    annual_fee: Number(annual.toFixed(3)),
-    installments,
-    installment_amount: Number((annual / installments).toFixed(3)),
-    first_due_date: firstDueDate,
-    due_day: dueDay
+    annual_fee: Number(annual.toFixed(3))
   };
 }
 
@@ -116,11 +109,9 @@ export default async function handler(req, res) {
             section: s.section || '',
             academic_year: feeValue.academic_year || '2026/2027',
             annual_fee: fee.annual_fee,
-            installments: fee.installments,
-            installment_amount: fee.installment_amount,
-            first_due_date: fee.first_due_date,
-            due_day: fee.due_day,
-            status: 'active',
+            paid_amount: 0,
+            balance: fee.annual_fee,
+            status: fee.annual_fee > 0 ? 'unpaid' : 'no_fee',
             synced_at: now
           },
           updated_by: user.id,
