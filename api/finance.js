@@ -92,9 +92,21 @@ export default async function handler(req, res) {
         .order('name',{ascending:true});
       if (studentsError) throw studentsError;
 
+      const { data: paymentRows, error: paymentError } = await sb.from('school_kv').select('value').like('key','finance:payment:%');
+      if (paymentError) throw paymentError;
+      const paidByStudent = new Map();
+      for (const row of (paymentRows || [])) {
+        const p = row.value || {};
+        if (p.voided) continue;
+        const id = String(p.student_auth_id || '');
+        paidByStudent.set(id, Number((paidByStudent.get(id)||0) + (Number(p.amount)||0)));
+      }
+
       const now = new Date().toISOString();
       const rows = (students || []).filter(s => s.auth_user_id).map(s => {
         const fee = byGrade.get(s.grade) || normalizeRow({}, s.grade || '');
+        const paid = Number((paidByStudent.get(String(s.auth_user_id))||0).toFixed(3));
+        const balance = Number(Math.max(0, fee.annual_fee - paid).toFixed(3));
         return {
           key: 'finance:account:' + s.auth_user_id,
           value: {
@@ -109,9 +121,9 @@ export default async function handler(req, res) {
             section: s.section || '',
             academic_year: feeValue.academic_year || '2026/2027',
             annual_fee: fee.annual_fee,
-            paid_amount: 0,
-            balance: fee.annual_fee,
-            status: fee.annual_fee > 0 ? 'unpaid' : 'no_fee',
+            paid_amount: paid,
+            balance,
+            status: fee.annual_fee <= 0 ? 'no_fee' : paid >= fee.annual_fee ? 'paid' : paid > 0 ? 'partial' : 'unpaid',
             synced_at: now
           },
           updated_by: user.id,
@@ -124,6 +136,69 @@ export default async function handler(req, res) {
         if (upsertError) throw upsertError;
       }
       return res.status(200).json({ ok: true, count: rows.length, accounts: rows.map(x => x.value) });
+    }
+
+    if (body.action === 'add-payment') {
+      const studentAuthId = String(body.student_auth_id || '').trim();
+      const amount = Number(body.amount);
+      const paymentDate = /^\d{4}-\d{2}-\d{2}$/.test(String(body.payment_date||'')) ? String(body.payment_date) : new Date().toISOString().slice(0,10);
+      const method = ['cash','bank','card'].includes(body.method) ? body.method : 'cash';
+      if (!studentAuthId) return res.status(400).json({ error:'اختر الطالب.' });
+      if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error:'أدخل مبلغًا صحيحًا أكبر من صفر.' });
+
+      const { data: accountRow, error: accountError } = await sb.from('school_kv').select('value').eq('key','finance:account:'+studentAuthId).maybeSingle();
+      if (accountError) throw accountError;
+      if (!accountRow?.value) return res.status(404).json({ error:'لم يتم العثور على الحساب المالي للطالب.' });
+
+      const account = accountRow.value;
+      const currentBalance = Math.max(0, Number(account.annual_fee||0) - Number(account.paid_amount||0));
+      if (amount > currentBalance + 0.0001) return res.status(400).json({ error:'المبلغ أكبر من الرصيد المتبقي على الطالب.' });
+
+      const receiptNo = 'PAY-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-8);
+      const payment = {
+        id: receiptNo,
+        receipt_no: receiptNo,
+        student_auth_id: studentAuthId,
+        student_id: account.student_id || '',
+        student_name: account.student_name || '',
+        grade: account.grade || '',
+        section: account.section || '',
+        guardian_phone: account.guardian_phone || '',
+        amount: Number(amount.toFixed(3)),
+        payment_date: paymentDate,
+        method,
+        reference: String(body.reference||'').slice(0,120),
+        note: String(body.note||'').slice(0,300),
+        created_at: new Date().toISOString(),
+        created_by: profile?.name || user.email || 'admin',
+        voided: false
+      };
+      const { error: payError } = await sb.from('school_kv').insert({
+        key:'finance:payment:'+receiptNo,
+        value:payment,
+        updated_by:user.id,
+        updated_at:new Date().toISOString()
+      });
+      if (payError) throw payError;
+
+      const newPaid = Number((Number(account.paid_amount||0)+amount).toFixed(3));
+      const newBalance = Number(Math.max(0, Number(account.annual_fee||0)-newPaid).toFixed(3));
+      const nextAccount = {...account, paid_amount:newPaid, balance:newBalance, status:newBalance<=0?'paid':'partial', synced_at:new Date().toISOString()};
+      const { error:updateError } = await sb.from('school_kv').upsert({
+        key:'finance:account:'+studentAuthId,value:nextAccount,updated_by:user.id,updated_at:new Date().toISOString()
+      },{onConflict:'key'});
+      if(updateError) throw updateError;
+      return res.status(200).json({ok:true,payment,account:nextAccount});
+    }
+
+    if (body.action === 'list-payments') {
+      let q = sb.from('school_kv').select('value').like('key','finance:payment:%');
+      const { data, error } = await q;
+      if (error) throw error;
+      let payments=(data||[]).map(r=>r.value||{}).filter(p=>!p.voided);
+      if(body.student_auth_id) payments=payments.filter(p=>String(p.student_auth_id)===String(body.student_auth_id));
+      payments.sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
+      return res.status(200).json({payments});
     }
 
     if (body.action === 'list-accounts') {
