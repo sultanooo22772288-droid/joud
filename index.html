@@ -2964,7 +2964,7 @@ function renderRolePages(){
         <h3>➕ إضافة درس جديد</h3>
         <div class="upload-row">
           <input id="lessonTitle" placeholder="عنوان الدرس">
-          <select id="lessonSubject"><option>الرياضيات</option><option>العلوم</option><option>اللغة العربية</option></select>
+          <select id="lessonSubject" aria-label="المادة">${(teacherSubjectList(getCurrentTeacher()).length?teacherSubjectList(getCurrentTeacher()):demoData.subjects).map(x=>`<option>${esc(x)}</option>`).join('')}</select>
           <input id="lessonVideo" type="file" accept="video/*">
           <input id="lessonFile" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,image/*">
         </div>
@@ -4100,7 +4100,7 @@ function addSubjectAdmin(){
 
 function deleteSubjectAdmin(name){
   if(!confirm(`هل تريد حذف مادة "${name}"؟`)) return;
-  const used=demoData.teachers.some(t=>t.subject===name);
+  const used=demoData.teachers.some(t=>teacherSubjectList(t).includes(name));
   if(used){
     alert('لا يمكن حذف المادة لأنها مرتبطة بمعلم حاليًا. غيّر مادة المعلم أولًا.');
     return;
@@ -4267,20 +4267,25 @@ function renderAdminManagement(){
     <div class="teacher-tool" id="teacherFormCard">
       <h3 id="teacherFormTitle">➕ إضافة معلم</h3>
       <div class="upload-row">
-        <input id="newTeacherName" placeholder="اسم المعلم">
+        <input id="newTeacherName" placeholder="اسم المعلم" aria-label="اسم المعلم">
         
         <div>
-          <input id="newTeacherPhone" type="tel" inputmode="numeric" maxlength="8" placeholder="رقم الهاتف - 8 أرقام" dir="ltr"
+          <input id="newTeacherPhone" type="tel" inputmode="numeric" maxlength="8" placeholder="رقم الهاتف - 8 أرقام" aria-label="رقم الهاتف" dir="ltr"
             oninput="validateTeacherPhoneField()" onblur="validateTeacherPhoneField()">
           <span id="newTeacherPhoneError" class="student-field-error"></span>
         </div>
         <div>
-          <input id="newTeacherEmail" type="email" placeholder="example@email.com" dir="ltr"
+          <input id="newTeacherEmail" type="text" placeholder="اسم المستخدم (بالإنجليزي)" aria-label="اسم المستخدم" dir="ltr" autocomplete="off" autocapitalize="none" spellcheck="false"
             oninput="validateTeacherEmailField()" onblur="validateTeacherEmailField()">
           <span id="newTeacherEmailError" class="student-field-error"></span>
         </div>
-        <input id="newTeacherPassword" type="password" placeholder="كلمة المرور" value="123456">
-        <select id="newTeacherSubject" class="teacher-extra-edit-field">${subjectOptions}</select>
+        <input id="newTeacherPassword" type="text" placeholder="الرقم السري (123456 إذا تُرك فارغًا)" aria-label="الرقم السري" dir="ltr" autocomplete="off">
+        <div id="newTeacherSubjects" role="group" aria-labelledby="newTeacherSubjectsLabel" style="grid-column:1/-1">
+          <span id="newTeacherSubjectsLabel" style="display:block;font-size:13px;margin-bottom:9px">المواد التي يدرّسها المعلم (يمكن اختيار أكثر من مادة)</span>
+          <div class="jd-subject-picks">
+            ${demoData.subjects.map(sub=>`<label class="jd-subject-pick"><input type="checkbox" class="teacher-subject-check" value="${esc(sub)}"><span>${esc(sub)}</span></label>`).join('')}
+          </div>
+        </div>
         <div id="teacherAssignmentsBlock" style="grid-column:1/-1">
           <label style="display:block;font-size:13px;margin-bottom:9px">اختر المراحل والصفوف ثم حدد الشعبة</label>
           <div id="teacherGradeChecks" style="display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:10px">
@@ -4291,12 +4296,12 @@ function renderAdminManagement(){
                   <b>${esc(x.grade)}</b>
                   <small style="display:block;color:var(--muted);margin-top:2px">${esc(x.stage)}</small>
                 </div>
-                <select class="teacher-section-select" id="teacherSection${i}" disabled style="width:110px;padding:9px;border:1px solid var(--line);border-radius:10px;background:#fff">
+                <select class="teacher-section-select" id="teacherSection${i}" disabled style="width:110px;padding:9px;border:1px solid var(--line);border-radius:10px;background:#fff" aria-label="الشعبة">
                   <option value="">اختر الشعبة</option>
-                  <option value="أ">أ</option>
-                  <option value="ب">ب</option>
-                  <option value="ج">ج</option>
-                  <option value="د">د</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
                 </select>
               </div>`).join('')}
           </div>
@@ -4345,7 +4350,7 @@ function renderAdminManagement(){
       </div>
       <div class="credentials-fit-wrap">
         <table class="credentials-fit-table" style="width:100%;border-collapse:collapse;table-layout:fixed">
-          <thead><tr><th>المعلم</th><th>م</th><th>المادة</th><th>البريد الإلكتروني</th><th>كلمة المرور</th><th>الإجراء</th></tr></thead>
+          <thead><tr><th>المعلم</th><th>م</th><th>المواد</th><th>اسم المستخدم</th><th>الرقم السري</th><th>الإجراء</th></tr></thead>
           <tbody id="teacherCredentialsBody">${renderTeacherCredentialsRows()}</tbody>
         </table>
       </div>
@@ -4804,7 +4809,7 @@ function normH(v){return String(v||'').trim().toLowerCase().replace(/\s+/g,' ').
 function pv(row,aliases){for(const k of Object.keys(row||{})){if(aliases.map(normH).includes(normH(k)))return String(row[k]??'').trim()}return ''}
 function nr(role,row){
  if(role==='student')return {name:pv(row,['الاسم','اسم الطالب','name']),phone:'',guardianPhone:pv(row,['هاتف ولي الأمر','رقم ولي الأمر','ولي الأمر','guardian phone','guardian']),email:studentUsernameToEmail(pv(row,['اسم المستخدم','username','user'])||pv(row,['البريد الإلكتروني','الايميل','email'])),password:pv(row,['كلمة المرور','الرقم السري','password'])||DEFAULT_STUDENT_PASSWORD,grade:pv(row,['الصف','grade']),section:pv(row,['الشعبة','section']),stage:pv(row,['المرحلة','stage'])};
- return {name:pv(row,['الاسم','اسم المعلم','name']),phone:pv(row,['رقم الهاتف','الهاتف','phone']),email:pv(row,['البريد الإلكتروني','الايميل','email']),password:pv(row,['كلمة المرور','الرقم السري','password']),subject:pv(row,['المادة','subject']),stagesRaw:pv(row,['الصفوف والشعب','الصفوف','stages','classes'])};
+ return {name:pv(row,['الاسم','اسم المعلم','name']),phone:pv(row,['رقم الهاتف','الهاتف','phone']),email:studentUsernameToEmail(pv(row,['اسم المستخدم','username','user'])||pv(row,['البريد الإلكتروني','الايميل','email'])),password:pv(row,['كلمة المرور','الرقم السري','password'])||DEFAULT_STUDENT_PASSWORD,subject:pv(row,['المواد','المادة','subject']).split(/[،,]/).map(x=>x.trim()).filter(Boolean).join('، '),stagesRaw:pv(row,['الصفوف والشعب','الصفوف','stages','classes'])};
 }
 function verr(role,r){const e=[];if(!r.name)e.push('الاسم مفقود');if(role==='student'){if(r.guardianPhone&&!/^\d{8}$/.test(r.guardianPhone))e.push('هاتف ولي الأمر 8 أرقام')}else if(!/^\d{8}$/.test(r.phone||''))e.push('الهاتف 8 أرقام');if(role==='student'&&!r.email)r.autoUsername=true;else if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email||''))e.push(role==='student'?'اسم المستخدم غير صحيح':'البريد غير صحيح');else if(role==='student'&&demoData.students.some(x=>String(x.email||'').toLowerCase()===r.email))e.push('اسم المستخدم مستخدم لطالب آخر');if(!r.password||r.password.length<6)e.push('الرقم السري 6 خانات على الأقل');if(role==='student'){if(!['روضة','تمهيدي','الصف الأول','الصف الثاني','الصف الثالث','الصف الرابع'].includes(r.grade))e.push('الصف غير صحيح');r.section=({'أ':'1','ب':'2','ج':'3','د':'4'})[r.section]||r.section;if(!['1','2','3','4'].includes(r.section))e.push('الشعبة من 1 إلى 4');if(!r.stage)r.stage=(r.grade==='روضة'||r.grade==='تمهيدي')?'رياض الأطفال':'الحلقة الأولى'}else if(!r.subject)e.push('المادة مفقودة');return e}
 async function readX(file){const b=await file.arrayBuffer(),wb=XLSX.read(b,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];return XLSX.utils.sheet_to_json(ws,{defval:''})}
@@ -4890,7 +4895,7 @@ function renderTeacherRows(list){
   return list.map((t,i)=>`<tr style="border-top:1px solid var(--line)">
     <td style="padding:12px">${esc(t.name)}</td>
     <td>${i+1}</td>
-    <td><span class="tag blue">${esc(t.subject)}</span></td>
+    <td>${teacherSubjectList(t).map(x=>`<span class="tag blue" style="display:inline-block;margin:2px">${esc(x)}</span>`).join('')||'—'}</td>
     <td>${(t.stages||[]).map(x=>`<span class="tag green" style="display:inline-block;margin:2px">${esc(x)}</span>`).join('')}</td>
     <td style="min-width:180px">
       <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -4906,9 +4911,9 @@ function renderTeacherCredentialsRows(list=demoData.teachers){list=[...(list||[]
   return list.map((t,i)=>`<tr style="border-top:1px solid var(--line)">
     <td style="padding:12px;font-weight:800">${esc(t.name)}</td>
     <td>${i+1}</td>
-    <td><span class="tag blue">${esc(t.subject)}</span></td>
+    <td>${teacherSubjectList(t).map(x=>`<span class="tag blue" style="display:inline-block;margin:2px">${esc(x)}</span>`).join('')||'—'}</td>
     <td style="min-width:220px">
-      <input id="adminTeacherEmail_${t.id}" type="email" value="${esc(t.email||'')}" dir="ltr"
+      <input id="adminTeacherEmail_${t.id}" type="text" value="${esc(studentEmailToUsername(t.email))}" dir="ltr" aria-label="اسم المستخدم" autocapitalize="none" spellcheck="false"
         style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff">
     </td>
     <td style="min-width:190px">
@@ -4930,10 +4935,12 @@ function toggleAdminTeacherPassword(id){
 async function saveTeacherCredentialsAdmin(id){
   if(role!=='admin'){alert('هذا الخيار متاح للإدارة فقط.');return;}
   const t=demoData.teachers.find(x=>String(x.id||'')===String(id||'')); if(!t)return;
-  const email=(document.getElementById('adminTeacherEmail_'+id)?.value||'').trim().toLowerCase();
+  const username=(document.getElementById('adminTeacherEmail_'+id)?.value||'').trim().toLowerCase();
   const password=(document.getElementById('adminTeacherPassword_'+id)?.value||'').trim();
-  if(!email||!password){alert('البريد الإلكتروني وكلمة المرور مطلوبان.');return;}
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){alert('صيغة البريد الإلكتروني غير صحيحة.');return;}
+  if(!username||!password){alert('اسم المستخدم والرقم السري مطلوبان.');return;}
+  if(username.includes('@') ? !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username) : !/^(?=.*[a-z])[a-z0-9._-]{3,30}$/.test(username)){alert('اسم المستخدم من 3 إلى 30 حرفًا إنجليزيًا (مع أرقام اختياريًا)، بدون مسافات.');return;}
+  const email=studentUsernameToEmail(username);
+  if(demoData.teachers.some(x=>x.id!==t.id&&String(x.email||'').toLowerCase()===email)||demoData.students.some(x=>String(x.email||'').toLowerCase()===email)){alert('اسم المستخدم هذا مستخدم في حساب آخر.');return;}
   try{
     await NabdCloud.updateUser({...t,role:'teacher',email},password);
     await syncCloudProfiles(); renderAdminManagement();
@@ -4958,7 +4965,7 @@ function applyTeacherFilters(){
   const subject=document.getElementById('teacherSubjectFilter')?.value || 'الكل';
   let list=demoData.teachers;
   if(name) list=list.filter(t=>t.name.toLowerCase().includes(name));
-  if(subject!=='الكل') list=list.filter(t=>t.subject===subject);
+  if(subject!=='الكل') list=list.filter(t=>teacherSubjectList(t).includes(subject));
   const body=document.getElementById('teachersTableBody');
   const count=document.getElementById('teacherCount');
   if(body) body.innerHTML=renderTeacherRows(list);
@@ -5009,6 +5016,9 @@ function validateTeacherPhoneField(){
   return true;
 }
 
+// المواد المتعددة تُحفظ في حقل subject مفصولة بـ «، ».
+function teacherSubjectList(t){return String(t?.subject||'').split(/[،,]/).map(x=>x.trim()).filter(Boolean);}
+
 function validateTeacherEmailField(){
   const input=document.getElementById('newTeacherEmail');
   const error=document.getElementById('newTeacherEmailError');
@@ -5018,27 +5028,29 @@ function validateTeacherEmailField(){
   input.classList.remove('field-invalid','field-valid');
 
   if(!value){
-    if(error) error.textContent='البريد الإلكتروني مطلوب.';
+    if(error) error.textContent='اسم المستخدم مطلوب.';
     input.classList.add('field-invalid');
     return false;
   }
 
-  const emailPattern=/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-  if(!emailPattern.test(value)){
-    if(error) error.textContent='⚠️ البريد الإلكتروني غير صحيح. مثال: name@gmail.com';
+  // يجب أن يحتوي اسم المعلم على حرف حتى لا يتعارض مع أرقام الطلاب التلقائية (101001…).
+  const legacyEmail=value.includes('@');
+  if(legacyEmail ? !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value) : !/^(?=.*[a-z])[a-z0-9._-]{3,30}$/.test(value)){
+    if(error) error.textContent='⚠️ اسم المستخدم من 3 إلى 30 حرفًا إنجليزيًا (مع أرقام اختياريًا)، بدون مسافات. مثال: t.khalid';
     input.classList.add('field-invalid');
     return false;
   }
 
+  const email=studentUsernameToEmail(value);
   const duplicateTeacher=demoData.teachers.some(x=>
-    x.id!==editingTeacherId && String(x.email||'').trim().toLowerCase()===value
+    x.id!==editingTeacherId && String(x.email||'').trim().toLowerCase()===email
   );
   const duplicateStudent=demoData.students.some(x=>
-    String(x.email||'').trim().toLowerCase()===value
+    String(x.email||'').trim().toLowerCase()===email
   );
 
   if(duplicateTeacher || duplicateStudent){
-    if(error) error.textContent='⚠️ هذا البريد الإلكتروني مستخدم في حساب آخر.';
+    if(error) error.textContent='⚠️ اسم المستخدم هذا مستخدم في حساب آخر.';
     input.classList.add('field-invalid');
     return false;
   }
@@ -5052,11 +5064,13 @@ async function saveTeacherAdminForm(){
  const name=document.getElementById('newTeacherName').value.trim();
  const tid='';
  const phone=document.getElementById('newTeacherPhone').value.trim();
- const email=document.getElementById('newTeacherEmail').value.trim().toLowerCase();
- const password=document.getElementById('newTeacherPassword').value.trim();
- const subject=document.getElementById('newTeacherSubject').value;
- if(!name||!password){alert('اسم المعلم وكلمة المرور مطلوبان.');return;}
- if(!validateTeacherPhoneField()||!validateTeacherEmailField()){alert('يرجى تصحيح رقم الهاتف أو البريد الإلكتروني قبل الحفظ.');return;}
+ const email=studentUsernameToEmail(document.getElementById('newTeacherEmail').value);
+ const password=document.getElementById('newTeacherPassword').value.trim()||(editingTeacherId?'':DEFAULT_STUDENT_PASSWORD);
+ const subjects=[...document.querySelectorAll('.teacher-subject-check:checked')].map(x=>x.value);
+ const subject=subjects.join('، ');
+ if(!name){alert('اسم المعلم مطلوب.');return;}
+ if(!validateTeacherPhoneField()||!validateTeacherEmailField()){alert('يرجى تصحيح رقم الهاتف أو اسم المستخدم قبل الحفظ.');return;}
+ if(!subjects.length){alert('اختر مادة واحدة على الأقل.');return;}
  const checked=[...document.querySelectorAll('.teacher-grade-toggle:checked')];
  const stages=checked.map(o=>{const p=o.value.split('||'),idx=o.dataset.index,sec=document.getElementById('teacherSection'+idx)?.value;return sec?`${p[0]} — ${p[1]} — الشعبة (${sec})`:null;}).filter(Boolean);
  if(!editingTeacherId){if(!checked.length){alert('حدد صفًا واحدًا على الأقل.');return;}if(stages.length!==checked.length){alert('اختر الشعبة لكل صف تم تحديده.');return;}}
@@ -5069,7 +5083,7 @@ async function saveTeacherAdminForm(){
      setTimeout(()=>document.getElementById('teacherFormCard')?.scrollIntoView({behavior:'smooth',block:'start'}),50); return;
    }
    await NabdCloud.createUser('teacher',{name,teacherId:tid,phone,email,subject,stages},password);
-   await syncCloudProfiles(); renderAdminManagement(); alert('تمت إضافة المعلم وحسابه السحابي بنجاح.');
+   await syncCloudProfiles(); renderAdminManagement(); alert(`تمت إضافة المعلم بنجاح.\nاسم المستخدم: ${studentEmailToUsername(email)}\nالرقم السري: ${password}`);
  }catch(e){console.error(e);alert('تعذر حفظ حساب المعلم: '+(e.message||''));}
 }
 function addTeacherAdmin(){saveTeacherAdminForm();}
@@ -5094,9 +5108,10 @@ function editTeacherAdminFull(id){
  document.getElementById('newTeacherName').value=t.name||'';
  const teacherIdField=document.getElementById('newTeacherId'); if(teacherIdField) teacherIdField.value=t.teacherId||'';
  document.getElementById('newTeacherPhone').value=t.phone||'';
- document.getElementById('newTeacherEmail').value=t.email||'';
+ document.getElementById('newTeacherEmail').value=studentEmailToUsername(t.email);
  document.getElementById('newTeacherPassword').value=t.password||'';
- document.getElementById('newTeacherSubject').value=t.subject||'';
+ const mySubjects=teacherSubjectList(t);
+ document.querySelectorAll('.teacher-subject-check').forEach(cb=>{cb.checked=mySubjects.includes(cb.value);});
  document.querySelectorAll('.teacher-grade-toggle').forEach(cb=>{
    cb.checked=false;const sel=document.getElementById('teacherSection'+cb.dataset.index);if(sel){sel.value='';sel.disabled=true;}
  });
@@ -5105,7 +5120,7 @@ function editTeacherAdminFull(id){
      const p=cb.value.split('||');
      if(item.includes(p[0])&&item.includes(p[1])){
        cb.checked=true;const sel=document.getElementById('teacherSection'+cb.dataset.index);
-       if(sel){sel.disabled=false;const m=item.match(/الشعبة \(([^)]+)\)/);if(m)sel.value=m[1];}
+       if(sel){sel.disabled=false;const m=item.match(/(?:الشعبة \(|\()([^)]+)\)/);if(m)sel.value=({'أ':'1','ب':'2','ج':'3','د':'4'})[m[1]]||m[1];}
      }
    });
  });
