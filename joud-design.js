@@ -289,6 +289,7 @@
         <td style="padding:8px;border-bottom:1px solid var(--line)">
           <button class="btn primary" style="padding:7px 10px" onclick='jdOpenPaymentModal(${JSON.stringify(JSON.stringify(a))})' ${Number(a.annual_fee)<=Number(a.paid_amount)?'disabled':''}>+ دفعة</button>
           <button class="btn soft" style="padding:7px 10px;margin-right:4px" onclick='jdShowPaymentHistory(${JSON.stringify(a.student_auth_id)})'>السجل</button>
+          <button class="btn soft" style="padding:7px 10px;margin-right:4px" onclick='jdSendFinanceReminder(${JSON.stringify(a.student_auth_id)},this)' ${(Number(a.annual_fee)||0)<=0||(Number(a.paid_amount)||0)>=(Number(a.annual_fee)||0)?'disabled':''}>واتساب</button>
         </td>
       </tr>`).join(''):'<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">لا توجد حسابات مطابقة.</td></tr>';
   };
@@ -439,6 +440,72 @@
     }catch(e){alert('تعذر تحميل سجل التدقيق: '+(e.message||''));}
   };
 
+
+  function jdFinanceSleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+  window.jdSendFinanceReminder=async function(studentAuthId,btn){
+    const a=financeState.accounts.find(x=>String(x.student_auth_id)===String(studentAuthId));
+    if(!a) return alert('تعذر العثور على حساب الطالب.');
+    const balance=Math.max(0,(Number(a.annual_fee)||0)-(Number(a.paid_amount)||0));
+    if(balance<=0) return alert('لا يوجد مبلغ متبقٍ على هذا الطالب.');
+    if(!a.guardian_phone) return alert('رقم ولي الأمر غير موجود لهذا الطالب.');
+    if(!confirm('إرسال تذكير واتساب لولي أمر '+(a.student_name||'الطالب')+' بالمبلغ المتبقي '+money(balance)+'؟')) return;
+    const old=btn?.textContent;
+    try{
+      if(btn){btn.disabled=true;btn.textContent='إرسال…';}
+      await NabdCloud.sendFinanceReminder(studentAuthId);
+      if(btn){btn.textContent='تم ✓';}
+    }catch(e){
+      alert('تعذر إرسال التذكير: '+(e.message||''));
+      if(btn){btn.disabled=false;btn.textContent=old||'واتساب';}
+    }
+  };
+
+  window.jdSendFinanceRemindersFiltered=async function(){
+    const rows=jdFinanceFilteredRows().filter(a=>(Number(a.annual_fee)||0)>(Number(a.paid_amount)||0)&&a.guardian_phone);
+    if(!rows.length) return alert('لا توجد حسابات مستحقة برقم ولي أمر ضمن النتائج الحالية.');
+    if(!confirm('سيتم إرسال تذكير واتساب إلى '+rows.length+' ولي أمر حسب الفلاتر الحالية. متابعة؟')) return;
+    const btn=document.getElementById('financeBulkWaBtn');
+    const st=document.getElementById('financeBulkWaStatus');
+    let sent=0,failed=0;
+    try{
+      if(btn) btn.disabled=true;
+      for(let i=0;i<rows.length;i++){
+        if(st) st.textContent='جاري الإرسال '+(i+1)+' / '+rows.length+'…';
+        try{
+          await NabdCloud.sendFinanceReminder(rows[i].student_auth_id);
+          sent++;
+        }catch(e){
+          failed++;
+          if(e?.status===429 && e?.retryAfter){
+            await jdFinanceSleep(Math.max(5500,Number(e.retryAfter)*1000));
+            try{await NabdCloud.sendFinanceReminder(rows[i].student_auth_id);sent++;failed--;}catch(_e){}
+          }
+        }
+        if(i<rows.length-1) await jdFinanceSleep(5500);
+      }
+      if(st){st.textContent='تم الإرسال: '+sent+(failed?' — تعذر: '+failed:'');st.style.color=failed?'#b87100':'#178a5b';}
+    }finally{if(btn)btn.disabled=false;}
+  };
+
+  window.jdShowFinanceReminderHistory=async function(){
+    try{
+      const list=await NabdCloud.listFinanceReminders('');
+      document.getElementById('financeReminderHistoryModal')?.remove();
+      const wrap=document.createElement('div');
+      wrap.id='financeReminderHistoryModal';
+      wrap.style.cssText='position:fixed;inset:0;z-index:10002;background:rgba(20,28,45,.42);display:grid;place-items:center;padding:16px';
+      wrap.innerHTML=`
+        <div class="card" style="width:min(850px,96vw);max-height:90vh;overflow:auto">
+          <div style="display:flex;justify-content:space-between;align-items:center"><div><h3 style="margin:0">📱 سجل تذكيرات الرسوم</h3><small style="color:var(--muted)">آخر الرسائل التي أرسلت لأولياء الأمور.</small></div><button class="btn soft" onclick="document.getElementById('financeReminderHistoryModal').remove()">✕</button></div>
+          <div style="overflow:auto;margin-top:14px"><table style="width:100%;border-collapse:collapse;min-width:700px"><thead><tr><th>الطالب</th><th>ولي الأمر</th><th>المتبقي وقت الإرسال</th><th>وقت الإرسال</th></tr></thead><tbody>
+          ${list.length?list.map(x=>`<tr><td style="padding:8px;border-bottom:1px solid var(--line)">${esc(x.student_name||'')}</td><td style="padding:8px;border-bottom:1px solid var(--line)" dir="ltr">${esc(x.guardian_phone||'')}</td><td style="padding:8px;border-bottom:1px solid var(--line);font-weight:800">${money(x.balance||0)}</td><td style="padding:8px;border-bottom:1px solid var(--line)">${x.sent_at?new Date(x.sent_at).toLocaleString('ar-OM'):'—'}</td></tr>`).join(''):'<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--muted)">لا توجد تذكيرات مسجلة بعد.</td></tr>'}
+          </tbody></table></div>
+        </div>`;
+      document.body.appendChild(wrap);
+    }catch(e){alert('تعذر تحميل سجل التذكيرات: '+(e.message||''));}
+  };
+
   window.renderFinanceAdmin=async function(){
     const page=document.getElementById('financeAdmin');
     if(!page) return;
@@ -472,7 +539,7 @@
     page.innerHTML=`
       <div class="page-head">
         <div><h2>المالية والرسوم 💳</h2><p>إدارة الرسوم السنوية والتحصيل المرن والرصيد المتبقي لكل طالب.</p></div>
-        <span class="tag green">الخطوة 8 جاهزة ✓</span>
+        <span class="tag green">الخطوة 9 جاهزة ✓</span>
       </div>
 
       <div class="grid grid-4">
@@ -491,9 +558,12 @@
         <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
           <div><h3 style="margin:0">👨‍🎓 الحسابات المالية للطلاب</h3><small style="color:var(--muted)">مرتبطة تلقائيًا ببيانات الطالب وصفه وشعبته ورقم ولي الأمر ورسوم صفه.</small></div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button id="financeBulkWaBtn" class="btn primary" type="button" onclick="jdSendFinanceRemindersFiltered()">📱 تذكير النتائج الحالية</button>
+            <button class="btn soft" type="button" onclick="jdShowFinanceReminderHistory()">سجل التذكيرات</button>
             <button class="btn soft" type="button" onclick="jdExportFinanceExcel()">📊 تصدير Excel</button>
             <button class="btn soft" type="button" onclick="jdExportFinancePdf()">📄 تصدير PDF</button>
-            <button id="financeSyncBtn" class="btn primary" type="button" onclick="jdSyncFinanceAccounts()">↻ مزامنة الطلاب</button>
+            <button id="financeSyncBtn" class="btn soft" type="button" onclick="jdSyncFinanceAccounts()">↻ مزامنة الطلاب</button>
+            <span id="financeBulkWaStatus" style="font-size:12px;font-weight:800"></span>
             <span id="financeSyncStatus" style="font-size:12px;font-weight:800"></span>
           </div>
         </div>
