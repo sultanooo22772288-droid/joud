@@ -412,6 +412,16 @@
     const {data,error}=await c.from('attendance_notifications').select('*').in('session_id',list).order('student_name',{ascending:true});
     if(error) throw error; return data||[];
   }
+  async function financeRequest(payload){
+    const token=await getAccessToken();
+    const r=await fetch('/api/finance',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
+    const out=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(out.error||'تعذر تنفيذ عملية المالية.');
+    return out;
+  }
+  async function getFinanceFeeSettings(){ const out=await financeRequest({action:'get-settings'}); return out.settings; }
+  async function saveFinanceFeeSettings(settings){ const out=await financeRequest({action:'save-settings',settings}); return out.settings; }
+
   async function whatsappRequest(payload){
     const token=await getAccessToken();
     const r=await fetch('/api/whatsapp',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
@@ -449,7 +459,7 @@
     submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,
     setHomeworkScoreVisibility,listClassStudents,
     saveStudentReport,myStudentReports,myStudentReportBundle,getTeacherStudentReport,
-    createTeacherContent,listTeacherContent,deleteTeacherContent,createTeacherHomework,listTeacherHomeworks,deleteTeacherHomework,adminAllTeacherContent,getSchoolTheme,setSchoolTheme,markOwnPasswordChanged,listNotificationsForSessions,sendWhatsAppNotification,whatsappStatuses,whatsappConfig,localToday,
+    createTeacherContent,listTeacherContent,deleteTeacherContent,createTeacherHomework,listTeacherHomeworks,deleteTeacherHomework,adminAllTeacherContent,getSchoolTheme,setSchoolTheme,markOwnPasswordChanged,getFinanceFeeSettings,saveFinanceFeeSettings,listNotificationsForSessions,sendWhatsAppNotification,whatsappStatuses,whatsappConfig,localToday,
     demoVisitStats,saveAttendanceSession,listAttendanceSessions,getAttendanceRecords,updateAttendanceApproval,prepareAttendanceNotifications,listAttendanceNotifications,markAttendanceNotificationSent,listAttendanceAudit,updateAttendanceSyncStatus,
     get config(){return cfg;}
   };
