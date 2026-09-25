@@ -86,6 +86,62 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, settings: value });
     }
 
+    if (body.action === 'sync-accounts') {
+      const { data: feeRow, error: feeError } = await sb.from('school_kv').select('value').eq('key', FEE_KEY).maybeSingle();
+      if (feeError) throw feeError;
+      const feeValue = feeRow?.value || {};
+      const feeRows = GRADES.map(g => normalizeRow((feeValue.rows || []).find(x => x.grade === g), g));
+      const byGrade = new Map(feeRows.map(r => [r.grade, r]));
+
+      const { data: students, error: studentsError } = await sb.from('profiles')
+        .select('auth_user_id,name,email,phone,guardian_phone,grade,section,stage,external_id')
+        .eq('role','student')
+        .order('name',{ascending:true});
+      if (studentsError) throw studentsError;
+
+      const now = new Date().toISOString();
+      const rows = (students || []).filter(s => s.auth_user_id).map(s => {
+        const fee = byGrade.get(s.grade) || normalizeRow({}, s.grade || '');
+        return {
+          key: 'finance:account:' + s.auth_user_id,
+          value: {
+            student_auth_id: s.auth_user_id,
+            student_id: s.external_id || '',
+            student_name: s.name || '',
+            email: s.email || '',
+            phone: s.phone || '',
+            guardian_phone: s.guardian_phone || s.phone || '',
+            stage: s.stage || '',
+            grade: s.grade || '',
+            section: s.section || '',
+            academic_year: feeValue.academic_year || '2026/2027',
+            annual_fee: fee.annual_fee,
+            installments: fee.installments,
+            installment_amount: fee.installment_amount,
+            first_due_date: fee.first_due_date,
+            due_day: fee.due_day,
+            status: 'active',
+            synced_at: now
+          },
+          updated_by: user.id,
+          updated_at: now
+        };
+      });
+
+      if (rows.length) {
+        const { error: upsertError } = await sb.from('school_kv').upsert(rows, { onConflict: 'key' });
+        if (upsertError) throw upsertError;
+      }
+      return res.status(200).json({ ok: true, count: rows.length, accounts: rows.map(x => x.value) });
+    }
+
+    if (body.action === 'list-accounts') {
+      const { data, error } = await sb.from('school_kv').select('key,value').like('key','finance:account:%');
+      if (error) throw error;
+      const accounts = (data || []).map(r => r.value || {}).sort((a,b) => String(a.student_name||'').localeCompare(String(b.student_name||''),'ar'));
+      return res.status(200).json({ accounts });
+    }
+
     return res.status(400).json({ error: 'عملية غير معروفة.' });
   } catch (e) {
     console.error(e);
