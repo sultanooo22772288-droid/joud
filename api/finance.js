@@ -38,6 +38,31 @@ function normalizeRow(row, grade) {
   };
 }
 
+async function recalculateAccount(sb, studentAuthId, userId) {
+  const { data: accountRow, error: accountError } = await sb.from('school_kv').select('value').eq('key','finance:account:'+studentAuthId).maybeSingle();
+  if (accountError) throw accountError;
+  if (!accountRow?.value) return null;
+
+  const { data: payRows, error: payError } = await sb.from('school_kv').select('value').like('key','finance:payment:%');
+  if (payError) throw payError;
+  const paid=(payRows||[]).map(r=>r.value||{}).filter(p=>!p.voided&&String(p.student_auth_id)===String(studentAuthId)).reduce((s,p)=>s+(Number(p.amount)||0),0);
+  const annual=Number(accountRow.value.annual_fee)||0;
+  const paidAmount=Number(paid.toFixed(3));
+  const balance=Number(Math.max(0,annual-paidAmount).toFixed(3));
+  const next={...accountRow.value,paid_amount:paidAmount,balance,status:annual<=0?'no_fee':paidAmount>=annual?'paid':paidAmount>0?'partial':'unpaid',synced_at:new Date().toISOString()};
+  const { error:updateError }=await sb.from('school_kv').upsert({key:'finance:account:'+studentAuthId,value:next,updated_by:userId,updated_at:new Date().toISOString()},{onConflict:'key'});
+  if(updateError) throw updateError;
+  return next;
+}
+
+async function writeFinanceAudit(sb, user, profile, entry){
+  const stamp=Date.now()+'-'+Math.random().toString(36).slice(2,8);
+  const value={...entry,actor_id:user.id,actor_name:profile?.name||user.email||'admin',created_at:new Date().toISOString()};
+  const {error}=await sb.from('school_kv').insert({key:'finance:audit:'+stamp,value,updated_by:user.id,updated_at:new Date().toISOString()});
+  if(error) throw error;
+  return value;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
@@ -189,6 +214,75 @@ export default async function handler(req, res) {
       },{onConflict:'key'});
       if(updateError) throw updateError;
       return res.status(200).json({ok:true,payment,account:nextAccount});
+    }
+
+    if (body.action === 'update-payment') {
+      const receiptNo=String(body.receipt_no||'').trim();
+      const amount=Number(body.amount);
+      const reason=String(body.reason||'').trim().slice(0,300);
+      if(!receiptNo) return res.status(400).json({error:'رقم الإيصال مطلوب.'});
+      if(!Number.isFinite(amount)||amount<=0) return res.status(400).json({error:'أدخل مبلغًا صحيحًا.'});
+      if(!reason) return res.status(400).json({error:'اكتب سبب التعديل.'});
+
+      const key='finance:payment:'+receiptNo;
+      const {data:row,error:rowError}=await sb.from('school_kv').select('value').eq('key',key).maybeSingle();
+      if(rowError) throw rowError;
+      if(!row?.value) return res.status(404).json({error:'الدفعة غير موجودة.'});
+      if(row.value.voided) return res.status(400).json({error:'لا يمكن تعديل دفعة ملغاة.'});
+
+      const before=row.value;
+      const accountId=String(before.student_auth_id||'');
+      const {data:accountRow,error:accountError}=await sb.from('school_kv').select('value').eq('key','finance:account:'+accountId).maybeSingle();
+      if(accountError) throw accountError;
+      const annual=Number(accountRow?.value?.annual_fee)||0;
+
+      const {data:payRows,error:payError}=await sb.from('school_kv').select('value').like('key','finance:payment:%');
+      if(payError) throw payError;
+      const others=(payRows||[]).map(r=>r.value||{}).filter(p=>!p.voided&&String(p.student_auth_id)===accountId&&String(p.receipt_no)!==receiptNo).reduce((s,p)=>s+(Number(p.amount)||0),0);
+      if(others+amount>annual+0.0001) return res.status(400).json({error:'بعد التعديل سيتجاوز إجمالي الدفعات الرسوم السنوية.'});
+
+      const next={...before,
+        amount:Number(amount.toFixed(3)),
+        payment_date:/^\d{4}-\d{2}-\d{2}$/.test(String(body.payment_date||''))?String(body.payment_date):before.payment_date,
+        method:['cash','bank','card'].includes(body.method)?body.method:before.method,
+        reference:String(body.reference??before.reference??'').slice(0,120),
+        note:String(body.note??before.note??'').slice(0,300),
+        edited_at:new Date().toISOString(),
+        edited_by:profile?.name||user.email||'admin'
+      };
+      const {error:updateError}=await sb.from('school_kv').upsert({key,value:next,updated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'key'});
+      if(updateError) throw updateError;
+      await writeFinanceAudit(sb,user,profile,{action:'payment_updated',receipt_no:receiptNo,student_auth_id:accountId,student_name:before.student_name||'',reason,before,after:next});
+      const account=await recalculateAccount(sb,accountId,user.id);
+      return res.status(200).json({ok:true,payment:next,account});
+    }
+
+    if (body.action === 'void-payment') {
+      const receiptNo=String(body.receipt_no||'').trim();
+      const reason=String(body.reason||'').trim().slice(0,300);
+      if(!receiptNo) return res.status(400).json({error:'رقم الإيصال مطلوب.'});
+      if(!reason) return res.status(400).json({error:'اكتب سبب الإلغاء.'});
+      const key='finance:payment:'+receiptNo;
+      const {data:row,error:rowError}=await sb.from('school_kv').select('value').eq('key',key).maybeSingle();
+      if(rowError) throw rowError;
+      if(!row?.value) return res.status(404).json({error:'الدفعة غير موجودة.'});
+      if(row.value.voided) return res.status(400).json({error:'هذه الدفعة ملغاة مسبقًا.'});
+      const before=row.value;
+      const next={...before,voided:true,void_reason:reason,voided_at:new Date().toISOString(),voided_by:profile?.name||user.email||'admin'};
+      const {error:updateError}=await sb.from('school_kv').upsert({key,value:next,updated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'key'});
+      if(updateError) throw updateError;
+      await writeFinanceAudit(sb,user,profile,{action:'payment_voided',receipt_no:receiptNo,student_auth_id:before.student_auth_id||'',student_name:before.student_name||'',reason,before,after:next});
+      const account=await recalculateAccount(sb,String(before.student_auth_id||''),user.id);
+      return res.status(200).json({ok:true,payment:next,account});
+    }
+
+    if (body.action === 'list-audit') {
+      const {data,error}=await sb.from('school_kv').select('value').like('key','finance:audit:%');
+      if(error) throw error;
+      let audit=(data||[]).map(r=>r.value||{});
+      if(body.student_auth_id) audit=audit.filter(x=>String(x.student_auth_id)===String(body.student_auth_id));
+      audit.sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
+      return res.status(200).json({audit});
     }
 
     if (body.action === 'list-payments') {
