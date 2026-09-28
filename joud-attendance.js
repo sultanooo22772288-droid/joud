@@ -128,6 +128,9 @@
     }).join('');
     const unsentAll=state.notifs.filter(n=>['pending','failed'].includes(notifStatus(n)));
     const delivered=state.notifs.filter(n=>['delivered','read'].includes(notifStatus(n))).length;
+    const syncedCount=approved.filter(d=>d.session.sync_status==='synced').length;
+    const approvedCount=approved.length;
+    const sentWaCount=state.notifs.filter(n=>['sent','delivered','read'].includes(notifStatus(n))).length;
 
     box.innerHTML=`
       <div class="jd-live-head">
@@ -136,6 +139,29 @@
       </div>
       <div class="grid grid-4 jd-live-stats">
         ${stat('✅','#E3F5EC',total-absent,'حاضر')}${stat('🔴','#FCE6DE',absent,'غائب')}${stat('📋','#E7EFFD',prepared+' / '+classes.length,'صفوف تم تحضيرها')}${stat('⏳','#FDF0DA',pendingApproval.length,'بانتظار الاعتماد')}
+      </div>
+      <div class="grid grid-4 jd-live-stats" style="margin-top:10px">
+        ${stat('✅','#E3F5EC',approvedCount,'غياب معتمد')}${stat('🏛️','#E7EFFD',syncedCount,'تم توريده للوزارة')}${stat('📲','#E7EFFD',sentWaCount,'رسائل واتساب أُرسلت')}${stat('👁️','#E3F5EC',delivered,'وصلت/قُرئت')}
+      </div>
+      <div class="card jd-live-card">
+        <div class="jd-section-head">
+          <div><h3 style="margin:0">📊 تقارير الغياب</h3><small style="color:var(--muted)">تقارير رسمية من الغياب المعتمد فقط — يومي أو شهري، مع فلترة حسب الصف والشعبة والطالب.</small></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <select id="jdAttReportPeriod" onchange="jdAttendanceReportPeriodChanged()" style="min-width:130px">
+            <option value="day">تقرير يومي</option>
+            <option value="month">تقرير شهري</option>
+          </select>
+          <input id="jdAttReportDay" type="date" value="${esc(state.date)}" style="min-width:145px">
+          <input id="jdAttReportMonth" type="month" value="${esc(String(state.date).slice(0,7))}" style="min-width:145px;display:none">
+          <select id="jdAttReportGrade" style="min-width:150px"><option value="">كل الصفوف</option>${GRADE_ORDER.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('')}</select>
+          <select id="jdAttReportSection" style="min-width:115px"><option value="">كل الشعب</option>${['1','2','3','4','أ','ب','ج','د'].map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}</select>
+          <input id="jdAttReportStudent" placeholder="اسم الطالب (اختياري)" style="min-width:180px">
+          <button class="btn soft" type="button" onclick="jdPreviewAttendanceReport()">🔎 معاينة</button>
+          <button class="btn soft" type="button" onclick="jdExportAttendanceExcel()">📊 Excel</button>
+          <button class="btn soft" type="button" onclick="jdExportAttendancePdf()">📄 PDF</button>
+        </div>
+        <div id="jdAttendanceReportPreview" style="margin-top:12px"></div>
       </div>
       <div class="card jd-live-card">
         <div class="jd-progress-row"><b>تقدّم التحضير</b><span>${pct}%</span></div>
@@ -159,6 +185,116 @@
           :'<div class="jd-empty">تظهر هنا رسائل الغياب بعد اعتماد التحضير.</div>'}
       </div>`;
   }
+
+
+  window.jdAttendanceReportPeriodChanged=function(){
+    const period=document.getElementById('jdAttReportPeriod')?.value||'day';
+    const day=document.getElementById('jdAttReportDay'),month=document.getElementById('jdAttReportMonth');
+    if(day) day.style.display=period==='day'?'':'none';
+    if(month) month.style.display=period==='month'?'':'none';
+  };
+
+  async function jdAttendanceReportData(){
+    const period=document.getElementById('jdAttReportPeriod')?.value||'day';
+    const day=document.getElementById('jdAttReportDay')?.value||state.date||today();
+    const month=document.getElementById('jdAttReportMonth')?.value||String(day).slice(0,7);
+    const grade=document.getElementById('jdAttReportGrade')?.value||'';
+    const section=document.getElementById('jdAttReportSection')?.value||'';
+    const student=String(document.getElementById('jdAttReportStudent')?.value||'').trim().toLowerCase();
+    const all=await NabdCloud.listAttendanceSessions();
+    const sessions=all.filter(s=>{
+      if(s.approval_status!=='approved') return false;
+      if(period==='day'&&s.attendance_date!==day) return false;
+      if(period==='month'&&!String(s.attendance_date||'').startsWith(month)) return false;
+      if(grade&&s.grade!==grade) return false;
+      if(section&&String(s.section)!==String(section)) return false;
+      return true;
+    });
+    const details=await Promise.all(sessions.map(async s=>({session:s,records:await NabdCloud.getAttendanceRecords(s.id)})));
+    const rows=[];
+    details.forEach(d=>d.records.forEach(r=>{
+      if(student&&!String(r.student_name||'').toLowerCase().includes(student)) return;
+      rows.push({
+        date:d.session.attendance_date||'',
+        student_name:r.student_name||'',
+        grade:d.session.grade||'',
+        section:d.session.section||'',
+        status:r.status==='absent'?'غائب':'حاضر',
+        sync_status:d.session.sync_status==='synced'?'تم التوريد':d.session.sync_status==='pending'?'بانتظار التوريد':d.session.sync_status==='failed'?'فشل التوريد':'لم يورد'
+      });
+    }));
+    const total=rows.length,absent=rows.filter(r=>r.status==='غائب').length,present=total-absent;
+    const absentByStudent={};
+    rows.filter(r=>r.status==='غائب').forEach(r=>{
+      const k=r.student_name+'||'+r.grade+'||'+r.section;
+      absentByStudent[k]=(absentByStudent[k]||0)+1;
+    });
+    const repeated=Object.entries(absentByStudent).map(([k,count])=>{const [name,g,s]=k.split('||');return {name,grade:g,section:s,count};}).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'ar'));
+    return {period,day,month,grade,section,student,rows,total,absent,present,repeated};
+  }
+
+  window.jdPreviewAttendanceReport=async function(){
+    const box=document.getElementById('jdAttendanceReportPreview'); if(!box) return;
+    box.innerHTML='جاري تجهيز التقرير…';
+    try{
+      const d=await jdAttendanceReportData();
+      const rate=d.total?Math.round((d.absent/d.total)*1000)/10:0;
+      box.innerHTML=`
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <span class="tag blue">السجلات: ${d.total}</span>
+          <span class="tag green">الحضور: ${d.present}</span>
+          <span class="tag red">الغياب: ${d.absent}</span>
+          <span class="tag orange">نسبة الغياب: ${rate}%</span>
+        </div>
+        ${d.rows.length?`<div style="overflow:auto;max-height:360px"><table style="width:100%;min-width:720px"><thead><tr><th>التاريخ</th><th>الطالب</th><th>الصف</th><th>الشعبة</th><th>الحالة</th><th>التوريد</th></tr></thead><tbody>${d.rows.map(r=>`<tr><td>${esc(r.date)}</td><td><b>${esc(r.student_name)}</b></td><td>${esc(r.grade)}</td><td>${esc(r.section)}</td><td>${r.status==='غائب'?'<span class="tag red">غائب</span>':'<span class="tag green">حاضر</span>'}</td><td>${esc(r.sync_status)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="jd-empty">لا توجد بيانات مطابقة للفلاتر.</div>'}
+        ${d.period==='month'&&d.repeated.length?`<div style="margin-top:14px"><b>أكثر الطلاب غيابًا في الفترة</b><div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px">${d.repeated.slice(0,10).map(x=>`<span class="tag orange">${esc(x.name)} — ${x.count} أيام</span>`).join('')}</div></div>`:''}`;
+    }catch(e){box.textContent='تعذر تجهيز التقرير: '+(e.message||'');}
+  };
+
+  window.jdExportAttendanceExcel=async function(){
+    try{
+      const d=await jdAttendanceReportData();
+      if(!d.rows.length){alert('لا توجد بيانات لتصديرها.');return;}
+      const data=d.rows.map((r,i)=>({
+        '#':i+1,
+        'التاريخ':r.date,
+        'اسم الطالب':r.student_name,
+        'الصف':r.grade,
+        'الشعبة':r.section,
+        'الحالة':r.status,
+        'حالة التوريد':r.sync_status
+      }));
+      if(window.XLSX){
+        const ws=XLSX.utils.json_to_sheet(data);
+        const wb=XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb,ws,'الغياب');
+        XLSX.writeFile(wb,`attendance-${d.period==='day'?d.day:d.month}.xlsx`);
+      }else{
+        const headers=Object.keys(data[0]);
+        const lines=[headers.join(',')].concat(data.map(row=>headers.map(h=>'"'+String(row[h]??'').replace(/"/g,'""')+'"').join(',')));
+        const blob=new Blob(['﻿'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+        const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`attendance-${d.period==='day'?d.day:d.month}.csv`;document.body.appendChild(a);a.click();URL.revokeObjectURL(a.href);a.remove();
+      }
+    }catch(e){alert('تعذر تصدير Excel: '+(e.message||''));}
+  };
+
+  window.jdExportAttendancePdf=async function(){
+    try{
+      const d=await jdAttendanceReportData();
+      if(!d.rows.length){alert('لا توجد بيانات لتصديرها.');return;}
+      const rate=d.total?Math.round((d.absent/d.total)*1000)/10:0;
+      const w=window.open('','_blank','noopener,noreferrer');
+      if(!w){alert('اسمح بفتح النوافذ المنبثقة حتى يتم تجهيز PDF.');return;}
+      const periodLabel=d.period==='day'?'تقرير يوم '+d.day:'تقرير شهر '+d.month;
+      w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير الغياب</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:Arial,Tahoma,sans-serif;color:#222}h1{margin:0 0 5px;font-size:22px}.sub{color:#666;margin-bottom:12px}.stats{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.stat{border:1px solid #ddd;border-radius:8px;padding:8px 12px}table{width:100%;border-collapse:collapse;font-size:10px}th,td{border:1px solid #ccc;padding:5px;text-align:center}th{background:#f3f5f7}.foot{margin-top:10px;color:#777;font-size:9px}</style></head><body>
+        <h1>تقرير الحضور والغياب — مدرسة نخل الخاصة</h1><div class="sub">${esc(periodLabel)}${d.grade?' — '+esc(d.grade):''}${d.section?' — الشعبة '+esc(d.section):''}${d.student?' — بحث: '+esc(d.student):''}</div>
+        <div class="stats"><div class="stat">السجلات: <b>${d.total}</b></div><div class="stat">الحضور: <b>${d.present}</b></div><div class="stat">الغياب: <b>${d.absent}</b></div><div class="stat">نسبة الغياب: <b>${rate}%</b></div></div>
+        <table><thead><tr><th>#</th><th>التاريخ</th><th>الطالب</th><th>الصف</th><th>الشعبة</th><th>الحالة</th><th>التوريد</th></tr></thead><tbody>${d.rows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.date)}</td><td>${esc(r.student_name)}</td><td>${esc(r.grade)}</td><td>${esc(r.section)}</td><td>${esc(r.status)}</td><td>${esc(r.sync_status)}</td></tr>`).join('')}</tbody></table>
+        <div class="foot">تاريخ إصدار التقرير: ${new Date().toLocaleString('ar-OM')}</div><script>window.onload=()=>setTimeout(()=>window.print(),250);<\/script>
+      </body></html>`);
+      w.document.close();
+    }catch(e){alert('تعذر تجهيز PDF: '+(e.message||''));}
+  };
 
   window.jdRefreshAttendance=async function(manual){
     const page=document.getElementById('attendance');
