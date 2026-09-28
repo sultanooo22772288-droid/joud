@@ -249,7 +249,7 @@
   /* ---------- صفحة المعلم ---------- */
   function renderTeacherAttendance(){
     const page=document.getElementById('attendance'); if(!page) return;
-    page.innerHTML=`<div class="page-head"><div><h2>الحضور والغياب 📋</h2><p>اختر الصف والشعبة، علّم الغائبين، ثم أرسل التحضير للإدارة للاعتماد.</p></div></div>
+    page.innerHTML=`<div class="page-head"><div><h2>الحضور والغياب 📋</h2><p>اختر الصف والشعبة، وحدد لكل طالب حاضر أو غائب فقط، ثم أرسل الغياب للإدارة للاعتماد.</p></div></div>
       <div class="card"><div class="upload-row"><select id="attGrade" aria-label="الصف" onchange="attendanceGradeChanged()"><option value="">اختر الصف</option>${GRADE_ORDER.map(g=>`<option>${esc(g)}</option>`).join('')}</select><select id="attSection" aria-label="الشعبة" onchange="loadAttendanceStudents()"><option value="">اختر الشعبة</option></select></div><div id="attStudents" style="margin-top:16px"></div></div>
       <div class="card" style="margin-top:16px"><div class="jd-section-head"><h3>تحضيراتي اليوم</h3><button class="btn soft" type="button" onclick="jdLoadMyAttendance()">↻ تحديث</button></div><div id="jdMyAttendance">جاري التحميل…</div></div>`;
     window.jdLoadMyAttendance();
@@ -282,33 +282,33 @@
         const recs=await NabdCloud.getAttendanceRecords(existing.id);
         absentIds=new Set(recs.filter(r=>r.status==='absent').map(r=>String(r.student_id)));
         const st=existing.approval_status||'pending';
-        locked=st==='approved';
+        locked=st==='approved'||st==='pending';
         note=st==='approved'?'<div class="jd-att-note ok">✓ هذا التحضير معتمد من الإدارة ولا يمكن تعديله.</div>'
           :st==='rejected'?`<div class="jd-att-note bad">أرجعت الإدارة التحضير${existing.rejection_note?': '+esc(existing.rejection_note):''}. عدّله ثم أعد الإرسال.</div>`
-          :'<div class="jd-att-note">⏳ أرسلت هذا التحضير اليوم وهو بانتظار الاعتماد. يمكنك تعديله وإعادة إرساله.</div>';
+          :'<div class="jd-att-note">⏳ تم إرسال الغياب للإدارة وهو بانتظار الاعتماد. لا يمكن تعديله إلا إذا أعادته الإدارة لك.</div>';
       }
       box.innerHTML=`${note}
-        <div class="jd-att-toolbar"><span id="jdAttCounts"></span><button class="btn soft" type="button" ${locked?'disabled':''} onclick="document.querySelectorAll('.attAbsent').forEach(x=>x.checked=false);jdAttCount()">الكل حاضر</button></div>
-        <div class="jd-att-list">${students.map(s=>`<label class="jd-att-item"><span><b>${esc(s.name||'طالب')}</b></span><span class="jd-att-toggle"><input type="checkbox" class="attAbsent" data-id="${esc(s.auth_user_id)}" data-name="${esc(s.name||'')}" ${absentIds.has(String(s.auth_user_id))?'checked':''} ${locked?'disabled':''} onchange="jdAttCount()"> غائب</span></label>`).join('')}</div>
-        ${locked?'':`<button class="btn primary" type="button" style="margin-top:16px" onclick="saveAttendance()">📤 حفظ وإرسال التحضير للإدارة</button>`}<span id="attSaveStatus" style="margin-right:12px"></span>`;
+        <div class="jd-att-toolbar"><span id="jdAttCounts"></span><button class="btn soft" type="button" ${locked?'disabled':''} onclick="document.querySelectorAll('.attChoice').forEach(x=>x.value='present');jdAttCount()">تحديد الكل حاضر</button></div>
+        <div class="jd-att-list">${students.map(s=>`<div class="jd-att-item ${absentIds.has(String(s.auth_user_id))?'is-absent':''}" data-id="${esc(s.auth_user_id)}" data-name="${esc(s.name||'')}"><span><b>${esc(s.name||'طالب')}</b></span><select class="attChoice" ${locked?'disabled':''} onchange="jdAttCount()" style="min-width:120px"><option value="present" ${absentIds.has(String(s.auth_user_id))?'':'selected'}>✅ حاضر</option><option value="absent" ${absentIds.has(String(s.auth_user_id))?'selected':''}>🔴 غائب</option></select></div>`).join('')}</div>
+        ${locked?'':`<button class="btn primary" type="button" style="margin-top:16px" onclick="saveAttendance()">📤 إرسال الغياب للإدارة</button>`}<span id="attSaveStatus" style="margin-right:12px"></span>`;
       window.jdAttCount();
     }catch(e){box.textContent='تعذر تحميل الطلاب: '+(e.message||'');}
   };
   window.jdAttCount=function(){
-    const all=document.querySelectorAll('.attAbsent'),abs=[...all].filter(x=>x.checked).length;
+    const all=[...document.querySelectorAll('.attChoice')],abs=all.filter(x=>x.value==='absent').length;
     const el=document.getElementById('jdAttCounts');
     if(el) el.innerHTML=`<span class="tag green">حاضر ${all.length-abs}</span> <span class="tag red">غائب ${abs}</span>`;
-    all.forEach(x=>x.closest('.jd-att-item')?.classList.toggle('is-absent',x.checked));
+    all.forEach(x=>x.closest('.jd-att-item')?.classList.toggle('is-absent',x.value==='absent'));
   };
   window.saveAttendance=async function(){
     const grade=document.getElementById('attGrade')?.value||'',section=document.getElementById('attSection')?.value||'',st=document.getElementById('attSaveStatus');
-    const checks=[...document.querySelectorAll('.attAbsent')];
+    const checks=[...document.querySelectorAll('.attChoice')];
     try{
-      if(st){st.style.color='';st.textContent='جاري الإرسال…';}
-      const students=checks.map(x=>({auth_user_id:x.dataset.id,name:x.dataset.name,status:x.checked?'absent':'present'}));
+      if(st){st.style.color='';st.textContent='جاري إرسال الغياب للإدارة…';}
+      const students=checks.map(x=>({auth_user_id:x.closest('.jd-att-item')?.dataset.id,name:x.closest('.jd-att-item')?.dataset.name,status:x.value==='absent'?'absent':'present'}));
       await NabdCloud.saveAttendanceSession({grade,section,students});
       const abs=students.filter(x=>x.status==='absent').length;
-      if(st){st.style.color='#178a5b';st.textContent=`✓ أُرسل التحضير للإدارة للاعتماد — حاضر ${students.length-abs}، غائب ${abs}`;}
+      if(st){st.style.color='#178a5b';st.textContent=`✓ تم إرسال الغياب للإدارة للاعتماد — حاضر ${students.length-abs}، غائب ${abs}`;}
       window.jdLoadMyAttendance();
     }catch(e){if(st){st.style.color='#c0392b';st.textContent=e.message||'تعذر الحفظ';}}
   };
