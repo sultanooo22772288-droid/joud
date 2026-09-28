@@ -97,7 +97,7 @@
       const names=abs.length?`<div class="jd-absent-names">${abs.map(r=>`<span>${esc(r.student_name||'طالب')}</span>`).join('')}</div>`:'<div class="jd-absent-names none">لا يوجد غياب — جميع الطلاب حاضرون ✓</div>';
       let actions='';
       if(st==='pending'){
-        actions=`<button class="btn primary" type="button" onclick="jdApproveSession('${s.id}')">✅ اعتماد</button><button class="btn soft" type="button" onclick="rejectAttendanceSession('${s.id}')">رفض وإرجاع للمعلم</button>`;
+        actions=`<button class="btn primary" type="button" onclick="jdReviewAttendanceSession('${s.id}')">🔎 مراجعة الغياب</button><button class="btn soft" type="button" onclick="jdReturnAttendanceSession('${s.id}')">↩ إرجاع للمعلم</button>`;
       }else if(st==='approved'){
         const sync=s.sync_status||'not_ready';
         const syncBtn=sync==='synced'?'<span class="tag green">✓ تمت المزامنة مع موقع الوزارة</span>'
@@ -138,9 +138,9 @@
           :`<div class="jd-waiting done">✓ اكتمل تحضير جميع الصفوف${pendingApproval.length?` — بقي اعتماد ${pendingApproval.length}`:''}</div>`}
         <div class="jd-class-grid">${classes.map(tile).join('')}</div>
       </div>
-      ${pendingApproval.length?`<div class="card jd-live-card"><div class="jd-section-head"><h3>التحضيرات بانتظار الاعتماد (${pendingApproval.length})</h3><button class="btn primary" type="button" onclick="jdApproveAll()">✅ اعتماد الكل</button></div>${pendingApproval.map(sessionCard).join('')}</div>`:''}
-      ${approved.length?`<div class="card jd-live-card"><div class="jd-section-head"><h3>التحضيرات المعتمدة (${approved.length})</h3></div>${approved.map(sessionCard).join('')}</div>`:''}
-      ${state.details.filter(d=>d.session.approval_status==='rejected').length?`<div class="card jd-live-card"><div class="jd-section-head"><h3>تحضيرات مرفوضة</h3></div>${state.details.filter(d=>d.session.approval_status==='rejected').map(sessionCard).join('')}</div>`:''}
+      ${pendingApproval.length?`<div class="card jd-live-card"><div class="jd-section-head"><div><h3 style="margin:0">📥 صندوق وارد الغياب للإدارة (${pendingApproval.length})</h3><small style="color:var(--muted)">راجع كل طلب قبل الاعتماد. لن يظهر التوريد أو إرسال الرسائل إلا بعد اعتماد الإدارة.</small></div></div>${pendingApproval.map(sessionCard).join('')}</div>`:''}
+      ${approved.length?`<div class="card jd-live-card"><div class="jd-section-head"><h3>✅ الغياب المعتمد (${approved.length})</h3></div>${approved.map(sessionCard).join('')}</div>`:''}
+      ${state.details.filter(d=>d.session.approval_status==='rejected').length?`<div class="card jd-live-card"><div class="jd-section-head"><h3>↩ غياب مُعاد للمعلم</h3></div>${state.details.filter(d=>d.session.approval_status==='rejected').map(sessionCard).join('')}</div>`:''}
       <div class="card jd-live-card">
         <div class="jd-section-head"><h3>📲 رسائل أولياء أمور المتغيبين</h3>
           <button class="btn primary" type="button" ${unsentAll.length&&!state.sending?'':'disabled'} onclick="jdSendWhatsApp(null)">📲 إرسال لجميع أولياء الأمور (${unsentAll.length})</button></div>
@@ -167,6 +167,59 @@
       if((window.attendanceAdminDate||today())===today()) window.jdRefreshAttendance(false);
     },REFRESH_MS);
   }
+
+
+  window.jdReviewAttendanceSession=function(id){
+    const d=state.details.find(x=>String(x.session.id)===String(id)); if(!d) return;
+    const s=d.session,abs=d.records.filter(r=>r.status==='absent');
+    document.getElementById('jdAttendanceReviewModal')?.remove();
+    const wrap=document.createElement('div');
+    wrap.id='jdAttendanceReviewModal';
+    wrap.style.cssText='position:fixed;inset:0;z-index:10020;background:rgba(20,28,45,.42);display:grid;place-items:center;padding:16px';
+    wrap.innerHTML=`
+      <div class="card" style="width:min(860px,97vw);max-height:92vh;overflow:auto">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
+          <div><h3 style="margin:0">🔎 مراجعة الغياب</h3><small style="color:var(--muted)">${esc(s.grade||'')} — الشعبة ${esc(s.section||'')} · المعلم: ${esc(s.teacher_name||'معلم')}</small></div>
+          <button class="btn soft" onclick="document.getElementById('jdAttendanceReviewModal').remove()">✕</button>
+        </div>
+        <div class="grid grid-3" style="margin-top:14px">
+          <div class="card" style="padding:12px"><small>إجمالي الطلاب</small><b style="display:block;margin-top:5px">${d.records.length}</b></div>
+          <div class="card" style="padding:12px"><small>الحضور</small><b style="display:block;margin-top:5px">${d.records.length-abs.length}</b></div>
+          <div class="card" style="padding:12px"><small>الغياب</small><b style="display:block;margin-top:5px">${abs.length}</b></div>
+        </div>
+        <div style="overflow:auto;margin-top:14px">
+          <table style="width:100%;border-collapse:collapse;min-width:560px">
+            <thead><tr><th style="text-align:right">الطالب</th><th>الحالة</th></tr></thead>
+            <tbody>${d.records.map(r=>`<tr><td style="padding:9px;border-bottom:1px solid var(--line)"><b>${esc(r.student_name||'طالب')}</b></td><td style="padding:9px;border-bottom:1px solid var(--line)">${r.status==='absent'?'<span class="tag red">غائب</span>':'<span class="tag green">حاضر</span>'}</td></tr>`).join('')}</tbody>
+          </table>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:16px">
+          <button class="btn soft" onclick="jdReturnAttendanceSession('${s.id}')">↩ إرجاع للمعلم</button>
+          <button class="btn primary" onclick="jdApproveReviewedSession('${s.id}')">✅ اعتماد الغياب</button>
+        </div>
+      </div>`;
+    document.body.appendChild(wrap);
+  };
+
+  window.jdApproveReviewedSession=async function(id){
+    if(!confirm('اعتماد هذا الغياب؟ بعد الاعتماد ستظهر خيارات التوريد للوزارة وإرسال رسائل أولياء الأمور.')) return;
+    try{
+      await NabdCloud.updateAttendanceApproval(id,'approved','');
+      document.getElementById('jdAttendanceReviewModal')?.remove();
+      await window.jdRefreshAttendance(true);
+    }catch(e){alert('تعذر اعتماد الغياب: '+(e.message||''));}
+  };
+
+  window.jdReturnAttendanceSession=async function(id){
+    const note=prompt('اكتب سبب إرجاع الغياب للمعلم:','');
+    if(note===null) return;
+    if(!String(note).trim()){alert('سبب الإرجاع مطلوب.');return;}
+    try{
+      await NabdCloud.updateAttendanceApproval(id,'rejected',String(note).trim());
+      document.getElementById('jdAttendanceReviewModal')?.remove();
+      await window.jdRefreshAttendance(true);
+    }catch(e){alert('تعذر إرجاع الغياب للمعلم: '+(e.message||''));}
+  };
 
   window.jdApproveSession=async function(id){
     try{await NabdCloud.updateAttendanceApproval(id,'approved','');await window.jdRefreshAttendance(true);}
