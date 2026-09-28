@@ -100,13 +100,13 @@
         actions=`<button class="btn primary" type="button" onclick="jdReviewAttendanceSession('${s.id}')">🔎 مراجعة الغياب</button><button class="btn soft" type="button" onclick="jdReturnAttendanceSession('${s.id}')">↩ إرجاع للمعلم</button>`;
       }else if(st==='approved'){
         const sync=s.sync_status||'not_ready';
-        const syncBtn=sync==='synced'?'<span class="tag green">✓ تمت المزامنة مع موقع الوزارة</span>'
-          :sync==='pending'?'<span class="tag blue">⏳ في قائمة المزامنة مع موقع الوزارة</span>'
-          :`<button class="btn primary" type="button" onclick="jdQueueSync('${s.id}')">🔄 مزامنة مع موقع الوزارة${sync==='failed'?' (إعادة)':''}</button>`;
+        const syncBtn=sync==='synced'?'<span class="tag green">✓ تم توريد الغياب لمنصة الوزارة</span>'
+          :sync==='pending'?'<span class="tag blue">⏳ بانتظار التوريد لمنصة الوزارة</span>'
+          :`<button class="btn primary" type="button" onclick="jdQueueSync('${s.id}')">🏛️ توريد الغياب لمنصة الوزارة${sync==='failed'?' (إعادة)':''}</button>`;
         const sessNotifs=state.notifs.filter(n=>String(n.session_id)===String(s.id));
         const unsent=sessNotifs.filter(n=>['pending','failed'].includes(notifStatus(n)));
-        const waBtn=abs.length?`<button class="btn soft jd-wa-btn" type="button" ${unsent.length?'':'disabled'} onclick="jdSendForSession('${s.id}')">📲 واتساب للمتغيبين (${unsent.length?unsent.length:'تم'})</button>`:'';
-        actions=`${syncBtn}${waBtn}<button class="btn soft" type="button" onclick="jdExportSession('${s.id}')">⬇️ ملف المزامنة</button>`;
+        const waBtns=abs.length?`<button class="btn soft jd-wa-btn" type="button" ${unsent.length?'':'disabled'} onclick="jdSendForSession('${s.id}')">📲 إرسال للجميع (${unsent.length?unsent.length:'تم'})</button><button class="btn soft" type="button" ${unsent.length?'':'disabled'} onclick="jdChooseAttendanceWhatsApp('${s.id}')">☑️ اختيار طلاب</button>`:'';
+        actions=`${syncBtn}${waBtns}<button class="btn soft" type="button" onclick="jdExportSession('${s.id}')">⬇️ ملف التوريد</button>`;
       }else{
         actions=`<span class="tag red">مرفوض${s.rejection_note?': '+esc(s.rejection_note):''}</span><small style="color:var(--muted)">بانتظار تعديل المعلم وإعادة الإرسال</small>`;
       }
@@ -246,6 +246,49 @@
     a.download=`attendance-${d.session.attendance_date}-${d.session.grade}-${d.session.section}.csv`;
     document.body.appendChild(a);a.click();URL.revokeObjectURL(a.href);a.remove();
   };
+
+  window.jdChooseAttendanceWhatsApp=function(sessionId){
+    const d=state.details.find(x=>String(x.session.id)===String(sessionId));
+    const list=state.notifs.filter(n=>String(n.session_id)===String(sessionId));
+    if(!d||!list.length){alert('لا توجد رسائل غياب جاهزة لهذا التحضير.');return;}
+    document.getElementById('jdAttendanceWaSelectModal')?.remove();
+    const wrap=document.createElement('div');
+    wrap.id='jdAttendanceWaSelectModal';
+    wrap.style.cssText='position:fixed;inset:0;z-index:10025;background:rgba(20,28,45,.42);display:grid;place-items:center;padding:16px';
+    wrap.innerHTML=`
+      <div class="card" style="width:min(760px,97vw);max-height:92vh;overflow:auto">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center">
+          <div><h3 style="margin:0">☑️ اختيار الطلاب لإرسال واتساب</h3><small style="color:var(--muted)">${esc(d.session.grade||'')} — الشعبة ${esc(d.session.section||'')}</small></div>
+          <button class="btn soft" onclick="document.getElementById('jdAttendanceWaSelectModal').remove()">✕</button>
+        </div>
+        <div style="margin:14px 0;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn soft" type="button" onclick="document.querySelectorAll('.jdWaPick:not(:disabled)').forEach(x=>x.checked=true)">تحديد الكل</button>
+          <button class="btn soft" type="button" onclick="document.querySelectorAll('.jdWaPick').forEach(x=>x.checked=false)">إلغاء التحديد</button>
+        </div>
+        <div style="display:grid;gap:8px">
+          ${list.map(n=>{
+            const st=notifStatus(n);
+            const available=['pending','failed'].includes(st)&&String(n.guardian_phone||'').replace(/\D/g,'');
+            return `<label style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px">
+              <span><b>${esc(n.student_name||'طالب')}</b><small style="display:block;color:var(--muted)" dir="ltr">${esc(n.guardian_phone||'لا يوجد رقم')}</small></span>
+              <span style="display:flex;align-items:center;gap:8px">${waChip(st)}<input type="checkbox" class="jdWaPick" value="${esc(n.id)}" ${available?'checked':'disabled'}></span>
+            </label>`;
+          }).join('')}
+        </div>
+        <div id="jdWaSelectStatus" style="margin-top:10px;font-size:13px;font-weight:800"></div>
+        <button class="btn primary" type="button" style="width:100%;margin-top:12px" onclick="jdSendSelectedAttendanceWhatsApp('${sessionId}')">📲 إرسال للمختارين</button>
+      </div>`;
+    document.body.appendChild(wrap);
+  };
+
+  window.jdSendSelectedAttendanceWhatsApp=async function(sessionId){
+    const ids=[...document.querySelectorAll('.jdWaPick:checked')].map(x=>String(x.value));
+    if(!ids.length){alert('اختر طالبًا واحدًا على الأقل.');return;}
+    if(!confirm('إرسال رسالة الغياب إلى '+ids.length+' من أولياء الأمور؟')) return;
+    document.getElementById('jdAttendanceWaSelectModal')?.remove();
+    await window.jdSendWhatsApp(ids);
+  };
+
   window.jdSendForSession=function(sessionId){
     const ids=state.notifs.filter(n=>String(n.session_id)===String(sessionId)&&['pending','failed'].includes(notifStatus(n))).map(n=>String(n.id));
     window.jdSendWhatsApp(ids);
