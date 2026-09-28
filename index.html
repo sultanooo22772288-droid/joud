@@ -2766,13 +2766,12 @@ async function renderAttendancePage(){
    <div class="grid grid-4" style="margin-bottom:18px">${stat('🔴','#ffe8e8',absent,'إجمالي الغياب')}${stat('🟢','#e8fff5',present,'إجمالي الحضور')}${stat('✅','#e8fff5',todayRows.length,'الشعب المحضّرة')}${stat('⏳','#fff2df',pending,'بانتظار التحضير')}</div>
    <div class="card" style="margin-bottom:16px"><div class="section-title" style="margin:0 0 12px"><h3>🔎 عرض الغياب حسب الصف والشعبة</h3></div><div class="upload-row"><select id="adminAttGrade" onchange="adminAttendanceFilterChanged()"><option value="">كل الصفوف</option>${grades.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('')}</select><select id="adminAttSection" onchange="renderAdminAttendanceFiltered()"><option value="">كل الشعب</option></select></div></div>
    <div class="card"><div id="adminAttendanceSummary"></div></div>
-   <div class="card" style="margin-top:16px"><div class="section-title" style="margin:0 0 10px"><h3>📈 التقرير الشهري</h3><span>إحصائيات الصفوف والشعب</span></div><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px"><input id="attendanceMonth" type="month" value="${window.attendanceMonth||new Date().toISOString().slice(0,7)}" onchange="window.attendanceMonth=this.value;renderAttendanceMonthlyReport()" style="padding:10px;border:1px solid var(--line);border-radius:12px;background:#fff"><button class="btn soft" onclick="exportAttendanceMonthlyCsv()">⬇️ تصدير التقرير</button></div><div id="attendanceMonthlyReport">جاري تحميل التقرير...</div></div>
    <div class="card" style="margin-top:16px"><div class="section-title" style="margin:0 0 10px"><h3>📊 تقارير الغياب المتكرر</h3><span>آخر 30 يومًا</span></div><div id="attendanceRepeatReport">جاري تحميل التقرير...</div></div>
    <div class="card" style="margin-top:16px"><div class="section-title" style="margin:0 0 10px"><h3>🔄 السجلات الجاهزة للمزامنة</h3><span>السجلات المعتمدة فقط</span></div><div id="attendanceSyncQueue"></div></div>
  `;
   renderAdminAttendanceFiltered();
   window.attendanceAllSessions=rows||[];
-  setTimeout(()=>{renderAttendanceReports(rows);renderAttendanceMonthlyReport();},0);
+  setTimeout(()=>{renderAttendanceReports(rows);},0);
  }catch(e){document.getElementById('attendanceAdminList').textContent='تعذر تحميل السجلات: '+e.message;}
 }
 function adminAttendanceFilterChanged(){
