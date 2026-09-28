@@ -209,16 +209,16 @@
       ${pendingApproval.length?`<div class="card jd-live-card"><div class="jd-section-head"><div><h3 style="margin:0">📥 صندوق وارد الغياب للإدارة (${pendingApproval.length})</h3><small style="color:var(--muted)">راجع كل طلب قبل الاعتماد. لن يظهر التوريد أو إرسال الرسائل إلا بعد اعتماد الإدارة.</small></div></div>${pendingApproval.map(sessionCard).join('')}</div>`:''}
       ${approved.length?`<div class="card jd-live-card"><div class="jd-section-head"><h3>✅ الغياب المعتمد (${approved.length})</h3></div>${approved.map(sessionCard).join('')}</div>`:''}
       
-      <div class="card jd-live-card">
-        <div class="jd-section-head"><h3>📲 رسائل أولياء أمور المتغيبين</h3>
+      ${approved.length?`<div class="card jd-live-card">
+        <div class="jd-section-head"><div><h3 style="margin:0">📲 رسائل أولياء أمور المتغيبين</h3><small style="color:var(--muted)">تظهر خيارات الإرسال فقط بعد اعتماد الغياب من الإدارة.</small></div>
           <button class="btn primary" type="button" ${unsentAll.length&&!state.sending?'':'disabled'} onclick="jdSendWhatsApp(null)">📲 إرسال لجميع أولياء الأمور (${unsentAll.length})</button></div>
         ${state.waConfigured===false?`<div class="jd-wa-setup">⚠️ لم يتم ربط واتساب بعد. أضف المتغيرين <code>WASENDER_API_KEY</code> و<code>WASENDER_WEBHOOK_SECRET</code> في إعدادات Vercel، واضبط Webhook في WaSender على <code dir="ltr">https://nakhalschool.com/api/whatsapp</code> مع تفعيل حدث <code>messages.update</code>.</div>`:''}
         <div id="jdWaProgress" class="jd-wa-progress">${esc(state.progress)}</div>
         ${state.notifs.length?`<div class="jd-wa-summary"><span class="tag blue">الرسائل: ${state.notifs.length}</span><span class="tag green">وصلت: ${delivered}</span><span class="tag orange">لم تُرسل: ${unsentAll.length}</span></div>
           <div style="overflow:auto"><table class="jd-wa-table"><thead><tr><th>الطالب</th><th>الصف</th><th>هاتف ولي الأمر</th><th>حالة الرسالة</th><th></th></tr></thead><tbody>${notifRows}</tbody></table></div>
           <details class="jd-msg-preview"><summary>معاينة نص الرسالة</summary><pre>${esc(state.notifs[0].message||'')}</pre></details>`
-          :'<div class="jd-empty">تظهر هنا رسائل الغياب بعد اعتماد التحضير.</div>'}
-      </div>`;
+          :'<div class="jd-empty">لا توجد رسائل غياب جاهزة للإرسال.</div>'}
+      </div>`:''}`;
   }
 
 
