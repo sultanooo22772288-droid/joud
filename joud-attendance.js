@@ -97,7 +97,7 @@
       const names=abs.length?`<div class="jd-absent-names">${abs.map(r=>`<span>${esc(r.student_name||'طالب')}</span>`).join('')}</div>`:'<div class="jd-absent-names none">لا يوجد غياب — جميع الطلاب حاضرون ✓</div>';
       let actions='';
       if(st==='pending'){
-        actions=`<button class="btn primary" type="button" onclick="jdReviewAttendanceSession('${s.id}')">🔎 مراجعة الغياب</button><button class="btn soft" type="button" onclick="jdReturnAttendanceSession('${s.id}')">↩ إرجاع للمعلم</button>`;
+        actions=`<button class="btn primary" type="button" onclick="jdReviewAttendanceSession('${s.id}')">🔎 مراجعة الغياب</button><button class="btn soft" type="button" onclick="jdReturnAttendanceSession('${s.id}')">↩ إرجاع للمعلم</button><button class="btn soft" type="button" onclick="jdShowAttendanceAudit('${s.id}')">📜 سجل الإجراءات</button>`;
       }else if(st==='approved'){
         const sync=s.sync_status||'not_ready';
         const syncBtn=sync==='synced'?'<span class="tag green">✓ تم توريد الغياب لمنصة الوزارة</span>'
@@ -105,10 +105,17 @@
           :`<button class="btn primary" type="button" onclick="jdQueueSync('${s.id}')">🏛️ توريد الغياب لمنصة الوزارة${sync==='failed'?' (إعادة)':''}</button>`;
         const sessNotifs=state.notifs.filter(n=>String(n.session_id)===String(s.id));
         const unsent=sessNotifs.filter(n=>['pending','failed'].includes(notifStatus(n)));
+        const sentCount=sessNotifs.filter(n=>['sent','delivered','read'].includes(notifStatus(n))).length;
+        const failedCount=sessNotifs.filter(n=>notifStatus(n)==='failed').length;
+        let waState='<span class="tag orange">واتساب: لم يُرسل</span>';
+        if(!abs.length) waState='<span class="tag green">لا يوجد غياب</span>';
+        else if(sentCount===sessNotifs.length&&sessNotifs.length) waState='<span class="tag green">واتساب: تم الإرسال للجميع</span>';
+        else if(sentCount>0) waState=`<span class="tag blue">واتساب: إرسال جزئي ${sentCount}/${sessNotifs.length}</span>`;
+        else if(failedCount>0) waState='<span class="tag red">واتساب: تعذر الإرسال</span>';
         const waBtns=abs.length?`<button class="btn soft jd-wa-btn" type="button" ${unsent.length?'':'disabled'} onclick="jdSendForSession('${s.id}')">📲 إرسال للجميع (${unsent.length?unsent.length:'تم'})</button><button class="btn soft" type="button" ${unsent.length?'':'disabled'} onclick="jdChooseAttendanceWhatsApp('${s.id}')">☑️ اختيار طلاب</button>`:'';
-        actions=`${syncBtn}${waBtns}<button class="btn soft" type="button" onclick="jdExportSession('${s.id}')">⬇️ ملف التوريد</button>`;
+        actions=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${syncBtn}${waState}${waBtns}<button class="btn soft" type="button" onclick="jdExportSession('${s.id}')">⬇️ ملف التوريد</button><button class="btn soft" type="button" onclick="jdShowAttendanceAudit('${s.id}')">📜 سجل الإجراءات</button></div>`;
       }else{
-        actions=`<span class="tag red">مرفوض${s.rejection_note?': '+esc(s.rejection_note):''}</span><small style="color:var(--muted)">بانتظار تعديل المعلم وإعادة الإرسال</small>`;
+        actions=`<span class="tag red">مُعاد للمعلم${s.rejection_note?': '+esc(s.rejection_note):''}</span><small style="color:var(--muted)">بانتظار تعديل المعلم وإعادة الإرسال</small><button class="btn soft" type="button" onclick="jdShowAttendanceAudit('${s.id}')">📜 سجل الإجراءات</button>`;
       }
       return `<div class="jd-sess ${st}">${head}${names}<div class="jd-sess-actions">${actions}</div></div>`;
     };
@@ -221,6 +228,47 @@
     }catch(e){alert('تعذر إرجاع الغياب للمعلم: '+(e.message||''));}
   };
 
+
+  window.jdShowAttendanceAudit=async function(sessionId){
+    const d=state.details.find(x=>String(x.session.id)===String(sessionId));
+    try{
+      const rows=await NabdCloud.listAttendanceAudit(sessionId);
+      document.getElementById('jdAttendanceAuditModal')?.remove();
+      const labels={
+        submitted:'📤 أرسل المعلم الغياب للإدارة',
+        updated:'✏️ عدّل المعلم الغياب وأعاد إرساله',
+        approved:'✅ اعتمدت الإدارة الغياب',
+        rejected:'↩ أعادت الإدارة الغياب للمعلم',
+        sync_queued:'🏛️ تم تجهيز الغياب للتوريد للوزارة',
+        sync_synced:'✅ تم تأكيد التوريد للوزارة',
+        sync_failed:'⚠️ فشل التوريد للوزارة',
+        sync_reset:'↻ تمت إعادة حالة التوريد',
+        whatsapp_send:'📲 إرسال رسائل واتساب'
+      };
+      const wrap=document.createElement('div');
+      wrap.id='jdAttendanceAuditModal';
+      wrap.style.cssText='position:fixed;inset:0;z-index:10030;background:rgba(20,28,45,.42);display:grid;place-items:center;padding:16px';
+      wrap.innerHTML=`
+        <div class="card" style="width:min(780px,97vw);max-height:92vh;overflow:auto">
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:center">
+            <div><h3 style="margin:0">📜 سجل إجراءات الغياب</h3><small style="color:var(--muted)">${esc(d?.session.grade||'')} — الشعبة ${esc(d?.session.section||'')}</small></div>
+            <button class="btn soft" onclick="document.getElementById('jdAttendanceAuditModal').remove()">✕</button>
+          </div>
+          <div style="display:grid;gap:9px;margin-top:14px">
+            ${rows.length?rows.map(r=>`<div style="border:1px solid var(--line);border-radius:12px;padding:11px">
+              <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                <b>${labels[r.action]||esc(r.action||'إجراء')}</b>
+                <small style="color:var(--muted)">${r.created_at?new Date(r.created_at).toLocaleString('ar-OM'):'—'}</small>
+              </div>
+              <div style="font-size:12px;color:var(--muted);margin-top:5px">بواسطة: ${esc(r.actor_name||'')} ${r.actor_role?'· '+esc(r.actor_role):''}</div>
+              ${r.note?`<div style="margin-top:6px;font-size:13px">${esc(r.note)}</div>`:''}
+            </div>`).join(''):'<div class="jd-empty">لا توجد إجراءات مسجلة حتى الآن.</div>'}
+          </div>
+        </div>`;
+      document.body.appendChild(wrap);
+    }catch(e){alert('تعذر تحميل سجل الإجراءات: '+(e.message||''));}
+  };
+
   window.jdApproveSession=async function(id){
     try{await NabdCloud.updateAttendanceApproval(id,'approved','');await window.jdRefreshAttendance(true);}
     catch(e){alert('تعذر اعتماد التحضير: '+(e.message||''));}
@@ -306,6 +354,8 @@
     const list=(ids||state.notifs.filter(n=>['pending','failed'].includes(notifStatus(n))).map(n=>String(n.id)))
       .filter(id=>{const n=state.notifs.find(x=>String(x.id)===String(id));return n&&notifStatus(n)!=='no_phone';});
     if(!list.length){alert('لا توجد رسائل بانتظار الإرسال (أو لا توجد أرقام لأولياء الأمور).');return;}
+    const auditGroups={};
+    list.forEach(id=>{const n=state.notifs.find(x=>String(x.id)===String(id));if(n?.session_id){const k=String(n.session_id);auditGroups[k]=(auditGroups[k]||0)+1;}});
     if(!ids&&!confirm(`إرسال رسالة واتساب إلى ${list.length} من أولياء الأمور؟`)) return;
     state.sending=true;
     let ok=0,fail=0;
@@ -325,6 +375,9 @@
     }
     state.sending=false;
     setProgress(ok||fail?`تم إرسال ${ok} رسالة${fail?`، وتعذر ${fail}`:''}. تتحدّث حالة الاستلام تلقائيًا.`:'');
+    for(const [sessionId,count] of Object.entries(auditGroups)){
+      try{await NabdCloud.addAttendanceAudit(sessionId,'whatsapp_send',`تمت محاولة إرسال ${count} رسالة واتساب لأولياء أمور الطلاب الغائبين. ناجح: ${ok}، متعذر: ${fail}.`);}catch(_e){}
+    }
     await window.jdRefreshAttendance(true);
   };
 
