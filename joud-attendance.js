@@ -100,21 +100,13 @@
         actions=`<button class="btn primary" type="button" onclick="jdReviewAttendanceSession('${s.id}')">🔎 مراجعة الغياب</button><button class="btn soft" type="button" onclick="jdReturnAttendanceSession('${s.id}')">↩ إرجاع للمعلم</button>`;
       }else if(st==='approved'){
         const sync=s.sync_status||'not_ready';
-        const syncBtn=sync==='synced'
-          ?'<div style="text-align:center"><span class="tag green" style="font-size:14px;padding:9px 14px">✓ تم توريد الغياب لمنصة الوزارة</span></div>'
-          :sync==='pending'
-            ?'<div style="text-align:center"><span class="tag blue" style="font-size:14px;padding:9px 14px">⏳ الغياب جاهز للتوريد عبر مساعد رواد</span></div>'
-            :`<div style="text-align:center;margin:12px 0 4px">
-                <div style="background:#eef5ff;border:1px solid #cfe0ff;border-radius:14px;padding:12px;margin-bottom:10px">
-                  <b style="display:block;margin-bottom:5px">💡 توريد الغياب بسهولة</b>
-                  <small style="color:var(--muted);line-height:1.8">للتوريد السريع والآمن، أضف أداة <b>مساعد رواد</b> إلى المتصفح، ثم اضغط الزر أدناه لنقل الغياب المعتمد إلى منصة الوزارة.</small>
-                </div>
-                <button class="btn primary" type="button" onclick="jdQueueSync('${s.id}')" style="min-width:260px;padding:13px 22px;font-size:15px;font-weight:900;box-shadow:0 6px 16px rgba(31,111,235,.18)">🏛️ توريد الغياب لمنصة الوزارة${sync==='failed'?' — إعادة المحاولة':''}</button>
-              </div>`;
+        const syncBtn=sync==='synced'?'<span class="tag green">✓ تمت المزامنة مع موقع الوزارة</span>'
+          :sync==='pending'?'<span class="tag blue">⏳ في قائمة المزامنة مع موقع الوزارة</span>'
+          :`<button class="btn primary" type="button" onclick="jdQueueSync('${s.id}')">🔄 مزامنة مع موقع الوزارة${sync==='failed'?' (إعادة)':''}</button>`;
         const sessNotifs=state.notifs.filter(n=>String(n.session_id)===String(s.id));
         const unsent=sessNotifs.filter(n=>['pending','failed'].includes(notifStatus(n)));
         const waBtn=abs.length?`<button class="btn soft jd-wa-btn" type="button" ${unsent.length?'':'disabled'} onclick="jdSendForSession('${s.id}')">📲 واتساب للمتغيبين (${unsent.length?unsent.length:'تم'})</button>`:'';
-        actions=`<div style="width:100%">${syncBtn}<div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:10px">${waBtn}<button class="btn soft" type="button" onclick="jdExportSession('${s.id}')">⬇️ ملف التوريد</button></div></div>`;
+        actions=`${syncBtn}${waBtn}<button class="btn soft" type="button" onclick="jdExportSession('${s.id}')">⬇️ ملف المزامنة</button>`;
       }else{
         actions=`<span class="tag red">مرفوض${s.rejection_note?': '+esc(s.rejection_note):''}</span><small style="color:var(--muted)">بانتظار تعديل المعلم وإعادة الإرسال</small>`;
       }
