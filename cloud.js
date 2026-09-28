@@ -119,6 +119,7 @@
     if(sessionError) throw sessionError;
     const session=sessionData?.session;
     if(!session?.user) return null;
+    directSession=session;
     const {data:profile,error:profileError}=await c.from('profiles').select('*').eq('auth_user_id',session.user.id).maybeSingle();
     if(profileError) throw profileError;
     if(!profile) return null;
@@ -204,7 +205,24 @@
   }
   async function deleteUser(authUserId){ return adminRequest({action:'delete',auth_user_id:authUserId}); }
 
-  async function currentUser(){ const c=await init(); const {data,error}=await c.auth.getUser(); if(error) throw error; return data.user||null; }
+  async function currentUser(){
+    if(directSession?.user?.id) return directSession.user;
+    const c=await init();
+    const {data:sessionData,error:sessionError}=await c.auth.getSession();
+    if(sessionError) throw sessionError;
+    const session=sessionData?.session;
+    if(session?.user){
+      directSession=session;
+      return session.user;
+    }
+    const token=directSession?.access_token||'';
+    if(token){
+      const {data,error}=await c.auth.getUser(token);
+      if(error) throw error;
+      if(data?.user) return data.user;
+    }
+    return null;
+  }
   function safeFileName(name){ return String(name||'file').replace(/[^\p{L}\p{N}._-]+/gu,'_').slice(-140); }
 
   async function uploadSchoolFile(file,folder='homeworks'){
