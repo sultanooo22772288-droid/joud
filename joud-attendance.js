@@ -233,7 +233,8 @@
         sync_synced:'✅ تم تأكيد التوريد للوزارة',
         sync_failed:'⚠️ فشل التوريد للوزارة',
         sync_reset:'↻ تمت إعادة حالة التوريد',
-        whatsapp_send:'📲 إرسال رسائل واتساب'
+        whatsapp_send:'📲 إرسال رسائل واتساب',
+        admin_edited:'✏️ عدلت الإدارة حالات الحضور والغياب'
       };
       const wrap=document.createElement('div');
       wrap.id='jdAttendanceAuditModal';
