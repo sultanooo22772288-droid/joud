@@ -310,6 +310,27 @@
     if(error) throw error; return data||[];
   }
 
+  async function adminUpdateAttendanceRecords(sessionId,changes){
+    const c=await init();
+    const user=await currentUser();
+    if(!user) throw new Error('يجب تسجيل الدخول أولاً.');
+    const {data:p,error:pe}=await c.from('profiles').select('role').eq('auth_user_id',user.id).maybeSingle();
+    if(pe) throw pe;
+    if(p?.role!=='admin') throw new Error('هذه العملية متاحة للإدارة فقط.');
+    const {data:session,error:se}=await c.from('attendance_sessions').select('approval_status').eq('id',sessionId).single();
+    if(se) throw se;
+    if(session?.approval_status==='approved') throw new Error('تم اعتماد الغياب ولا يمكن تعديله.');
+    const list=Array.isArray(changes)?changes:[];
+    for(const item of list){
+      if(!item?.id) continue;
+      const status=item.status==='absent'?'absent':'present';
+      const {error}=await c.from('attendance_records').update({status}).eq('id',item.id).eq('session_id',sessionId);
+      if(error) throw error;
+    }
+    await c.from('attendance_audit').insert({session_id:sessionId,actor_id:user.id,actor_name:'',actor_role:'admin',action:'admin_edited',note:'تم تعديل حالات الحضور والغياب من الإدارة قبل الاعتماد.'});
+    return {ok:true};
+  }
+
   async function updateAttendanceApproval(sessionId,status,note){
     const c=await init();
     const user=await currentUser();
@@ -493,7 +514,7 @@
     setHomeworkScoreVisibility,listClassStudents,
     saveStudentReport,myStudentReports,myStudentReportBundle,getTeacherStudentReport,
     createTeacherContent,listTeacherContent,deleteTeacherContent,createTeacherHomework,listTeacherHomeworks,deleteTeacherHomework,adminAllTeacherContent,getSchoolTheme,setSchoolTheme,markOwnPasswordChanged,getFinanceFeeSettings,saveFinanceFeeSettings,syncFinanceAccounts,listFinanceAccounts,addFinancePayment,updateFinancePayment,voidFinancePayment,listFinancePayments,listFinanceAudit,listNotificationsForSessions,sendWhatsAppNotification,sendFinanceReminder,sendFinancePaymentReceipt,listFinanceReminders,whatsappStatuses,whatsappConfig,localToday,
-    demoVisitStats,saveAttendanceSession,listAttendanceSessions,getAttendanceRecords,updateAttendanceApproval,prepareAttendanceNotifications,listAttendanceNotifications,markAttendanceNotificationSent,listAttendanceAudit,addAttendanceAudit,updateAttendanceSyncStatus,
+    demoVisitStats,saveAttendanceSession,listAttendanceSessions,getAttendanceRecords,adminUpdateAttendanceRecords,updateAttendanceApproval,prepareAttendanceNotifications,listAttendanceNotifications,markAttendanceNotificationSent,listAttendanceAudit,addAttendanceAudit,updateAttendanceSyncStatus,
     get config(){return cfg;}
   };
 })();
