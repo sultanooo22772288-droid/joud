@@ -97,12 +97,15 @@
       const names=abs.length?`<div class="jd-absent-names">${abs.map(r=>`<span>${esc(r.student_name||'طالب')}</span>`).join('')}</div>`:'<div class="jd-absent-names none">لا يوجد غياب — جميع الطلاب حاضرون ✓</div>';
       let actions='';
       if(st==='pending'){
-        actions=`<button class="btn primary" type="button" onclick="jdReviewAttendanceSession('${s.id}')">🔎 مراجعة وتعديل الغياب</button><button class="btn soft" type="button" onclick="jdShowAttendanceAudit('${s.id}')">📜 سجل الإجراءات</button>`;
+        actions=`<button class="btn primary" type="button" onclick="jdReviewAttendanceSession('${s.id}')">🔎 مراجعة وتعديل الغياب</button>`;
       }else if(st==='approved'){
         const sync=s.sync_status||'not_ready';
-        const syncBtn=sync==='synced'?'<span class="tag green">✓ تم توريد الغياب لمنصة الوزارة</span>'
-          :sync==='pending'?'<span class="tag blue">⏳ بانتظار التوريد لمنصة الوزارة</span>'
-          :`<button class="btn primary" type="button" onclick="jdQueueSync('${s.id}')">🏛️ توريد الغياب لمنصة الوزارة${sync==='failed'?' (إعادة)':''}</button>`;
+        const syncState=sync==='synced'
+          ?'<span class="tag green" style="font-size:13px">🟢 تمت المزامنة</span>'
+          :sync==='failed'
+            ?'<span class="tag red" style="font-size:13px">🔴 فشلت المزامنة</span>'
+            :'<span class="tag red" style="font-size:13px">🔴 غير مزامن</span>';
+        const syncBtn=sync==='synced'?'':`<button class="btn primary" type="button" onclick="jdQueueSync('${s.id}')">🏛️ توريد الغياب للوزارة${sync==='failed'?' — إعادة المحاولة':''}</button>`;
         const sessNotifs=state.notifs.filter(n=>String(n.session_id)===String(s.id));
         const unsent=sessNotifs.filter(n=>['pending','failed'].includes(notifStatus(n)));
         const sentCount=sessNotifs.filter(n=>['sent','delivered','read'].includes(notifStatus(n))).length;
@@ -112,10 +115,42 @@
         else if(sentCount===sessNotifs.length&&sessNotifs.length) waState='<span class="tag green">واتساب: تم الإرسال للجميع</span>';
         else if(sentCount>0) waState=`<span class="tag blue">واتساب: إرسال جزئي ${sentCount}/${sessNotifs.length}</span>`;
         else if(failedCount>0) waState='<span class="tag red">واتساب: تعذر الإرسال</span>';
-        const waBtns=abs.length?`<button class="btn soft jd-wa-btn" type="button" ${unsent.length?'':'disabled'} onclick="jdSendForSession('${s.id}')">📲 إرسال للجميع (${unsent.length?unsent.length:'تم'})</button><button class="btn soft" type="button" ${unsent.length?'':'disabled'} onclick="jdChooseAttendanceWhatsApp('${s.id}')">☑️ اختيار طلاب</button>`:'';
-        actions=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${syncBtn}${waState}${waBtns}<button class="btn soft" type="button" onclick="jdExportSession('${s.id}')">⬇️ ملف التوريد</button><button class="btn soft" type="button" onclick="jdShowAttendanceAudit('${s.id}')">📜 سجل الإجراءات</button></div>`;
+        const waBtns=abs.length?`<button class="btn soft jd-wa-btn" type="button" ${unsent.length?'':'disabled'} onclick="jdSendForSession('${s.id}')">📲 إرسال للجميع</button><button class="btn soft" type="button" ${unsent.length?'':'disabled'} onclick="jdChooseAttendanceWhatsApp('${s.id}')">☑️ اختيار طلاب</button>`:'';
+        const timeText=time?new Date(time).toLocaleTimeString('ar-OM',{hour:'2-digit',minute:'2-digit'}):'—';
+        return `<div class="jd-sess approved" style="border:1px solid var(--line);border-radius:18px;padding:16px;margin-top:12px;background:#fff">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--line)">
+            <div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:4px">الصف والشعبة</div>
+              <b style="font-size:18px">${esc(s.grade)} — الشعبة ${esc(s.section)}</b>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span class="tag green" style="font-size:13px">✅ معتمد</span>
+              ${syncState}
+              ${waState}
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-top:14px">
+            <div><div style="font-size:12px;color:var(--muted)">إجمالي الطلاب</div><b style="font-size:17px">${d.records.length}</b></div>
+            <div><div style="font-size:12px;color:var(--muted)">الحضور</div><b style="font-size:17px;color:#178a5b">${d.records.length-abs.length}</b></div>
+            <div><div style="font-size:12px;color:var(--muted)">الغياب</div><b style="font-size:17px;color:#c0392b">${abs.length}</b></div>
+            <div><div style="font-size:12px;color:var(--muted)">المعلم</div><b>${esc(s.teacher_name||'معلم')}</b></div>
+            <div><div style="font-size:12px;color:var(--muted)">وقت التسجيل</div><b>${esc(timeText)}</b></div>
+          </div>
+
+          <div style="margin-top:14px;padding:12px;border-radius:14px;background:#f8f9ff">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:7px">الطلاب الغائبون</div>
+            ${abs.length?`<div style="display:flex;gap:7px;flex-wrap:wrap">${abs.map(r=>`<span class="tag red">${esc(r.student_name||'طالب')}</span>`).join('')}</div>`:'<span class="tag green">لا يوجد غياب — جميع الطلاب حاضرون ✓</span>'}
+          </div>
+
+          <div style="display:flex;gap:8px;align-items:center;justify-content:flex-start;flex-wrap:wrap;margin-top:14px">
+            ${syncBtn}
+            ${waBtns}
+            <button class="btn soft" type="button" onclick="jdExportSession('${s.id}')">⬇️ ملف التوريد</button>
+          </div>
+        </div>`;
       }else{
-        actions=`<span class="tag red">مُعاد للمعلم${s.rejection_note?': '+esc(s.rejection_note):''}</span><small style="color:var(--muted)">بانتظار تعديل المعلم وإعادة الإرسال</small><button class="btn soft" type="button" onclick="jdShowAttendanceAudit('${s.id}')">📜 سجل الإجراءات</button>`;
+        actions=`<span class="tag red">غير معتمد</span>`;
       }
       return `<div class="jd-sess ${st}">${head}${names}<div class="jd-sess-actions">${actions}</div></div>`;
     };
