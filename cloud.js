@@ -453,6 +453,23 @@
     return data||[];
   }
 
+  async function addAttendanceAudit(sessionId,action,note=''){
+    const c=await init();
+    const user=await currentUser();
+    if(!user) throw new Error('يجب تسجيل الدخول أولاً.');
+    const {data:p}=await c.from('profiles').select('name,role').eq('auth_user_id',user.id).maybeSingle();
+    const {data,error}=await c.from('attendance_audit').insert({
+      session_id:sessionId,
+      actor_id:user.id,
+      actor_name:p?.name||'',
+      actor_role:p?.role||'admin',
+      action:String(action||'event'),
+      note:String(note||'')
+    }).select('*').single();
+    if(error) throw error;
+    return data;
+  }
+
   async function updateAttendanceSyncStatus(sessionId,status){
     const c=await init();
     const user=await currentUser();
@@ -460,6 +477,11 @@
     const next=['not_ready','pending','synced','failed'].includes(status)?status:'pending';
     const {data,error}=await c.from('attendance_sessions').update({sync_status:next,updated_at:new Date().toISOString()}).eq('id',sessionId).select('*').single();
     if(error) throw error;
+    try{
+      const action=next==='pending'?'sync_queued':next==='synced'?'sync_synced':next==='failed'?'sync_failed':'sync_reset';
+      const note=next==='pending'?'تم تجهيز الغياب للتوريد إلى منصة الوزارة.':next==='synced'?'تم تأكيد توريد الغياب إلى منصة الوزارة.':next==='failed'?'تعذر توريد الغياب إلى منصة الوزارة.':'تمت إعادة حالة التوريد.';
+      await addAttendanceAudit(sessionId,action,note);
+    }catch(_e){}
     return data;
   }
 
@@ -471,7 +493,7 @@
     setHomeworkScoreVisibility,listClassStudents,
     saveStudentReport,myStudentReports,myStudentReportBundle,getTeacherStudentReport,
     createTeacherContent,listTeacherContent,deleteTeacherContent,createTeacherHomework,listTeacherHomeworks,deleteTeacherHomework,adminAllTeacherContent,getSchoolTheme,setSchoolTheme,markOwnPasswordChanged,getFinanceFeeSettings,saveFinanceFeeSettings,syncFinanceAccounts,listFinanceAccounts,addFinancePayment,updateFinancePayment,voidFinancePayment,listFinancePayments,listFinanceAudit,listNotificationsForSessions,sendWhatsAppNotification,sendFinanceReminder,sendFinancePaymentReceipt,listFinanceReminders,whatsappStatuses,whatsappConfig,localToday,
-    demoVisitStats,saveAttendanceSession,listAttendanceSessions,getAttendanceRecords,updateAttendanceApproval,prepareAttendanceNotifications,listAttendanceNotifications,markAttendanceNotificationSent,listAttendanceAudit,updateAttendanceSyncStatus,
+    demoVisitStats,saveAttendanceSession,listAttendanceSessions,getAttendanceRecords,updateAttendanceApproval,prepareAttendanceNotifications,listAttendanceNotifications,markAttendanceNotificationSent,listAttendanceAudit,addAttendanceAudit,updateAttendanceSyncStatus,
     get config(){return cfg;}
   };
 })();
