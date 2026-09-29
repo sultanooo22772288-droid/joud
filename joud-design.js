@@ -101,7 +101,7 @@
 /* ===== جود: المالية — رسوم سنوية مرنة ===== */
 (function jdFinanceBootstrap(){
   const GRADES=['روضة','تمهيدي','الصف الأول','الصف الثاني','الصف الثالث','الصف الرابع'];
-  let financeState={settings:null,accounts:[],loading:false,saving:false,syncing:false,synced:false};
+  let financeState={settings:null,accounts:[],loading:false,saving:false,syncing:false,synced:false,filters:{search:'',grade:'',section:'',status:''},tableScrollTop:0};
 
   function money(v){
     const n=Number(v)||0;
@@ -174,10 +174,16 @@
   };
 
   function jdFinanceFilteredRows(){
-    const grade=document.getElementById('financeAccountGrade')?.value||'';
-    const section=document.getElementById('financeAccountSection')?.value||'';
-    const status=document.getElementById('financeAccountStatus')?.value||'';
-    const q=(document.getElementById('financeAccountSearch')?.value||'').trim().toLowerCase();
+    const searchEl=document.getElementById('financeAccountSearch');
+    const gradeEl=document.getElementById('financeAccountGrade');
+    const sectionEl=document.getElementById('financeAccountSection');
+    const statusEl=document.getElementById('financeAccountStatus');
+    const rawSearch=searchEl?searchEl.value:(financeState.filters.search||'');
+    const grade=gradeEl?gradeEl.value:(financeState.filters.grade||'');
+    const section=sectionEl?sectionEl.value:(financeState.filters.section||'');
+    const status=statusEl?statusEl.value:(financeState.filters.status||'');
+    financeState.filters={search:rawSearch,grade,section,status};
+    const q=String(rawSearch||'').trim().toLowerCase();
     return financeState.accounts.filter(a=>{
       const annual=Number(a.annual_fee)||0;
       const paid=Number(a.paid_amount)||0;
@@ -709,22 +715,30 @@
           </div>
         </div>
         <div class="upload-row" style="margin-top:14px;grid-template-columns:1.5fr 1fr 1fr 1fr">
-          <input id="financeAccountSearch" placeholder="بحث بالاسم أو رقم الطالب أو هاتف ولي الأمر" oninput="jdFilterFinanceAccounts()">
-          <select id="financeAccountGrade" onchange="jdFilterFinanceAccounts()"><option value="">كل الصفوف</option>${GRADES.map(g=>`<option>${g}</option>`).join('')}</select>
-          <select id="financeAccountSection" onchange="jdFilterFinanceAccounts()"><option value="">كل الشعب</option><option>1</option><option>2</option><option>3</option><option>4</option><option>أ</option><option>ب</option><option>ج</option><option>د</option></select>
+          <input id="financeAccountSearch" value="${esc(financeState.filters.search||'')}" placeholder="بحث بالاسم أو رقم الطالب أو هاتف ولي الأمر" oninput="jdFilterFinanceAccounts()">
+          <select id="financeAccountGrade" onchange="jdFilterFinanceAccounts()"><option value="">كل الصفوف</option>${GRADES.map(g=>`<option value="${g}" ${financeState.filters.grade===g?'selected':''}>${g}</option>`).join('')}</select>
+          <select id="financeAccountSection" onchange="jdFilterFinanceAccounts()"><option value="">كل الشعب</option>${['1','2','3','4','أ','ب','ج','د'].map(s=>`<option value="${s}" ${String(financeState.filters.section||'')===s?'selected':''}>${s}</option>`).join('')}</select>
           <select id="financeAccountStatus" onchange="jdFilterFinanceAccounts()">
             <option value="">كل حالات السداد</option>
-            <option value="unpaid">غير مسدد</option>
-            <option value="partial">سداد جزئي</option>
-            <option value="paid">مكتمل السداد</option>
-            <option value="no_fee">بلا رسوم محددة</option>
+            <option value="unpaid" ${financeState.filters.status==='unpaid'?'selected':''}>غير مسدد</option>
+            <option value="partial" ${financeState.filters.status==='partial'?'selected':''}>سداد جزئي</option>
+            <option value="paid" ${financeState.filters.status==='paid'?'selected':''}>مكتمل السداد</option>
+            <option value="no_fee" ${financeState.filters.status==='no_fee'?'selected':''}>بلا رسوم محددة</option>
           </select>
         </div>
         <div style="margin:12px 0 6px;color:var(--muted);font-size:12px">عدد النتائج: <b id="financeAccountsCount">${accounts.length}</b></div>
-        <div style="overflow:auto">
-          <table style="width:100%;border-collapse:collapse;min-width:900px">
+        <div id="financeAccountsScroll" style="overflow:auto;max-height:64vh;border:1px solid var(--line);border-radius:12px" onscroll="jdFinanceRememberScroll(this.scrollTop)">
+          <table style="width:100%;border-collapse:separate;border-spacing:0;min-width:900px">
             <thead><tr>
-              <th style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">الطالب</th><th>الصف</th><th>الشعبة</th><th>ولي الأمر</th><th>الرسوم السنوية</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th><th>إجراء</th>
+              <th style="text-align:right;padding:10px;position:sticky;top:0;z-index:5;background:var(--card,#fff);border-bottom:1px solid var(--line)">الطالب</th>
+              <th style="position:sticky;top:0;z-index:5;background:var(--card,#fff);border-bottom:1px solid var(--line)">الصف</th>
+              <th style="position:sticky;top:0;z-index:5;background:var(--card,#fff);border-bottom:1px solid var(--line)">الشعبة</th>
+              <th style="position:sticky;top:0;z-index:5;background:var(--card,#fff);border-bottom:1px solid var(--line)">ولي الأمر</th>
+              <th style="position:sticky;top:0;z-index:5;background:var(--card,#fff);border-bottom:1px solid var(--line)">الرسوم السنوية</th>
+              <th style="position:sticky;top:0;z-index:5;background:var(--card,#fff);border-bottom:1px solid var(--line)">المدفوع</th>
+              <th style="position:sticky;top:0;z-index:5;background:var(--card,#fff);border-bottom:1px solid var(--line)">المتبقي</th>
+              <th style="position:sticky;top:0;z-index:5;background:var(--card,#fff);border-bottom:1px solid var(--line)">الحالة</th>
+              <th style="position:sticky;top:0;z-index:5;background:var(--card,#fff);border-bottom:1px solid var(--line)">إجراء</th>
             </tr></thead>
             <tbody id="financeAccountsBody"></tbody>
           </table>
@@ -759,7 +773,13 @@
       </div>`;
 
     window.jdFilterFinanceAccounts();
+    requestAnimationFrame(()=>{
+      const sc=document.getElementById('financeAccountsScroll');
+      if(sc) sc.scrollTop=Number(financeState.tableScrollTop)||0;
+    });
   };
+
+  window.jdFinanceRememberScroll=function(v){ financeState.tableScrollTop=Number(v)||0; };
 
   function boot(){
     if(typeof navByRole==='undefined' || !document.querySelector('.content')) return setTimeout(boot,60);
