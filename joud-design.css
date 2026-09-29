@@ -451,3 +451,15 @@ body:not([data-theme]) .btn.soft,body[data-theme="default"] .btn.soft{background
 .jd-att-toggle input{width:22px;height:22px;accent-color:#C0392B}
 .jd-my-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .jd-my-row:last-child{border-bottom:0}
+
+/* ---------- شريطا التمرير على الكمبيوتر ----------
+   الشريط الأقصى يمينًا للقائمة الجانبية، والشريط الملاصق لها للصفحة.
+   (اتجاه ltr على الحاوية يضع شريطها يمينًا، والمحتوى يبقى rtl) */
+@media screen and (min-width:761px){
+  .sidebar{direction:ltr}
+  .sidebar>*{direction:rtl}
+  .main{height:100vh;overflow-y:auto;direction:ltr}
+  .main>*{direction:rtl}
+  /* كما كانت سابقًا: شريط الإعلانات والشريط العلوي يتحركان مع الصفحة */
+  .main>.announcement-ticker,.main>.topbar{position:relative}
+}
