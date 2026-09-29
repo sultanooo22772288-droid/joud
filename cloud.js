@@ -167,9 +167,10 @@
     const token=await getAccessToken();
     const r=await fetch('/api/admin-user',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
     const out=await r.json().catch(()=>({}));
-    if(!r.ok) throw new Error(out.error||'تعذر تنفيذ العملية السحابية.');
+    if(!r.ok){ const e=new Error(out.error||'تعذر تنفيذ العملية السحابية.'); e.code=out.code; e.role=out.role; throw e; }
     return out;
   }
+  async function getAddLocks(){ const out=await adminRequest({action:'feature-locks'}); return out.locks||{}; }
 
   async function demoVisitStats(){
     const token=await getAccessToken();
@@ -525,7 +526,7 @@
   }
 
   window.NabdCloud={
-    init,signIn,signOut,restoreSession,getAccessToken,loadProfiles,createUser,updateUser,deleteUser,bulkCreateUsers,loadAdminCredentials,syncOwnCredential,
+    init,signIn,signOut,restoreSession,getAccessToken,loadProfiles,createUser,updateUser,deleteUser,bulkCreateUsers,getAddLocks,loadAdminCredentials,syncOwnCredential,
     currentUser,uploadSchoolFile,signedSchoolFileUrl,
     createInteractiveHomework,listInteractiveHomeworks,deleteInteractiveHomework,
     submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,

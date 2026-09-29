@@ -29,6 +29,16 @@ module.exports = async function handler(req, res) {
   const isAdmin = callerProfile?.role === 'admin' || (adminEmail && (caller.email || '').toLowerCase() === adminEmail);
   if (!isAdmin) return res.status(403).json({ error: 'Admin access required' });
 
+  // قفل الإضافة من مصمم المنصة: LOCK_ADD_STUDENTS / LOCK_ADD_TEACHERS في متغيرات بيئة Vercel (1 = مقفل)
+  const envOn = v => ['1', 'true', 'yes', 'on'].includes(String(v || '').trim().toLowerCase());
+  const addLocks = { student: envOn(process.env.LOCK_ADD_STUDENTS), teacher: envOn(process.env.LOCK_ADD_TEACHERS) };
+  const lockedResponse = role => res.status(423).json({
+    code: 'feature_locked', role,
+    error: role === 'student'
+      ? 'خيار إضافة الطلاب موقوف حاليًا من مصمم المنصة.'
+      : 'خيار إضافة المعلمين موقوف حاليًا من مصمم المنصة.'
+  });
+
   async function nextExternalId(role) {
     const { data, error } = await admin.from('profiles').select('external_id').eq('role', role);
     if (error) throw error;
@@ -64,6 +74,8 @@ module.exports = async function handler(req, res) {
   const action = body.action;
 
   try {
+    if (action === 'feature-locks') return res.status(200).json({ locks: addLocks });
+
     if (action === 'credentials-list') {
       const { data, error } = await admin
         .from('profiles')
@@ -97,6 +109,7 @@ module.exports = async function handler(req, res) {
     if (action === 'create') {
       const p = body.profile || {};
       if (!['student','teacher'].includes(p.role)) return res.status(400).json({ error: 'Invalid role' });
+      if (addLocks[p.role]) return lockedResponse(p.role);
       if (p.role === 'student' && p.auto_username) p.email = `${await nextStudentNumber()}@${STUDENT_DOMAIN}`;
       if (p.role === 'student' && !body.password) body.password = DEFAULT_STUDENT_PASSWORD;
       if (!p.email || !body.password) return res.status(400).json({ error: 'Email and password are required' });
@@ -123,6 +136,7 @@ module.exports = async function handler(req, res) {
     if (action === 'bulk-create') {
       const role=body.role, users=Array.isArray(body.users)?body.users:[];
       if(!['student','teacher'].includes(role)) return res.status(400).json({error:'Invalid role'});
+      if (addLocks[role]) return lockedResponse(role);
       if(!users.length) return res.status(400).json({error:'No users'});
       if(users.length>500) return res.status(400).json({error:'Maximum 500 users per import'});
 

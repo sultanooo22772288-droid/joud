@@ -942,3 +942,44 @@
   }
   boot();
 })();
+
+/* ===== جود: قفل إضافة الطلاب والمعلمين (يتحكم به مصمم المنصة) =====
+   التفعيل من متغيرات بيئة Vercel: LOCK_ADD_STUDENTS=1 أو LOCK_ADD_TEACHERS=1
+   والخادم يرفض الإضافة أيضًا، فالقفل لا يعتمد على الواجهة وحدها. */
+(function jdAddLockBootstrap(){
+  const TEXT={
+    student:{title:'إضافة الطلاب متوقفة حاليًا',what:'إضافة طلاب جدد',keep:'تعديل بيانات الطلاب الحاليين'},
+    teacher:{title:'إضافة المعلمين متوقفة حاليًا',what:'إضافة معلمين جدد',keep:'تعديل بيانات المعلمين الحاليين'}
+  };
+  window.jdShowAddLocked=function(role){
+    const t=TEXT[role]||TEXT.student;
+    document.getElementById('jdAddLockModal')?.remove();
+    const wrap=document.createElement('div');
+    wrap.id='jdAddLockModal';
+    wrap.className='jd-lock-modal';
+    wrap.innerHTML=`
+      <div class="jd-lock-card" role="alertdialog" aria-modal="true" aria-labelledby="jdAddLockTitle" aria-describedby="jdAddLockText">
+        <div class="jd-lock-icon" aria-hidden="true"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/><path d="M12 14.5v2.5"/></svg></div>
+        <h3 id="jdAddLockTitle">${t.title}</h3>
+        <p id="jdAddLockText">قام مصمم منصة جود بإيقاف خيار <b>${t.what}</b> مؤقتًا.<br>يمكنك الاستمرار في ${t.keep} كالمعتاد.</p>
+        <div class="jd-lock-note">لإعادة تفعيل هذا الخيار، يُرجى التواصل مع مصمم المنصة.</div>
+        <button type="button" class="jd-lock-ok">حسنًا، فهمت</button>
+      </div>`;
+    const close=()=>{wrap.remove();document.removeEventListener('keydown',onKey);};
+    const onKey=e=>{if(e.key==='Escape')close();};
+    wrap.addEventListener('click',e=>{if(e.target===wrap)close();});
+    wrap.querySelector('.jd-lock-ok').addEventListener('click',close);
+    document.addEventListener('keydown',onKey);
+    document.body.appendChild(wrap);
+    wrap.querySelector('.jd-lock-ok').focus();
+  };
+  // يتحقق من الخادم قبل الإضافة؛ عند تعذّر التحقق يكمل، والخادم يرفض إن كان الخيار مقفلًا.
+  window.jdAddLocked=async function(role){
+    try{
+      if(!window.NabdCloud?.getAddLocks) return false;
+      const locks=await NabdCloud.getAddLocks();
+      if(locks&&locks[role]){ window.jdShowAddLocked(role); return true; }
+    }catch(e){}
+    return false;
+  };
+})();
