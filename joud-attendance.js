@@ -198,7 +198,7 @@
           <input id="jdAttReportDay" type="date" value="${esc(state.date)}" style="min-width:145px">
           <input id="jdAttReportMonth" type="month" value="${esc(String(state.date).slice(0,7))}" style="min-width:145px;display:none">
           <select id="jdAttReportGrade" style="min-width:150px"><option value="">كل الصفوف</option>${GRADE_ORDER.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('')}</select>
-          <select id="jdAttReportSection" style="min-width:115px"><option value="">كل الشعب</option>${['1','2','3','4','أ','ب','ج','د'].map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}</select>
+          <select id="jdAttReportSection" style="min-width:115px"><option value="">كل الشعب</option>${['1','2','3','4'].map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}</select>
           <button class="btn soft" type="button" onclick="jdPreviewAttendanceReport()">🔎 معاينة</button>
           <button class="btn primary" type="button" onclick="jdExportAttendancePdf()">🖨️ طباعة / PDF</button>
         </div>

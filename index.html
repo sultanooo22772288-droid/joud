@@ -2164,7 +2164,7 @@ document.getElementById('schedule').innerHTML=`
          <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">الشعبة</label>
          <select id="scheduleSectionFilter">
            <option value="">اختر الشعبة</option>
-           <option value="أ">أ</option><option value="ب">ب</option><option value="ج">ج</option><option value="د">د</option>
+           <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
          </select>
        </div>
      </div>
@@ -2407,7 +2407,7 @@ function loadTeacherScheduleEditor(){
   const rows=(getTeacherScheduleRows(teacher).length?getTeacherScheduleRows(teacher):blankTeacherScheduleRows()).map(r=>[...r]);
   const days=['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس'];
   const grades=['روضة','تمهيدي','الصف الأول','الصف الثاني','الصف الثالث','الصف الرابع'];
-  const sections=['أ','ب','ج','د'];
+  const sections=['1','2','3','4'];
   const gradeOptions=(selected='')=>`<option value="">بدون حصة</option>${grades.map(g=>`<option value="${esc(g)}" ${g===selected?'selected':''}>${esc(g)}</option>`).join('')}`;
   const sectionOptions=(selected='')=>`<option value="">الشعبة</option>${sections.map(sec=>`<option value="${sec}" ${sec===selected?'selected':''}>${sec}</option>`).join('')}`;
   editor.innerHTML=`
@@ -2569,7 +2569,7 @@ function renderSchedulePageForRole(){
            <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">الشعبة</label>
            <select id="scheduleSectionFilter">
              <option value="">اختر الشعبة</option>
-             <option value="أ">أ</option><option value="ب">ب</option><option value="ج">ج</option><option value="د">د</option>
+             <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
            </select>
          </div>
        </div>
@@ -3030,10 +3030,10 @@ function renderRolePages(){
             <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">الشعبة</label>
             <select id="reportSection" onchange="renderTeacherReportStudents()" style="width:100%;padding:12px;border:1px solid var(--line);border-radius:13px;background:#fff">
               <option value="">اختر الشعبة</option>
-              <option value="أ">أ</option>
-              <option value="ب">ب</option>
-              <option value="ج">ج</option>
-              <option value="د">د</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
             </select>
           </div>
         </div>
@@ -4246,10 +4246,10 @@ function renderAdminManagement(){
           <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">الشعبة</label>
           <select id="credentialSectionFilter" onchange="filterStudentCredentials()">
             <option value="الكل">كل الشعب</option>
-            <option value="أ">الشعبة (أ)</option>
-            <option value="ب">الشعبة (ب)</option>
-            <option value="ج">الشعبة (ج)</option>
-            <option value="د">الشعبة (د)</option>
+            <option value="1">الشعبة (1)</option>
+            <option value="2">الشعبة (2)</option>
+            <option value="3">الشعبة (3)</option>
+            <option value="4">الشعبة (4)</option>
           </select>
         </div>
       </div>
