@@ -1,0 +1,259 @@
+/* =====================================================================
+   جود — واجهة المالية والأقساط
+   لونان: ملكي (ألوان جود) وزمردي. الأرقام بالإنجليزية.
+   ===================================================================== */
+
+.jf,.jf-modal{
+  --jf-ink:#141B34;
+  --jf-muted:#5B6275;
+  --jf-card:#FFFFFF;
+  --jf-soft:#FAF6EF;
+  --jf-line:#EDE5D8;
+  --jf-line2:#E4DACB;
+  --jf-accent:#22358A;
+  --jf-accent-deep:#172463;
+  --jf-accent-soft:#EEF1FB;
+  --jf-hero-muted:#C9D1F2;
+  --jf-hero-faint:#9EA9D6;
+  --jf-highlight:#F2A93B;
+  --jf-highlight-text:#F7C979;
+  --jf-warm-bg:#FFF6E6;
+  --jf-warm-line:#F3DDB3;
+  --jf-warm-ink:#2A1A00;
+  --jf-warm-text:#6B4A10;
+  --jf-track:#F1ECE3;
+  --jf-paid:#2FA878;   --jf-paid-bg:#E3F5EC;   --jf-paid-fg:#17684A;
+  --jf-part:#E09A2A;   --jf-part-bg:#FDF0DA;   --jf-part-fg:#80530A;
+  --jf-unpaid:#D9542E; --jf-unpaid-bg:#FCE6DE; --jf-unpaid-fg:#A63A17;
+  --jf-nofee:#B9BECB;  --jf-nofee-bg:#EEF0F4;  --jf-nofee-fg:#4A5063;
+  --jf-display:"Alexandria","IBM Plex Sans Arabic",Tahoma,sans-serif;
+  color:var(--jf-ink);
+}
+.jf[data-palette="emerald"],.jf-modal[data-palette="emerald"]{
+  --jf-ink:#10231D;
+  --jf-muted:#56645E;
+  --jf-soft:#F4F2EC;
+  --jf-line:#E3E0D6;
+  --jf-line2:#D9D5C8;
+  --jf-accent:#0F4D3F;
+  --jf-accent-deep:#0B3B30;
+  --jf-accent-soft:#E6F0EC;
+  --jf-hero-muted:#A9CFC3;
+  --jf-hero-faint:#86B3A5;
+  --jf-highlight:#D9A441;
+  --jf-highlight-text:#F0CF8A;
+  --jf-warm-bg:#FBF3E1;
+  --jf-warm-line:#EBD7A8;
+  --jf-warm-ink:#231800;
+  --jf-warm-text:#6E4C05;
+  --jf-track:#ECE8DD;
+  --jf-paid:#1F8A62;   --jf-paid-bg:#DDF0E6;   --jf-paid-fg:#135C43;
+  --jf-part:#C8962E;   --jf-part-bg:#F7EBCF;   --jf-part-fg:#6E4C05;
+  --jf-unpaid:#C9502B; --jf-unpaid-bg:#F9E1D8; --jf-unpaid-fg:#9C3515;
+  --jf-nofee:#AEB6B1;  --jf-nofee-bg:#ECEEEA;  --jf-nofee-fg:#4B5752;
+}
+
+.jf{display:flex;flex-direction:column;gap:20px}
+.jf *,.jf-modal *{box-sizing:border-box}
+.jf button,.jf input,.jf select,.jf-modal button,.jf-modal input,.jf-modal select,.jf-modal textarea{font-family:inherit}
+.jf .num,.jf-modal .num{font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}
+.jf svg,.jf-modal svg{flex-shrink:0}
+.jf-sr{position:absolute !important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ---------- الترويسة ---------- */
+.jf-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.jf-head h2{margin:0;font-family:var(--jf-display);font-size:30px;font-weight:700;color:var(--jf-ink)}
+.jf-head p{margin:6px 0 0;color:var(--jf-muted);font-size:14px}
+.jf-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+.jf-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;
+  background:var(--jf-card);border:1px solid var(--jf-line2);border-radius:12px;font-size:14px;font-weight:600;
+  color:var(--jf-ink);cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s,transform .15s}
+.jf-btn:hover{border-color:var(--jf-accent);transform:translateY(-1px)}
+.jf-btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.jf-btn.primary{background:var(--jf-accent);border-color:var(--jf-accent);color:#fff;font-weight:700}
+.jf-btn.primary:hover{background:var(--jf-accent-deep)}
+.jf-btn.sm{min-height:36px;padding:0 12px;border-radius:10px;font-size:13px}
+.jf-icon{display:inline-grid;place-items:center;width:36px;height:36px;padding:0;background:var(--jf-card);
+  border:1px solid var(--jf-line2);border-radius:10px;color:var(--jf-ink);cursor:pointer;transition:border-color .15s}
+.jf-icon:hover{border-color:var(--jf-accent)}
+.jf-icon:disabled{opacity:.4;cursor:not-allowed}
+.jf-icon.wa{color:var(--jf-paid-fg)}
+
+/* مبدّل الألوان */
+.jf-palette{display:inline-flex;align-items:center;gap:4px;padding:4px;min-height:44px;background:var(--jf-card);border:1px solid var(--jf-line2);border-radius:12px}
+.jf-palette button{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 10px;border:0;border-radius:9px;background:transparent;font-size:13px;color:var(--jf-muted);cursor:pointer}
+.jf-palette button[aria-pressed="true"]{background:var(--jf-accent-soft);color:var(--jf-ink);font-weight:700}
+.jf-palette i{width:14px;height:14px;border-radius:50%;box-shadow:inset 0 0 0 2px rgba(255,255,255,.5)}
+
+/* قائمة منسدلة */
+.jf-menu{position:relative}
+.jf-menu>summary{list-style:none}
+.jf-menu>summary::-webkit-details-marker{display:none}
+.jf-menu-list{position:absolute;top:calc(100% + 6px);inset-inline-end:0;z-index:40;min-width:210px;padding:6px;background:var(--jf-card);
+  border:1px solid var(--jf-line);border-radius:14px;box-shadow:0 16px 40px rgba(20,27,52,.14)}
+.jf-menu-list button{display:flex;align-items:center;gap:10px;width:100%;min-height:40px;padding:0 12px;background:none;border:0;border-radius:9px;font-size:14px;color:var(--jf-ink);text-align:start;cursor:pointer}
+.jf-menu-list button:hover{background:var(--jf-accent-soft)}
+.jf-menu-list button:disabled{opacity:.4;cursor:not-allowed;background:none}
+
+/* ---------- البطاقات العلوية ---------- */
+.jf-hero{display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:18px}
+.jf-card{background:var(--jf-card);border:1px solid var(--jf-line);border-radius:22px;padding:22px}
+.jf-card h3{margin:0;font-family:var(--jf-display);font-size:16px;font-weight:600;color:var(--jf-ink)}
+.jf-rate{position:relative;overflow:hidden;background:var(--jf-accent-deep);border:0;color:#fff;display:flex;flex-direction:column;gap:16px}
+.jf-rate .pattern{position:absolute;left:-40px;top:-40px;width:210px;height:210px;pointer-events:none}
+.jf-rate .label{font-size:14px;font-weight:600;color:var(--jf-hero-muted)}
+.jf-rate .big{font-family:var(--jf-display);font-size:58px;font-weight:700;line-height:1}
+.jf-rate .jf-rbar{height:12px;background:rgba(255,255,255,.14);border-radius:999px;overflow:hidden}
+.jf-rate .jf-rbar span{display:block;height:100%;background:var(--jf-highlight);border-radius:999px;transition:width .5s}
+.jf-rate .cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.jf-rate .cols small{display:block;font-size:12px;color:var(--jf-hero-muted)}
+.jf-rate .cols b{display:block;margin-top:4px;font-size:18px;font-weight:700}
+.jf-rate .cols b.hl{color:var(--jf-highlight-text)}
+.jf-rate .foot{font-size:12px;color:var(--jf-hero-faint)}
+
+.jf-stack{display:flex;height:14px;gap:3px;border-radius:999px;overflow:hidden;margin:16px 0}
+.jf-stack span{transition:width .5s}
+.jf-legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px}
+.jf-legend div{display:flex;align-items:center;gap:9px;font-size:14px;color:var(--jf-muted)}
+.jf-legend i{width:10px;height:10px;border-radius:3px}
+.jf-legend b{margin-inline-start:auto;font-size:16px;color:var(--jf-ink)}
+
+.jf-due{background:var(--jf-warm-bg);border-color:var(--jf-warm-line);display:flex;flex-direction:column;gap:12px}
+.jf-due .ttl{display:flex;align-items:center;gap:10px}
+.jf-due .ico{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:var(--jf-highlight);color:var(--jf-warm-ink)}
+.jf-due .big{font-family:var(--jf-display);font-size:38px;font-weight:700;color:var(--jf-warm-ink);line-height:1}
+.jf-due p{margin:0;font-size:14px;color:var(--jf-warm-text)}
+.jf-due .jf-btn{margin-top:auto;background:var(--jf-warm-ink);border-color:var(--jf-warm-ink);color:#fff;font-weight:700}
+.jf-due .st{font-size:12px;font-weight:700;color:var(--jf-warm-text);min-height:1em}
+
+/* ---------- الصفوف ---------- */
+.jf-grades{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+.jf-grade{display:flex;flex-direction:column;gap:9px;padding:14px 16px;background:var(--jf-card);border:1px solid var(--jf-line);border-radius:16px;
+  text-align:start;cursor:pointer;color:var(--jf-ink);transition:border-color .15s,transform .15s}
+.jf-grade:hover{border-color:var(--jf-accent);transform:translateY(-1px)}
+.jf-grade[aria-pressed="true"]{border-color:var(--jf-accent);box-shadow:inset 0 0 0 1px var(--jf-accent);background:var(--jf-accent-soft)}
+.jf-grade .top{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:700}
+.jf-grade .top .num{color:var(--jf-accent)}
+.jf-grade small{font-size:12px;color:var(--jf-muted)}
+.jf-track{height:6px;background:var(--jf-track);border-radius:999px;overflow:hidden}
+.jf-track span{display:block;height:100%;border-radius:999px}
+
+/* ---------- جدول الحسابات ---------- */
+.jf-table{background:var(--jf-card);border:1px solid var(--jf-line);border-radius:22px;overflow:hidden}
+.jf-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:18px 20px}
+.jf-tabs{display:flex;gap:4px;padding:4px;background:var(--jf-soft);border-radius:14px;flex-wrap:wrap}
+.jf-tabs button{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 14px;border:0;border-radius:10px;background:transparent;font-size:14px;color:var(--jf-muted);cursor:pointer}
+.jf-tabs button[aria-pressed="true"]{background:var(--jf-card);color:var(--jf-ink);font-weight:700;box-shadow:0 1px 3px rgba(20,27,52,.12)}
+.jf-tabs .num{padding:1px 7px;border-radius:999px;font-size:12px;background:var(--jf-line);color:var(--jf-muted)}
+.jf-tabs button[aria-pressed="true"] .num{background:var(--jf-accent);color:#fff}
+.jf-filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.jf-search{display:flex;align-items:center;gap:8px;width:300px;min-height:44px;padding:0 12px;background:var(--jf-soft);border:1px solid var(--jf-line2);border-radius:12px;color:var(--jf-muted)}
+.jf-search input{flex:1;min-width:0;border:0 !important;background:transparent !important;padding:0 !important;font-size:14px;outline:none;box-shadow:none !important;color:var(--jf-ink)}
+.jf-filters select{min-height:44px;padding:0 12px;background:var(--jf-card);border:1px solid var(--jf-line2);border-radius:12px;font-size:14px;color:var(--jf-ink)}
+.jf-meta{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:0 20px 12px;font-size:13px;color:var(--jf-muted)}
+.jf-meta span:empty{display:none}
+
+.jf-scroll{overflow:auto;max-height:64vh;border-top:1px solid var(--jf-line)}
+.jf-row{display:grid;grid-template-columns:minmax(200px,2.1fr) minmax(110px,1.1fr) minmax(110px,1.1fr) minmax(180px,2fr) minmax(100px,1.1fr) 108px 176px;
+  align-items:center;gap:12px;padding:0 20px;min-height:66px;border-bottom:1px solid var(--jf-line)}
+.jf-row.head{position:sticky;top:0;z-index:5;min-height:44px;background:var(--jf-soft);font-size:13px;font-weight:600;color:var(--jf-muted)}
+.jf-row:not(.head):hover{background:var(--jf-accent-soft)}
+.jf-scroll .jf-row{min-width:1080px}
+.jf-student{display:flex;align-items:center;gap:12px;min-width:0}
+.jf-avatar{display:grid;place-items:center;flex-shrink:0;width:38px;height:38px;border-radius:12px;font-size:13px;font-weight:700}
+.jf-student b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jf-student small{display:block;font-size:12px;color:var(--jf-muted);text-align:start}
+.jf-sub{color:var(--jf-muted)}
+.jf-prog{display:flex;flex-direction:column;gap:6px}
+.jf-prog .l{display:flex;justify-content:space-between;gap:8px;font-size:13px}
+.jf-prog .l b{font-weight:700}
+.jf-prog .l span{color:var(--jf-muted)}
+.jf-left{font-size:15px;font-weight:700;text-align:start}
+.jf-left.zero{color:var(--jf-muted);font-weight:500}
+.jf-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap}
+.jf-chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.jf-chip.paid{background:var(--jf-paid-bg);color:var(--jf-paid-fg)}
+.jf-chip.partial{background:var(--jf-part-bg);color:var(--jf-part-fg)}
+.jf-chip.unpaid{background:var(--jf-unpaid-bg);color:var(--jf-unpaid-fg)}
+.jf-chip.no_fee{background:var(--jf-nofee-bg);color:var(--jf-nofee-fg)}
+.jf-row-actions{display:flex;gap:6px;justify-content:flex-end;align-items:center}
+.jf-row-actions .jf-menu-list{min-width:180px}
+.jf-empty{padding:40px 20px;text-align:center;color:var(--jf-muted)}
+
+/* ---------- إعداد الرسوم ---------- */
+.jf-settings{background:var(--jf-card);border:1px solid var(--jf-line);border-radius:22px;padding:0}
+.jf-settings>summary{display:flex;align-items:center;gap:10px;padding:18px 22px;cursor:pointer;font-family:var(--jf-display);font-size:16px;font-weight:600;list-style:none}
+.jf-settings>summary::-webkit-details-marker{display:none}
+.jf-settings>summary .jf-count{margin-inline-start:auto;font-family:inherit;font-size:13px;font-weight:600;color:var(--jf-muted)}
+.jf-settings[open]>summary{border-bottom:1px solid var(--jf-line)}
+.jf-settings-body{padding:18px 22px 22px;display:flex;flex-direction:column;gap:16px}
+.jf-fee-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.jf-field{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--jf-muted)}
+.jf-field input,.jf-field select,.jf-field textarea{width:100%;min-height:44px;padding:0 12px;background:var(--jf-card);border:1px solid var(--jf-line2);border-radius:12px;font-size:15px;color:var(--jf-ink)}
+.jf-field textarea{padding:10px 12px;min-height:64px;resize:vertical}
+.jf-field input:focus,.jf-field select:focus,.jf-field textarea:focus{outline:2px solid var(--jf-accent);outline-offset:1px;border-color:transparent}
+
+/* ---------- نافذة الدفعة ---------- */
+.jf-modal{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:16px;background:rgba(20,27,52,.45)}
+.jf-sheet{width:min(560px,96vw);max-height:92vh;overflow:auto;background:var(--jf-card);border-radius:24px;box-shadow:0 30px 80px rgba(20,27,52,.3)}
+.jf-sheet-head{display:flex;align-items:flex-start;gap:14px;padding:22px 24px 18px;border-bottom:1px solid var(--jf-line)}
+.jf-sheet-head h3{margin:0;font-family:var(--jf-display);font-size:20px;font-weight:700}
+.jf-sheet-head p{margin:4px 0 0;font-size:14px;color:var(--jf-muted)}
+.jf-close{display:grid;place-items:center;width:44px;height:44px;margin-inline-start:auto;background:var(--jf-soft);border:0;border-radius:12px;color:var(--jf-ink);cursor:pointer}
+.jf-sheet-body{padding:20px 24px 24px;display:flex;flex-direction:column;gap:16px}
+.jf-summary{display:flex;align-items:center;gap:20px;padding:16px;background:var(--jf-soft);border-radius:16px}
+.jf-ring{position:relative;flex-shrink:0;width:78px;height:78px;border-radius:50%}
+.jf-ring b{position:absolute;inset:9px;display:grid;place-items:center;background:var(--jf-soft);border-radius:50%;font-family:var(--jf-display);font-size:17px}
+.jf-summary .cols{flex:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.jf-summary small{display:block;font-size:12px;color:var(--jf-muted)}
+.jf-summary .cols b{display:block;margin-top:4px;font-size:16px;font-weight:700;text-align:start}
+.jf-amount input{min-height:54px;border:2px solid var(--jf-accent);font-family:var(--jf-display);font-size:22px;font-weight:700;text-align:start}
+.jf-quick{display:flex;gap:8px;flex-wrap:wrap}
+.jf-quick button{min-height:36px;padding:0 14px;background:var(--jf-accent-soft);border:1px solid transparent;border-radius:999px;font-size:13px;font-weight:700;color:var(--jf-accent);cursor:pointer}
+.jf-quick button:hover{border-color:var(--jf-accent)}
+.jf-seg{display:flex;gap:4px;padding:4px;background:var(--jf-soft);border:1px solid var(--jf-line2);border-radius:12px}
+.jf-seg button{flex:1;min-height:38px;padding:0 6px;white-space:nowrap;border:0;border-radius:9px;background:transparent;font-size:14px;color:var(--jf-muted);cursor:pointer}
+.jf-seg button[aria-pressed="true"]{background:var(--jf-card);color:var(--jf-accent);font-weight:700;box-shadow:0 1px 3px rgba(20,27,52,.12)}
+.jf-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.jf-status{font-size:13px;font-weight:700;min-height:1em}
+.jf-submit{width:100%;min-height:52px;font-size:16px;border-radius:14px}
+
+/* ---------- الشاشات الصغيرة ---------- */
+@media (max-width:1180px){
+  .jf-hero{grid-template-columns:1fr 1fr}
+  .jf-rate{grid-column:1/-1}
+  .jf-grades{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width:760px){
+  .jf-head h2{font-size:24px}
+  .jf-actions{width:100%}
+  .jf-actions>.jf-btn.primary{flex:1}
+  .jf-hero{grid-template-columns:1fr}
+  .jf-rate .big{font-size:44px}
+  .jf-grades{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .jf-toolbar{padding:14px}
+  .jf-tabs{flex-wrap:nowrap;overflow-x:auto;width:100%}
+  .jf-tabs button{flex-shrink:0}
+  .jf-filters,.jf-search{width:100%}
+  .jf-filters select{flex:1}
+  .jf-meta{padding:0 14px 10px}
+  .jf-scroll{max-height:none;overflow:visible;border-top:0;padding:0 12px 12px;display:flex;flex-direction:column;gap:10px}
+  .jf-scroll .jf-row{min-width:0}
+  .jf-row.head{display:none}
+  .jf-row{grid-template-columns:1fr auto;gap:10px 12px;padding:14px;border:1px solid var(--jf-line);border-radius:16px}
+  .jf-row>.c-student{grid-column:1}
+  .jf-row>.c-status{grid-column:2;grid-row:1;justify-self:end}
+  .jf-row>.c-grade,.jf-row>.c-phone{grid-column:1/-1;font-size:13px}
+  .jf-row>.c-grade::before{content:"الصف / الشعبة: ";color:var(--jf-muted)}
+  .jf-row>.c-phone::before{content:"ولي الأمر: ";color:var(--jf-muted)}
+  .jf-row>.c-prog{grid-column:1/-1}
+  .jf-row>.c-left{grid-column:1/-1}
+  .jf-row>.c-left::before{content:"المتبقي: ";font-weight:500;color:var(--jf-muted)}
+  .jf-row>.c-actions{grid-column:1/-1;justify-content:stretch}
+  .jf-row>.c-actions .jf-btn{flex:1;min-height:44px}
+  .jf-row>.c-actions .jf-icon{width:44px;height:44px}
+  .jf-fee-grid,.jf-two{grid-template-columns:1fr}
+  .jf-summary{flex-direction:column;align-items:stretch}
+  .jf-ring{align-self:center}
+}
