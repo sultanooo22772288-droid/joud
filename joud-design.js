@@ -131,6 +131,9 @@
     const annual=Number(a.annual_fee)||0, paid=Number(a.paid_amount)||0;
     return annual<=0?'no_fee':paid>=annual?'paid':paid>0?'partial':'unpaid';
   }
+  function jfReminderRecipients(rows){
+    return rows.filter(a=>(Number(a.annual_fee)||0)>(Number(a.paid_amount)||0)&&a.guardian_phone);
+  }
   function jfInitials(name){
     const p=String(name||'').trim().split(/\s+/).filter(Boolean);
     return p.length?(p[0][0]+(p[1]?' '+p[1][0]:'')):'؟';
@@ -326,6 +329,11 @@
     setText('financeKpiStudents',base.length);
     setText('financeKpiOwing',owing.length);
     setText('financeKpiOwingAmount',jfNum(totalBalance));
+    // عدد أولياء الأمور الذين سيصلهم التذكير الجماعي حسب الفلاتر الحالية (نفس شرط الإرسال)
+    const recipients=jfReminderRecipients(rows).length;
+    const waBtn=document.getElementById('financeBulkWaBtn');
+    setText('financeBulkWaLabel',recipients?'إرسال تذكير لـ '+recipients+' ولي أمر':'لا يوجد من يُرسَل له تذكير');
+    if(waBtn&&!waBtn.dataset.busy) waBtn.disabled=!recipients;
     const bar=document.getElementById('financeKpiRateBar'); if(bar) bar.style.width=rate+'%';
     const stack=document.getElementById('financeKpiStack');
     if(stack){
@@ -589,14 +597,14 @@
   };
 
   window.jdSendFinanceRemindersFiltered=async function(){
-    const rows=jdFinanceFilteredRows().filter(a=>(Number(a.annual_fee)||0)>(Number(a.paid_amount)||0)&&a.guardian_phone);
+    const rows=jfReminderRecipients(jdFinanceFilteredRows());
     if(!rows.length) return alert('لا توجد حسابات مستحقة برقم ولي أمر ضمن النتائج الحالية.');
     if(!confirm('سيتم إرسال تذكير واتساب إلى '+rows.length+' ولي أمر حسب الفلاتر الحالية. متابعة؟')) return;
     const btn=document.getElementById('financeBulkWaBtn');
     const st=document.getElementById('financeBulkWaStatus');
     let sent=0,failed=0;
     try{
-      if(btn) btn.disabled=true;
+      if(btn){btn.disabled=true;btn.dataset.busy='1';}
       for(let i=0;i<rows.length;i++){
         if(st) st.textContent='جاري الإرسال '+(i+1)+' / '+rows.length+'…';
         try{
@@ -612,7 +620,7 @@
         if(i<rows.length-1) await jdFinanceSleep(5500);
       }
       if(st){st.textContent='تم الإرسال: '+sent+(failed?' — تعذر: '+failed:'');st.style.color=failed?'#b87100':'#178a5b';}
-    }finally{if(btn)btn.disabled=false;}
+    }finally{if(btn){delete btn.dataset.busy;btn.disabled=!jfReminderRecipients(jdFinanceFilteredRows()).length;}}
   };
 
   window.jdShowFinanceReminderHistory=async function(){
@@ -850,7 +858,7 @@
           <div class="ttl"><span class="ico">${JF_ICON.bell}</span><h3>عليهم مبالغ متبقية</h3></div>
           <div class="big num" id="financeKpiOwing">0</div>
           <p>طالبًا بإجمالي <b class="num" id="financeKpiOwingAmount">0.000</b> ر.ع</p>
-          <button type="button" id="financeBulkWaBtn" class="jf-btn" onclick="jdSendFinanceRemindersFiltered()">${JF_ICON.chat}تذكير أولياء الأمور (النتائج الحالية)</button>
+          <button type="button" id="financeBulkWaBtn" class="jf-btn" onclick="jdSendFinanceRemindersFiltered()">${JF_ICON.chat}<span id="financeBulkWaLabel">إرسال تذكير</span></button>
           <div class="st" id="financeBulkWaStatus"></div>
         </div>
       </div>
