@@ -879,7 +879,7 @@
           <div class="jf-filters">
             <label class="jf-search">${JF_ICON.search}<input id="financeAccountSearch" value="${esc(f.search||'')}" placeholder="اسم الطالب، رقمه، أو هاتف ولي الأمر" aria-label="بحث" oninput="jdFilterFinanceAccounts()"></label>
             <select id="financeAccountGrade" aria-label="الصف" onchange="jdFilterFinanceAccounts()"><option value="">كل الصفوف</option>${GRADES.map(g=>`<option value="${g}" ${f.grade===g?'selected':''}>${g}</option>`).join('')}</select>
-            <select id="financeAccountSection" aria-label="الشعبة" onchange="jdFilterFinanceAccounts()"><option value="">كل الشعب</option>${['1','2','3','4','أ','ب','ج','د'].map(s=>`<option value="${s}" ${String(f.section||'')===s?'selected':''}>${s}</option>`).join('')}</select>
+            <select id="financeAccountSection" aria-label="الشعبة" onchange="jdFilterFinanceAccounts()"><option value="">كل الشعب</option>${['1','2','3','4'].map(s=>`<option value="${s}" ${String(f.section||'')===s?'selected':''}>${s}</option>`).join('')}</select>
             <select id="financeAccountStatus" class="jf-sr" tabindex="-1" aria-hidden="true" onchange="jdFilterFinanceAccounts()">
               <option value="">كل حالات السداد</option>
               <option value="unpaid" ${f.status==='unpaid'?'selected':''}>غير مسدد</option>
