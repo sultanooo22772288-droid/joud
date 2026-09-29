@@ -139,15 +139,6 @@
     let h=0; for(const ch of String(key||'')) h=(h*31+ch.charCodeAt(0))>>>0;
     return JF_TONES[h%JF_TONES.length];
   }
-  function jfPalette(){
-    try{ return localStorage.getItem('jdFinancePalette')==='emerald'?'emerald':'royal'; }catch(e){ return 'royal'; }
-  }
-  window.jdSetFinancePalette=function(p){
-    p=p==='emerald'?'emerald':'royal';
-    try{ localStorage.setItem('jdFinancePalette',p); }catch(e){}
-    document.querySelectorAll('.jf,.jf-modal').forEach(el=>{el.dataset.palette=p;});
-    document.querySelectorAll('.jf-palette button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.p===p)));
-  };
   // إغلاق القوائم المنسدلة عند الضغط خارجها
   document.addEventListener('click',e=>{
     document.querySelectorAll('.jf-menu[open]').forEach(m=>{ if(!m.contains(e.target)) m.removeAttribute('open'); });
@@ -406,7 +397,6 @@
     const wrap=document.createElement('div');
     wrap.id='financePaymentModal';
     wrap.className='jf-modal';
-    wrap.dataset.palette=jfPalette();
     wrap.addEventListener('click',e=>{ if(e.target===wrap) wrap.remove(); });
     wrap.innerHTML=`
       <div class="jf-sheet" role="dialog" aria-modal="true" aria-labelledby="financePayTitle">
@@ -808,17 +798,12 @@
       const paid=list.reduce((s,a)=>s+(Number(a.paid_amount)||0),0);
       return {grade:g,count:list.length,left:Math.max(0,fees-paid),pct:fees>0?Math.min(100,Math.floor(paid/fees*100)):0,fees};
     });
-    const pal=jfPalette();
 
     page.innerHTML=`
-    <div class="jf" data-palette="${pal}">
+    <div class="jf">
       <div class="jf-head">
         <div><h2>المالية والأقساط</h2><p>العام الدراسي <span class="num">${esc(settings.academic_year||'')}</span> · الرسوم السنوية والتحصيل والرصيد المتبقي لكل طالب</p></div>
         <div class="jf-actions">
-          <div class="jf-palette" role="group" aria-label="ألوان واجهة المالية">
-            <button type="button" data-p="royal" aria-pressed="${pal==='royal'}" onclick="jdSetFinancePalette('royal')"><i style="background:#22358A"></i>ملكي</button>
-            <button type="button" data-p="emerald" aria-pressed="${pal==='emerald'}" onclick="jdSetFinancePalette('emerald')"><i style="background:#0F4D3F"></i>زمردي</button>
-          </div>
           <button type="button" class="jf-btn" onclick="jdOpenFeeSettings()">${JF_ICON.gear}إعداد الرسوم</button>
           <details class="jf-menu">
             <summary class="jf-btn">${JF_ICON.download}تصدير${JF_ICON.chevron}</summary>

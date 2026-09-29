@@ -1,6 +1,6 @@
 /* =====================================================================
    جود — واجهة المالية والأقساط
-   لونان: ملكي (ألوان جود) وزمردي. الأرقام بالإنجليزية.
+   بألوان جود (الأزرق الملكي). الأرقام بالإنجليزية.
    ===================================================================== */
 
 .jf,.jf-modal{
@@ -29,30 +29,6 @@
   --jf-display:"Alexandria","IBM Plex Sans Arabic",Tahoma,sans-serif;
   color:var(--jf-ink);
 }
-.jf[data-palette="emerald"],.jf-modal[data-palette="emerald"]{
-  --jf-ink:#10231D;
-  --jf-muted:#56645E;
-  --jf-soft:#F4F2EC;
-  --jf-line:#E3E0D6;
-  --jf-line2:#D9D5C8;
-  --jf-accent:#0F4D3F;
-  --jf-accent-deep:#0B3B30;
-  --jf-accent-soft:#E6F0EC;
-  --jf-hero-muted:#A9CFC3;
-  --jf-hero-faint:#86B3A5;
-  --jf-highlight:#D9A441;
-  --jf-highlight-text:#F0CF8A;
-  --jf-warm-bg:#FBF3E1;
-  --jf-warm-line:#EBD7A8;
-  --jf-warm-ink:#231800;
-  --jf-warm-text:#6E4C05;
-  --jf-track:#ECE8DD;
-  --jf-paid:#1F8A62;   --jf-paid-bg:#DDF0E6;   --jf-paid-fg:#135C43;
-  --jf-part:#C8962E;   --jf-part-bg:#F7EBCF;   --jf-part-fg:#6E4C05;
-  --jf-unpaid:#C9502B; --jf-unpaid-bg:#F9E1D8; --jf-unpaid-fg:#9C3515;
-  --jf-nofee:#AEB6B1;  --jf-nofee-bg:#ECEEEA;  --jf-nofee-fg:#4B5752;
-}
-
 .jf{display:flex;flex-direction:column;gap:20px}
 .jf *,.jf-modal *{box-sizing:border-box}
 .jf button,.jf input,.jf select,.jf-modal button,.jf-modal input,.jf-modal select,.jf-modal textarea{font-family:inherit}
@@ -79,12 +55,6 @@
 .jf-icon:hover{border-color:var(--jf-accent)}
 .jf-icon:disabled{opacity:.4;cursor:not-allowed}
 .jf-icon.wa{color:var(--jf-paid-fg)}
-
-/* مبدّل الألوان */
-.jf-palette{display:inline-flex;align-items:center;gap:4px;padding:4px;min-height:44px;background:var(--jf-card);border:1px solid var(--jf-line2);border-radius:12px}
-.jf-palette button{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 10px;border:0;border-radius:9px;background:transparent;font-size:13px;color:var(--jf-muted);cursor:pointer}
-.jf-palette button[aria-pressed="true"]{background:var(--jf-accent-soft);color:var(--jf-ink);font-weight:700}
-.jf-palette i{width:14px;height:14px;border-radius:50%;box-shadow:inset 0 0 0 2px rgba(255,255,255,.5)}
 
 /* قائمة منسدلة */
 .jf-menu{position:relative}
