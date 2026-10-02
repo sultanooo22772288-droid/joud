@@ -246,6 +246,14 @@
     if(!r.ok) throw new Error(out.error||'تعذر تحميل التحضير المحفوظ.');
     return out;
   }
+
+  async function listMyPreparations(){
+    const token=await getAccessToken();
+    const r=await fetch('/api/preparation',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action:'list-my-preparations'})});
+    const out=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(out.error||'تعذر تحميل تحضيراتك.');
+    return out;
+  }
   async function savePreparation(preparation){
     const token=await getAccessToken();
     const r=await fetch('/api/preparation',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action:'save-preparation',preparation})});
@@ -628,7 +636,7 @@
   }
 
   window.NabdCloud={
-    init,signIn,signOut,changeOwnPassword,restoreSession,getAccessToken,loadProfiles,getPreparationContext,markPreparationViewed,getPreparationCurriculum,savePreparationCurriculum,generatePreparationAI,getReadyPreparation,getPreparationRecord,savePreparation,sendPreparation,createUser,updateUser,deleteUser,bulkCreateUsers,getAddLocks,loadAdminCredentials,syncOwnCredential,
+    init,signIn,signOut,changeOwnPassword,restoreSession,getAccessToken,loadProfiles,getPreparationContext,markPreparationViewed,getPreparationCurriculum,savePreparationCurriculum,generatePreparationAI,getReadyPreparation,getPreparationRecord,listMyPreparations,savePreparation,sendPreparation,createUser,updateUser,deleteUser,bulkCreateUsers,getAddLocks,loadAdminCredentials,syncOwnCredential,
     currentUser,uploadSchoolFile,signedSchoolFileUrl,
     createInteractiveHomework,listInteractiveHomeworks,deleteInteractiveHomework,
     submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,
