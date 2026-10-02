@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const { getVercelOidcToken } = require('@vercel/oidc');
 
 function jsonFromText(text){
   const raw=String(text||'').trim();
@@ -52,8 +53,11 @@ module.exports=async function handler(req,res){
     }
   }
 
-  const apiKey=process.env.AI_GATEWAY_API_KEY||process.env.VERCEL_OIDC_TOKEN;
-  if(!apiKey) return res.status(503).json({error:'خدمة الذكاء الاصطناعي غير مفعلة على الخادم بعد.'});
+  let apiKey=process.env.AI_GATEWAY_API_KEY||process.env.VERCEL_OIDC_TOKEN;
+  if(!apiKey){
+    try{ apiKey=await getVercelOidcToken(); }catch(_e){}
+  }
+  if(!apiKey) return res.status(503).json({error:'تعذر الحصول على رمز تشغيل الذكاء الاصطناعي من Vercel.'});
 
   const subjectRules=subject.includes('اللغة الإنجليزية')?
     'اكتب أهداف وأنشطة مادة اللغة الإنجليزية بلغة إنجليزية بسيطة مناسبة للصف مع شرح عربي قصير عند الحاجة، ولا تجعل النص معقدًا.':
