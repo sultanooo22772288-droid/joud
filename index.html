@@ -2995,8 +2995,10 @@ async function renderPreparationPage(){
       window.adminPreparationsCache=Array.isArray(ctx.preparations)?ctx.preparations:[];
       window.adminPreparationTeachers=Array.isArray(ctx.teachers)?ctx.teachers:[];
       const teachers=[...new Set(window.adminPreparationTeachers.map(t=>String(t.name||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
-      const subjects=[...new Set(window.adminPreparationsCache.map(p=>String(p.subject||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
-      const grades=[...new Set(window.adminPreparationsCache.map(p=>String(p.grade||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
+      // فلاتر الإدارة تعرض كتالوج المدرسة كاملًا، وليس فقط القيم الموجودة في التحضيرات المرسلة.
+      const assignmentSubjects=window.adminPreparationTeachers.flatMap(t=>(t.assignments||[]).map(a=>String(a.subject||'').trim())).filter(Boolean);
+      const subjects=[...new Set([...assignmentSubjects,...window.adminPreparationsCache.map(p=>String(p.subject||'').trim()).filter(Boolean)])].sort((a,b)=>a.localeCompare(b,'ar'));
+      const grades=['الصف الأول','الصف الثاني','الصف الثالث','الصف الرابع'];
       page.innerHTML=`
         <style>
           .admin-prep-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}.admin-prep-stat{border:1px solid var(--line);border-radius:18px;padding:18px;background:#fff;box-shadow:var(--shadow)}.admin-prep-stat b{display:block;font-size:30px;margin-top:7px}
@@ -3587,8 +3589,8 @@ async function generatePreparationAI(){
 
 function syncAdminPrepSections(){
   const el=document.getElementById('adminPrepSection');if(!el)return;
-  const grade=String(document.getElementById('adminPrepGrade')?.value||''),old=el.value;
-  const sections=[...new Set((window.adminPreparationsCache||[]).filter(p=>!grade||String(p.grade||'')===grade).flatMap(p=>Array.isArray(p.sections)?p.sections.map(String):[]))].sort((a,b)=>a.localeCompare(b,'ar'));
+  const old=el.value;
+  const sections=['1','2','3','4'];
   el.innerHTML='<option value="">كل الشعب</option>'+sections.map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join('');
   if(sections.includes(old))el.value=old;
 }
