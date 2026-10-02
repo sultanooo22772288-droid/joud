@@ -1843,6 +1843,21 @@ function saveRememberedLogin(email,password){
   }
 }
 
+async function loadTeacherDashboardMetrics(){
+  if(role!=='teacher')return;
+  try{
+    const [ctx,preps]=await Promise.all([NabdCloud.getPreparationContext(),NabdCloud.listMyPreparations()]);
+    const assignments=Array.isArray(ctx?.assignments)?ctx.assignments:[];
+    const subjects=new Set(assignments.map(a=>String(a.subject||'').trim()).filter(Boolean));
+    const classMap=new Map();
+    assignments.forEach(a=>(a.classes||[]).forEach(x=>{const g=String(x.grade||'').trim(),s=String(x.section||'').trim();if(g&&s)classMap.set(g+'|'+s,{grade:g,section:s});}));
+    const studentIds=new Set();
+    await Promise.all([...classMap.values()].map(async x=>{try{const rows=await NabdCloud.listClassStudents(x.grade,x.section);(rows||[]).forEach(st=>studentIds.add(String(st.auth_user_id||st.id||'')));}catch(_e){}}));
+    const list=Array.isArray(preps)?preps:[];
+    window.teacherDashboardMetrics={students:studentIds.size,subjects:subjects.size,classes:classMap.size,preparations:list.length,sent:list.filter(p=>p.status==='sent').length,viewed:list.filter(p=>p.status==='viewed').length};
+  }catch(e){console.warn('تعذر تحميل مؤشرات المعلم:',e);window.teacherDashboardMetrics={students:0,subjects:0,classes:0,preparations:0,sent:0,viewed:0};}
+}
+
 async function syncCloudProfiles(){
   const profiles=await NabdCloud.loadProfiles();
   const students=profiles.filter(x=>x.role==='student');
@@ -1904,6 +1919,7 @@ async function restoreLoggedInUser(){
     setTimeout(async()=>{
       try{
         await syncCloudProfiles();
+        if(role==='teacher') await loadTeacherDashboardMetrics();
         if(role==='admin'){
           try{
             const prepCtx=await NabdCloud.getPreparationContext();
@@ -1956,6 +1972,7 @@ async function enterDemo(){
     setTimeout(async()=>{
       try{
         await syncCloudProfiles();
+        if(role==='teacher') await loadTeacherDashboardMetrics();
         if(role==='admin'){
           try{
             const prepCtx=await NabdCloud.getPreparationContext();
