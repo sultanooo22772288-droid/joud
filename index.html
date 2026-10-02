@@ -2059,29 +2059,21 @@ function renderDashboard(){
  } else if(role==='teacher'){
  const currentTeacher=demoData.teachers.find(x=>String(x.email||'').toLowerCase()===String(currentLoginEmail||'').toLowerCase()) || demoData.teachers[0];
  const teacherFirstName=esc((currentTeacher?.name||'معلمنا').trim().split(/\s+/)[0]);
+ const tm=window.teacherDashboardMetrics||{students:0,subjects:0,classes:0,preparations:0,sent:0,viewed:0};
  d.innerHTML=`
   <div class="role-welcome">
     <div class="role-welcome-content">
       <div class="role-welcome-kicker">👨‍🏫 مساحة المعلم</div>
       <h1>مرحبًا أستاذ ${teacherFirstName} 👋</h1>
-      <p>يسعدنا حضورك اليوم. معرفتك تصنع أثرًا، واهتمامك يفتح للطلاب أبوابًا جديدة للفهم والثقة والنجاح.</p>
-      <div class="role-welcome-quote">عطاؤك لا يتوقف عند شرح درس؛ أنت تزرع فكرة، تبني ثقة، وتصنع مستقبلًا 🌟</div>
-      <div class="role-welcome-actions">
-        <button class="welcome-action" onclick="teacherQuickAction('homework')">📝 إنشاء واجب</button>
-        <button class="welcome-action ghost" onclick="teacherQuickAction('lesson')">🎓 إضافة درس</button>
-      </div>
+      <p>من هنا تتابع طلابك وموادك وتحضيراتك المسندة لك من الإدارة بصورة واضحة ومنظمة.</p>
+      <div class="role-welcome-quote">جميع الأرقام في هذه الصفحة مرتبطة ببيانات حسابك الفعلية.</div>
+      <div class="role-welcome-actions"><button class="welcome-action" onclick="showPage('preparation')">✨ إعداد تحضير</button><button class="welcome-action ghost" onclick="showPage('myPreparations')">📁 تحضيراتي</button></div>
+      <div class="welcome-mini-stats"><div class="welcome-mini-stat"><b>${tm.students}</b><span>طالب في صفوفي</span></div><div class="welcome-mini-stat"><b>${tm.subjects}</b><span>مادة مسندة</span></div></div>
     </div>
   </div>
-  <div class="section-title"><h3>نظرة سريعة</h3></div>
-  <div class="grid grid-4">${stat('👥','#eaf4ff','120','طالب')}${stat('📚','#f2eaff','6','مواد')}${stat('🎓','#e8fff5','48','درس منشور')}${stat('📝','#fff2df','8','بانتظار التصحيح')}</div>
-  <div class="section-title"><h3>إجراءات سريعة</h3></div>
-  <div class="grid grid-4">
-   <button class="card btn soft" onclick="teacherQuickAction('lesson')">➕ إضافة درس</button>
-   <button class="card btn soft" onclick="teacherQuickAction('homework')">📝 إضافة واجب</button>
-   <button class="card btn soft" onclick="teacherQuickAction('quiz')">✅ إنشاء اختبار</button>
-   <button class="card btn soft" onclick="teacherQuickAction('students')">👥 مشاهدة الطلاب</button>
-  </div>
-  <div class="grid grid-2"><div><div class="section-title"><h3>أداء الطلاب</h3></div><div class="card"><div class="chart">${[62,70,66,74,80,77,84].map((x,i)=>`<div class="bar" style="height:${x}%"><span>أ${i+1}</span></div>`).join('')}</div></div></div><div><div class="section-title"><h3>آخر الأنشطة</h3></div><div class="card">${task('📝','تم تسليم 12 واجبًا','الصف السابع','جديد','green')}${task('✅','اكتمل اختبار العلوم','متوسط الصف 82%','نتائج','blue')}${task('🔔','إعلان جديد للطلاب','حول اختبار الخميس','منشور','orange')}</div></div></div>`;
+  <div class="section-title"><h3>مؤشرات المعلم</h3></div>
+  <div class="grid grid-4">${stat('👥','#eaf4ff',tm.students,'طالب في صفوفي')}${stat('📚','#f2eaff',tm.subjects,'مادة مسندة')}${stat('🏫','#fff2df',tm.classes,'صف / شعبة مسندة')}${stat('🗂️','#e8fff5',tm.preparations,'تحضير')}</div>
+  <div class="grid grid-2"><div><div class="section-title"><h3>نشاطي في المنصة</h3></div><div class="card">${tm.preparations?task('🗂️','إجمالي التحضيرات','المحفوظة والمرسلة والمطّلع عليها',tm.preparations,'blue'):'<div style="padding:24px;text-align:center;color:var(--muted)">لا يوجد نشاط مسجل حتى الآن.</div>'}</div></div><div><div class="section-title"><h3>حالة التحضيرات</h3></div><div class="card">${task('📨','مرسل للإدارة','بانتظار اطلاع الإدارة',tm.sent,'orange')}${task('✅','تم الاطلاع عليه','تحضيرات اطلعت عليها الإدارة',tm.viewed,'green')}</div></div></div>`;
  } else {
  const vs=getVisitorStats();
  d.innerHTML=`
