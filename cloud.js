@@ -192,9 +192,9 @@
     return out;
   }
 
-  async function markPreparationViewed(teacherAuthUserId){
+  async function markPreparationViewed(teacherAuthUserId,recordId=''){
     const token=await getAccessToken();
-    const r=await fetch('/api/preparation',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action:'mark-viewed',teacher_auth_user_id:teacherAuthUserId})});
+    const r=await fetch('/api/preparation',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action:'mark-viewed',teacher_auth_user_id:teacherAuthUserId,recordId})});
     const out=await r.json().catch(()=>({}));
     if(!r.ok) throw new Error(out.error||'تعذر تحديث حالة التحضير.');
     return out;
