@@ -3005,7 +3005,7 @@ async function renderPreparationPage(){
           <td>
             ${hasSent
               ? `<button class="btn primary" onclick="openTeacherPreparation('${encodeURIComponent(t.authUserId)}')">عرض التحضير</button>
-                 <button class="btn soft" onclick="markTeacherPreparationViewed('${encodeURIComponent(t.authUserId)}')">${t.latestPreparation.status==='viewed'?'تم الاطلاع ✓':'اعتماد / تم الاطلاع'}</button>`
+                 <button class="btn soft" onclick="markTeacherPreparationViewed('${encodeURIComponent(t.authUserId)}')">${t.latestPreparation.status==='viewed'?'تم الاطلاع ✓':'تم الاطلاع عليه'}</button>`
               : '<button class="btn soft" disabled>بانتظار إرسال التحضير</button>'}
           </td>
         </tr>`;
@@ -3034,6 +3034,7 @@ async function renderPreparationPage(){
     prepSelectedSubject='';
     prepSelectedGrades=new Set();
     prepSelectedClasses=new Set();
+    prepCurrentRecordId='';prepCurrentLocked=false;prepCurrentStatus='';window.__prepCtx=null;
 
     if(!assignments.length){
       page.innerHTML=`
@@ -3138,16 +3139,10 @@ async function renderPreparationPage(){
             ${prepEditorCard('الواجب المنزلي','prepHomework')}
           </div>
 
-          <div class="prep-card" style="margin-bottom:12px">
-            <h4>يعتمد: المشرف التربوي</h4>
-            <div class="prep-editor"><textarea id="prepSupervisor" placeholder="تترك للإدارة / المشرف عند المراجعة"></textarea></div>
-          </div>
-
+          <div id="prepWorkflowStatus" style="display:none;margin-bottom:10px;padding:11px 13px;border-radius:11px;background:#eef6ff;color:#255a9a;font-weight:800"></div>
           <div class="prep-toolbar">
-            <button class="btn soft" onclick="loadReadyPreparation()">📚 إعادة تحميل الجاهز</button>
-            <button class="btn soft" onclick="generatePreparationAI()">✨ تخصيص بالذكاء الاصطناعي</button>
-            <button class="btn soft" onclick="alert('الحفظ والإرسال للإدارة سيتم ربطهما في الخطوات التالية.')">💾 حفظ مسودة</button>
-            <button class="btn soft" onclick="window.print()">🖨️ طباعة</button>
+            <button id="prepSaveBtn" class="btn soft" onclick="saveCurrentPreparation()">💾 حفظ التحضير</button>
+            <button id="prepSendBtn" class="btn primary" onclick="sendCurrentPreparation()">📨 إرسال التحضير للإدارة</button>
           </div>
         </div>
       </div>`;
@@ -3216,6 +3211,9 @@ function syncPrepSectionSummary(){
   }).join('، ');
 }
 let prepCurriculumRows=[];
+let prepCurrentRecordId='';
+let prepCurrentLocked=false;
+let prepCurrentStatus='';
 async function loadPrepCurriculum(){
   const unit=document.getElementById('prepUnit');
   const lesson=document.getElementById('prepLesson');
@@ -3273,69 +3271,114 @@ async function prepLessonChanged(){
   if(lesson?.value!=='') await loadReadyPreparation();
 }
 
-async function loadReadyPreparation(){
+async function prepBuildRecordContext(){
   const unitEl=document.getElementById('prepUnit');
   const lessonEl=document.getElementById('prepLesson');
-  const status=document.getElementById('prepAiStatus');
-  if(!unitEl?.value||lessonEl?.value==='') return;
-
+  if(!unitEl?.value||lessonEl?.value==='') return null;
   const [gradeEnc,idxRaw]=String(unitEl.value).split('::');
   const grade=decodeURIComponent(gradeEnc||'');
   const row=prepCurriculumRows.find(x=>String(x.grade||'')===grade);
   const unitObj=row?.units?.[Number(idxRaw)];
   const lessonObj=unitObj?.lessons?.[Number(lessonEl.value)];
-  const unitTitle=String(unitObj?.title||unitEl.selectedOptions?.[0]?.textContent||'').replace(/^.*?—\s*/,'').trim();
-  const lessonTitle=String(lessonObj?.title||lessonEl.selectedOptions?.[0]?.textContent||'').trim();
-  if(!grade||!unitTitle||!lessonTitle) return;
-
-  if(status){
-    status.style.display='block';
-    status.style.background='#eef6ff';
-    status.style.color='#255a9a';
-    status.textContent='📚 جاري فتح التحضير الجاهز للدرس...';
-  }
-
+  const unit=String(unitObj?.title||unitEl.selectedOptions?.[0]?.textContent||'').replace(/^.*?—\s*/,'').trim();
+  const lesson=String(lessonObj?.title||lessonEl.selectedOptions?.[0]?.textContent||'').trim();
+  const date=document.getElementById('prepDate')?.value||'';
+  const raw=[prepSelectedSubject,grade,unit,lesson,date].join('|');
+  let h=2166136261;
+  for(let i=0;i<raw.length;i++){h^=raw.charCodeAt(i);h=Math.imul(h,16777619);}
+  const recordId='p'+(h>>>0).toString(36);
+  return {recordId,grade,unit,lesson,date};
+}
+function prepSetLocked(locked,status=''){
+  prepCurrentLocked=!!locked;
+  prepCurrentStatus=status||prepCurrentStatus;
+  document.querySelectorAll('#prepDesigner textarea,#prepDesigner input:not([readonly]),#prepDesigner .prepStrategy').forEach(el=>{el.disabled=!!locked;});
+  const save=document.getElementById('prepSaveBtn'),send=document.getElementById('prepSendBtn');
+  if(save)save.disabled=!!locked;
+  if(send)send.disabled=!!locked;
+  const st=document.getElementById('prepWorkflowStatus');
+  if(locked&&st){st.style.display='block';st.style.background='#f2f4f7';st.style.color='#52606d';st.textContent='🔒 تم الاطلاع على هذا التحضير من الإدارة، لذلك تم قفله ولا يمكن تعديله.';}
+}
+function prepFillFields(d){
+  const setVal=(id,val)=>{const el=document.getElementById(id);if(el)el.value=String(val||'').trim();};
+  setVal('prepPrior',d.prior);setVal('prepIntro',d.intro);setVal('prepConcepts',d.concepts);setVal('prepObjectives',d.objectives);
+  setVal('prepActivities',d.activities);setVal('prepResources',d.resources);setVal('prepFormative',d.formative);setVal('prepEnrichment',d.enrichment);
+  setVal('prepSummative',d.summative);setVal('prepHomework',d.homework);setVal('prepTeacherNotes',d.teacherNotes);setVal('prepOutcomeNums',d.outcomeNums);
+  const wanted=new Set((d.strategies||[]).map(x=>String(x||'').trim()));
+  document.querySelectorAll('.prepStrategy').forEach(ch=>{ch.checked=wanted.has(String(ch.value||'').trim());});
+  const known=new Set([...document.querySelectorAll('.prepStrategy')].map(ch=>String(ch.value||'').trim()));
+  setVal('prepStrategyOther',d.strategyOther||[...wanted].filter(x=>!known.has(x)).join('، '));
+}
+function prepGatherPayload(){
+  const ctx=window.__prepCtx;
+  if(!ctx)return null;
+  const strategies=[...document.querySelectorAll('.prepStrategy:checked')].map(x=>x.value);
+  const sections=[...prepSelectedClasses].map(x=>x.split('||')).filter(([g])=>g===ctx.grade).map(([,s])=>s).filter(Boolean);
+  return {
+    recordId:ctx.recordId,subject:prepSelectedSubject,grade:ctx.grade,unit:ctx.unit,lesson:ctx.lesson,date:ctx.date,
+    period:document.getElementById('prepPeriod')?.value||'1',sections,
+    fields:{
+      outcomeNums:document.getElementById('prepOutcomeNums')?.value||'',
+      prior:document.getElementById('prepPrior')?.value||'',intro:document.getElementById('prepIntro')?.value||'',
+      concepts:document.getElementById('prepConcepts')?.value||'',objectives:document.getElementById('prepObjectives')?.value||'',
+      strategies,strategyOther:document.getElementById('prepStrategyOther')?.value||'',
+      activities:document.getElementById('prepActivities')?.value||'',resources:document.getElementById('prepResources')?.value||'',
+      teacherNotes:document.getElementById('prepTeacherNotes')?.value||'',formative:document.getElementById('prepFormative')?.value||'',
+      enrichment:document.getElementById('prepEnrichment')?.value||'',summative:document.getElementById('prepSummative')?.value||'',
+      homework:document.getElementById('prepHomework')?.value||''
+    }
+  };
+}
+async function loadReadyPreparation(){
+  const status=document.getElementById('prepAiStatus');
+  const ctx=await prepBuildRecordContext();
+  if(!ctx)return;
+  window.__prepCtx=ctx; prepCurrentRecordId=ctx.recordId; prepSetLocked(false,'');
+  if(status){status.style.display='block';status.style.background='#eef6ff';status.style.color='#255a9a';status.textContent='📚 جاري فتح التحضير...';}
   try{
-    const out=await NabdCloud.getReadyPreparation({
-      subject:prepSelectedSubject,
-      grade,
-      unit:unitTitle,
-      lesson:lessonTitle
-    });
-    const d=out.data||{};
-    const setVal=(id,val)=>{const el=document.getElementById(id);if(el)el.value=String(val||'').trim();};
-    setVal('prepTitle',lessonTitle);
-    setVal('prepPrior',d.prior);
-    setVal('prepIntro',d.intro);
-    setVal('prepConcepts',d.concepts);
-    setVal('prepObjectives',d.objectives);
-    setVal('prepActivities',d.activities);
-    setVal('prepResources',d.resources);
-    setVal('prepFormative',d.formative);
-    setVal('prepEnrichment',d.enrichment);
-    setVal('prepSummative',d.summative);
-    setVal('prepHomework',d.homework);
-    setVal('prepTeacherNotes',d.teacherNotes);
-    setVal('prepOutcomeNums',d.outcomeNums);
-
-    const wanted=new Set((d.strategies||[]).map(x=>String(x||'').trim()));
-    document.querySelectorAll('.prepStrategy').forEach(ch=>{ch.checked=wanted.has(String(ch.value||'').trim());});
-    const known=new Set([...document.querySelectorAll('.prepStrategy')].map(ch=>String(ch.value||'').trim()));
-    setVal('prepStrategyOther',[...wanted].filter(x=>!known.has(x)).join('، '));
-
-    if(status){
-      status.style.background='#ecfff3';
-      status.style.color='#176b3a';
-      status.textContent='✅ التحضير الجاهز ظهر مباشرة. يمكنك مراجعته وتعديل أي خانة قبل الحفظ أو الطباعة.';
+    const saved=await NabdCloud.getPreparationRecord(ctx.recordId);
+    if(saved.preparation){
+      const p=saved.preparation;
+      prepFillFields(p.fields||{});
+      const title=document.getElementById('prepTitle');if(title)title.value=p.lesson||ctx.lesson;
+      const period=document.getElementById('prepPeriod');if(period&&p.period)period.value=p.period;
+      prepCurrentStatus=p.status||'saved';
+      prepSetLocked(p.status==='viewed',p.status);
+      if(status&&!prepCurrentLocked){
+        status.style.background=p.status==='sent'?'#fff8e8':'#ecfff3';status.style.color=p.status==='sent'?'#8a6410':'#176b3a';
+        status.textContent=p.status==='sent'?'📨 هذا التحضير مرسل للإدارة ويمكنك تعديله وحفظه حتى تضغط الإدارة «تم الاطلاع عليه».':'✅ تم فتح التحضير المحفوظ ويمكنك متابعة تعديله.';
+      }
+      return;
     }
+    const out=await NabdCloud.getReadyPreparation({subject:prepSelectedSubject,grade:ctx.grade,unit:ctx.unit,lesson:ctx.lesson});
+    const d=out.data||{}; prepFillFields(d);
+    const title=document.getElementById('prepTitle');if(title)title.value=ctx.lesson;
+    if(status){status.style.background='#ecfff3';status.style.color='#176b3a';status.textContent='✅ ظهر التحضير الجاهز مباشرة. عدّل ما تريد ثم اضغط حفظ التحضير.';}
   }catch(e){
-    if(status){
-      status.style.background='#fff0f0';
-      status.style.color='#a93226';
-      status.textContent='❌ '+(e.message||'تعذر تحميل التحضير الجاهز.');
-    }
+    if(status){status.style.background='#fff0f0';status.style.color='#a93226';status.textContent='❌ '+(e.message||'تعذر تحميل التحضير.');}
   }
 }
+async function saveCurrentPreparation(){
+  if(prepCurrentLocked){alert('تم الاطلاع على التحضير من الإدارة ولا يمكن تعديله.');return;}
+  const p=prepGatherPayload(); if(!p){alert('اختر الوحدة والدرس أولاً.');return;}
+  if(!p.sections.length){alert('اختر الشعبة أو الشعب أولاً.');return;}
+  const st=document.getElementById('prepWorkflowStatus');if(st){st.style.display='block';st.style.background='#eef6ff';st.style.color='#255a9a';st.textContent='💾 جاري حفظ التحضير...';}
+  try{
+    const out=await NabdCloud.savePreparation(p);prepCurrentStatus=out.value?.status||'saved';
+    if(st){st.style.background='#ecfff3';st.style.color='#176b3a';st.textContent='✅ تم حفظ التحضير باسم: '+p.unit+' — '+p.lesson+' — '+p.date+'. ويمكنك تعديله في أي وقت حتى تعتمد الإدارة الاطلاع عليه.';}
+  }catch(e){if(e.locked)prepSetLocked(true,'viewed');if(st){st.style.background='#fff0f0';st.style.color='#a93226';st.textContent='❌ '+(e.message||'تعذر الحفظ.');}}
+}
+async function sendCurrentPreparation(){
+  if(prepCurrentLocked){alert('تم الاطلاع على التحضير من الإدارة ولا يمكن تعديله.');return;}
+  const p=prepGatherPayload(); if(!p){alert('اختر الوحدة والدرس أولاً.');return;}
+  if(!p.sections.length){alert('اختر الشعبة أو الشعب أولاً.');return;}
+  const st=document.getElementById('prepWorkflowStatus');if(st){st.style.display='block';st.style.background='#eef6ff';st.style.color='#255a9a';st.textContent='📨 جاري إرسال التحضير للإدارة...';}
+  try{
+    const out=await NabdCloud.sendPreparation(p);prepCurrentStatus='sent';
+    if(st){st.style.background='#fff8e8';st.style.color='#8a6410';st.textContent='✅ تم إرسال التحضير للإدارة باسم: '+p.unit+' — '+p.lesson+' — '+p.date+'. ما زال بإمكانك تعديله وحفظ التعديلات حتى تضغط الإدارة «تم الاطلاع عليه».';}
+  }catch(e){if(e.locked)prepSetLocked(true,'viewed');if(st){st.style.background='#fff0f0';st.style.color='#a93226';st.textContent='❌ '+(e.message||'تعذر الإرسال.');}}
+}
+
 async function generatePreparationAI(){
   if(!prepSelectedSubject){alert('اختر المادة أولاً.');return;}
   if(!prepSelectedGrades.size){alert('اختر الصف أو الصفوف أولاً.');return;}
@@ -3431,29 +3474,47 @@ async function generatePreparationAI(){
 
 async function openTeacherPreparation(teacherIdEncoded){
   const box=document.getElementById('adminPreparationViewer'); if(!box)return;
-  box.innerHTML='<div class="card" style="text-align:center;color:var(--muted)">جاري تحميل التحضير...</div>';
+  box.innerHTML='<div class="card" style="text-align:center;color:var(--muted)">جاري تحميل التحضيرات...</div>';
   try{
     const teacherId=decodeURIComponent(teacherIdEncoded||'');
     const out=await NabdCloud.getPreparationContext({teacher_auth_user_id:teacherId});
-    if(!out.latestPreparation){
-      box.innerHTML='<div class="card">لا يوجد تحضير مرسل من هذا المعلم حتى الآن.</div>'; return;
-    }
-    const p=out.latestPreparation;
-    box.innerHTML=`<div class="card">
-      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
-        <h3 style="margin:0">${esc(p.title||'تحضير المعلم')}</h3>
-        <span class="tag ${p.status==='viewed'?'green':'orange'}">${p.status==='viewed'?'تم الاطلاع':'مرسل للإدارة'}</span>
-      </div>
-      <div style="margin-top:12px;line-height:1.9">${esc(p.content||'سيظهر محتوى التحضير هنا بعد تفعيل إنشاء وإرسال التحضير.').replace(/\n/g,'<br>')}</div>
-    </div>`;
-  }catch(e){ box.innerHTML='<div class="card" style="color:#c0392b">'+esc(e.message||'تعذر تحميل التحضير')+'</div>'; }
+    const list=out.preparations||[];
+    if(!list.length){box.innerHTML='<div class="card">لا يوجد تحضير مرسل من هذا المعلم حتى الآن.</div>';return;}
+    box.innerHTML='<div class="card"><h3 style="margin-top:0">تحضيرات '+esc(out.teacher?.name||'المعلم')+'</h3>'+
+      list.map(p=>`<div style="border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:10px">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+          <div><b>${esc(p.unit||'')}</b> — ${esc(p.lesson||p.title||'')}<div style="font-size:12px;color:var(--muted);margin-top:4px">${esc(p.date||'')} • ${esc(p.grade||'')} • ${esc((p.sections||[]).join('، '))}</div></div>
+          <span class="tag ${p.status==='viewed'?'green':'orange'}">${p.status==='viewed'?'تم الاطلاع عليه':'مرسل للإدارة'}</span>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn soft" onclick="showPreparationDetails('${encodeURIComponent(JSON.stringify(p))}')">عرض التحضير</button>
+          ${p.status==='viewed'?'<button class="btn soft" disabled>تم الاطلاع عليه ✓</button>':`<button class="btn primary" onclick="markTeacherPreparationViewed('${encodeURIComponent(teacherId)}','${encodeURIComponent(p.recordId||'')}')">تم الاطلاع عليه</button>`}
+        </div>
+      </div>`).join('')+'</div><div id="adminPreparationDetails" style="margin-top:12px"></div>';
+  }catch(e){box.innerHTML='<div class="card" style="color:#c0392b">'+esc(e.message||'تعذر تحميل التحضيرات')+'</div>';}
 }
-async function markTeacherPreparationViewed(teacherIdEncoded){
-  const teacherId=decodeURIComponent(teacherIdEncoded||'');
+function showPreparationDetails(encoded){
+  const box=document.getElementById('adminPreparationDetails');if(!box)return;
   try{
-    await NabdCloud.markPreparationViewed(teacherId);
+    const p=JSON.parse(decodeURIComponent(encoded||'')),f=p.fields||{};
+    const sections=[
+      ['التعلم القبلي',f.prior],['التمهيد',f.intro],['المفاهيم',f.concepts],['الأهداف / المخرجات',f.objectives],
+      ['الاستراتيجيات',(f.strategies||[]).join('، ')],['آلية التنفيذ',f.activities],['الوسائل ومصادر التعلم',f.resources],
+      ['ملاحظات المعلم',f.teacherNotes],['التقويم التكويني',f.formative],['نشاط إثرائي / علاجي',f.enrichment],
+      ['التقويم الختامي',f.summative],['الواجب المنزلي',f.homework]
+    ];
+    box.innerHTML=`<div class="card"><h3 style="margin-top:0">${esc(p.unit||'')} — ${esc(p.lesson||'')}</h3>
+      <div style="color:var(--muted);margin-bottom:12px">${esc(p.date||'')} • ${esc(p.subject||'')} • ${esc(p.grade||'')}</div>
+      <div class="grid grid-2">${sections.map(([h,v])=>`<div style="border:1px solid var(--line);border-radius:12px;padding:12px"><b>${esc(h)}</b><div style="margin-top:8px;white-space:pre-wrap;line-height:1.8">${esc(v||'—')}</div></div>`).join('')}</div></div>`;
+  }catch(e){box.innerHTML='<div class="card" style="color:#c0392b">تعذر عرض التحضير.</div>';}
+}
+async function markTeacherPreparationViewed(teacherIdEncoded,recordIdEncoded=''){
+  const teacherId=decodeURIComponent(teacherIdEncoded||''),recordId=decodeURIComponent(recordIdEncoded||'');
+  try{
+    await NabdCloud.markPreparationViewed(teacherId,recordId);
+    await openTeacherPreparation(teacherIdEncoded);
     await renderPreparationPage();
-  }catch(e){ alert('تعذر تحديث حالة التحضير: '+(e.message||'')); }
+  }catch(e){alert('تعذر تحديث حالة التحضير: '+(e.message||''));}
 }
 
 
