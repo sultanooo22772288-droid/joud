@@ -3083,6 +3083,63 @@ async function markTeacherPreparationViewed(teacherIdEncoded){
   }catch(e){ alert('تعذر تحديث حالة التحضير: '+(e.message||'')); }
 }
 
+
+let teacherAcademicAssignments=[];
+function teacherAssignmentForSubject(subject){
+  return teacherAcademicAssignments.find(a=>String(a.subject||'')===String(subject||''))||null;
+}
+function uniqueTeacherGrades(subject){
+  const a=teacherAssignmentForSubject(subject);
+  return [...new Set((a?.classes||[]).map(x=>String(x.grade||'')).filter(Boolean))];
+}
+function uniqueTeacherSections(subject,grade){
+  const a=teacherAssignmentForSubject(subject);
+  return [...new Set((a?.classes||[]).filter(x=>String(x.grade||'')===String(grade||'')).map(x=>String(x.section||'')).filter(Boolean))];
+}
+function syncTeacherAcademicSelectors(prefix){
+  const subject=document.getElementById(prefix+'Subject')?.value||'';
+  const gradeEl=document.getElementById(prefix+'Grade'),sectionEl=document.getElementById(prefix+'Section');
+  if(!gradeEl||!sectionEl)return;
+  const grades=uniqueTeacherGrades(subject);
+  gradeEl.innerHTML='<option value="">اختر الصف</option>'+grades.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('');
+  gradeEl.disabled=!subject;
+  sectionEl.innerHTML='<option value="">اختر الشعبة</option>';
+  sectionEl.disabled=true;
+}
+function syncTeacherAcademicSections(prefix){
+  const subject=document.getElementById(prefix+'Subject')?.value||'';
+  const grade=document.getElementById(prefix+'Grade')?.value||'';
+  const sectionEl=document.getElementById(prefix+'Section');
+  if(!sectionEl)return;
+  const sections=uniqueTeacherSections(subject,grade);
+  sectionEl.innerHTML='<option value="">اختر الشعبة</option>'+sections.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('');
+  sectionEl.disabled=!grade;
+}
+async function loadTeacherAcademicAssignments(){
+  if(role!=='teacher')return;
+  try{
+    const ctx=await NabdCloud.getPreparationContext();
+    teacherAcademicAssignments=Array.isArray(ctx.assignments)?ctx.assignments:[];
+    const subjects=[...new Set(teacherAcademicAssignments.map(a=>String(a.subject||'')).filter(Boolean))];
+
+    const subjectBox=document.getElementById('teacherAssignedSubjects');
+    if(subjectBox){
+      subjectBox.innerHTML=teacherAcademicAssignments.length?teacherAcademicAssignments.map(a=>{
+        const classes=(a.classes||[]).map(x=>`${esc(x.grade)} / الشعبة (${esc(x.section)})`).join(' • ');
+        return `<div class="card"><h3 style="margin:0 0 10px">${esc(a.subject||'')}</h3><div style="color:var(--muted);line-height:1.8">${classes||'لا توجد صفوف وشعب مسندة.'}</div></div>`;
+      }).join(''):'<div class="card" style="grid-column:1/-1">لا توجد مواد مسندة لهذا الحساب.</div>';
+    }
+
+    ['lesson','quiz'].forEach(prefix=>{
+      const el=document.getElementById(prefix+'Subject');
+      if(el)el.innerHTML='<option value="">اختر المادة</option>'+subjects.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('');
+    });
+  }catch(e){
+    const subjectBox=document.getElementById('teacherAssignedSubjects');
+    if(subjectBox)subjectBox.innerHTML='<div class="card" style="grid-column:1/-1;color:#c0392b">تعذر تحميل المواد: '+esc(e.message||'')+'</div>';
+  }
+}
+
 function renderRolePages(){
   role=normalizeAccountRole(role);
   renderAdminManagement();
@@ -3099,8 +3156,8 @@ function renderRolePages(){
 
   if(role==='teacher'){
     subjects.innerHTML=`
-      <div class="page-head"><div><h2>إدارة المواد 📚</h2><p>المواد التي تقوم بتدريسها.</p></div><button class="btn primary" onclick="alert('تم فتح نموذج إضافة مادة تجريبيًا')">+ إضافة مادة</button></div>
-      <div class="grid grid-3">${subjectCard('➗','الرياضيات','#eaf4ff',75)}${subjectCard('🧪','العلوم','#e8fff5',62)}${subjectCard('📖','اللغة العربية','#fff2df',80)}</div>`;
+      <div class="page-head"><div><h2>المواد 📚</h2><p>تظهر هنا فقط المواد المسندة لك من إدارة المدرسة.</p></div></div>
+      <div id="teacherAssignedSubjects" class="grid grid-3"><div class="card" style="grid-column:1/-1;text-align:center;color:var(--muted)">جاري تحميل المواد المسندة لك...</div></div>`;
 
     lessons.innerHTML=`
       <div class="page-head"><div><h2>لوحة المعلم — إدارة الدروس 🎓</h2><p>هذه المساحة خاصة بالمعلم لإضافة الدروس وحذف محتواه.</p></div></div>
@@ -3108,7 +3165,9 @@ function renderRolePages(){
         <h3>➕ إضافة درس جديد</h3>
         <div class="upload-row">
           <input id="lessonTitle" placeholder="عنوان الدرس">
-          <select id="lessonSubject" aria-label="المادة">${(teacherSubjectList(getCurrentTeacher()).length?teacherSubjectList(getCurrentTeacher()):demoData.subjects).map(x=>`<option>${esc(x)}</option>`).join('')}</select>
+          <select id="lessonSubject" aria-label="المادة" onchange="syncTeacherAcademicSelectors('lesson')"><option value="">اختر المادة</option></select>
+          <select id="lessonGrade" aria-label="الصف" onchange="syncTeacherAcademicSections('lesson')" disabled><option value="">اختر الصف</option></select>
+          <select id="lessonSection" aria-label="الشعبة" disabled><option value="">اختر الشعبة</option></select>
           <input id="lessonVideo" type="file" accept="video/*">
           <input id="lessonFile" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,image/*">
         </div>
@@ -3125,7 +3184,9 @@ function renderRolePages(){
         <h3>➕ إنشاء اختبار جديد</h3>
         <div class="upload-row">
           <input id="quizTitle" placeholder="عنوان الاختبار">
-          <select id="quizClass"><option>الصف الأول / أ</option><option>الصف الأول / ب</option><option>الصف الثاني / أ</option><option>الصف الثالث / ج</option></select>
+          <select id="quizSubject" aria-label="المادة" onchange="syncTeacherAcademicSelectors('quiz')"><option value="">اختر المادة</option></select>
+          <select id="quizGrade" aria-label="الصف" onchange="syncTeacherAcademicSections('quiz')" disabled><option value="">اختر الصف</option></select>
+          <select id="quizSection" aria-label="الشعبة" disabled><option value="">اختر الشعبة</option></select>
           <input id="quizDate" type="datetime-local">
           <input id="quizQuestions" type="number" min="1" value="10" placeholder="عدد الأسئلة">
         </div>
@@ -3219,7 +3280,7 @@ function renderRolePages(){
       <div id="teacherInteractiveHomeworkList" class="card">
         <div style="text-align:center;color:var(--muted);padding:18px">جاري تحميل الواجبات السابقة...</div>
       </div>`; 
-    homeworkQuestionDraft=[]; setTimeout(()=>{addHomeworkQuestion('mcq');toggleHomeworkModeBuilder();loadTeacherInteractiveHomeworks();loadMyTeacherLessons();loadMyTeacherQuizzes();},0);
+    homeworkQuestionDraft=[]; setTimeout(()=>{loadTeacherAcademicAssignments();addHomeworkQuestion('mcq');toggleHomeworkModeBuilder();loadTeacherInteractiveHomeworks();loadMyTeacherLessons();loadMyTeacherQuizzes();},0);
   }
   else if(role==='student'){
     subjects.innerHTML=`
@@ -3458,10 +3519,13 @@ async function addLessonDemo(){
   if(role!=='teacher'){alert('إضافة الدروس متاحة للمعلم فقط.');return;}
   const title=document.getElementById('lessonTitle')?.value.trim()||'';
   const subject=document.getElementById('lessonSubject')?.value||'';
+  const grade=document.getElementById('lessonGrade')?.value||'';
+  const section=document.getElementById('lessonSection')?.value||'';
   const description=document.getElementById('lessonDesc')?.value.trim()||'';
   const file=document.getElementById('lessonFile')?.files?.[0]||null;
   const video=document.getElementById('lessonVideo')?.files?.[0]||null;
   if(!title){alert('اكتب عنوان الدرس أولاً.');return;}
+  if(!subject||!grade||!section){alert('اختر المادة ثم الصف ثم الشعبة.');return;}
 
   try{
     let attachment=null, videoAttachment=null;
@@ -3469,7 +3533,7 @@ async function addLessonDemo(){
     if(video) videoAttachment=await NabdCloud.uploadSchoolFile(video,'lessons-video');
 
     await NabdCloud.createTeacherContent('lesson',{
-      title,subject,description,attachment,video:videoAttachment
+      title,subject,grade,section,description,attachment,video:videoAttachment
     });
     document.getElementById('lessonTitle').value='';
     document.getElementById('lessonDesc').value='';
@@ -3488,7 +3552,7 @@ async function loadMyTeacherLessons(){
     box.innerHTML=rows.length?rows.map((x,i)=>`
       <div class="lesson-item">
         <div class="lesson-num">${i+1}</div>
-        <div><b>${esc(x.title||'درس')}</b><small>${esc(x.subject||'')} • منشور بواسطتك</small></div>
+        <div><b>${esc(x.title||'درس')}</b><small>${esc(x.subject||'')} • ${esc(x.grade||'')} / الشعبة (${esc(x.section||'')}) • منشور بواسطتك</small></div>
         <button class="btn soft" type="button" onclick="deleteMyTeacherLesson('${esc(x.id||'')}')">🗑️ حذف</button>
       </div>`).join(''):'<div style="padding:20px;text-align:center;color:var(--muted)">لم تضف أي دروس بعد.</div>';
   }catch(e){box.innerHTML='<div style="color:#c0392b;padding:16px">تعذر تحميل دروسك: '+esc(e.message||'')+'</div>';}
@@ -4017,16 +4081,18 @@ function addHomeworkDemo(){
 async function addQuizDemo(){
   if(role!=='teacher'){alert('إضافة الاختبارات متاحة للمعلم فقط.');return;}
   const title=document.getElementById('quizTitle')?.value.trim()||'';
-  const cls=document.getElementById('quizClass')?.value||'';
+  const subject=document.getElementById('quizSubject')?.value||'';
+  const grade=document.getElementById('quizGrade')?.value||'';
+  const section=document.getElementById('quizSection')?.value||'';
   const count=document.getElementById('quizQuestions')?.value||'10';
   const scheduled=document.getElementById('quizDate')?.value||'';
   const description=document.getElementById('quizDesc')?.value.trim()||'';
   if(!title){alert('اكتب عنوان الاختبار أولاً.');return;}
+  if(!subject||!grade||!section){alert('اختر المادة ثم الصف ثم الشعبة.');return;}
   if(!scheduled){alert('حدد موعد الاختبار أولاً.');return;}
-  const info=parsePublishedClassLabel(cls);
   try{
     await NabdCloud.createTeacherContent('quiz',{
-      title,description,grade:info.grade,section:info.section,
+      title,subject,description,grade,section,
       scheduled_at:scheduled,questions_count:Number(count)||10
     });
     document.getElementById('quizTitle').value='';
@@ -4047,7 +4113,7 @@ async function loadMyTeacherQuizzes(){
       <div class="task">
         <div class="lesson-num">${i+1}</div>
         <div><strong>${esc(x.title||'اختبار')}</strong>
-          <small>${esc(x.grade||'')} / ${esc(x.section||'')} • ${esc(x.questions_count||'')} أسئلة • ${formatSchoolDateTime(x.scheduled_at)}</small>
+          <small>${esc(x.subject||'')} • ${esc(x.grade||'')} / الشعبة (${esc(x.section||'')}) • ${esc(x.questions_count||'')} أسئلة • ${formatSchoolDateTime(x.scheduled_at)}</small>
         </div>
         <button class="btn soft" type="button" onclick="deleteMyTeacherQuiz('${esc(x.id||'')}')">🗑️ حذف</button>
       </div>`).join(''):'<div style="padding:20px;text-align:center;color:var(--muted)">لم تنشر أي اختبارات بعد.</div>';
