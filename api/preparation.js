@@ -44,32 +44,32 @@ module.exports = async function handler(req,res){
     }
 
     const norm=s=>String(s||'').trim().replace(/\s+/g,' ');
-    // اقرأ سجلات المناهج ثم طابق المادة والصف من داخل القيمة نفسها.
-    // هذا أكثر ثباتًا من الاعتماد على شكل ترميز المفتاح العربي (%D8...) فقط.
-    const {data:rows,error:rowsError}=await admin.from('school_kv')
-      .select('key,value')
-      .like('key','preparation_curriculum:%');
-    if(rowsError) return res.status(500).json({error:rowsError.message});
-
     const wantedSubject=norm(subject);
-    const curriculum=grades.map(g=>{
+
+    const curriculum=[];
+    for(const g of grades){
       const wantedGrade=norm(g);
-      const row=(rows||[]).find(r=>{
-        const v=r?.value||{};
-        if(norm(v.subject)===wantedSubject && norm(v.grade)===wantedGrade) return true;
-        // توافق رجعي مع السجلات القديمة حتى لو لم تكن subject/grade داخل value.
-        const raw=String(r?.key||'').replace(/^preparation_curriculum:/,'');
-        const cut=raw.lastIndexOf(':');
-        if(cut<0) return false;
-        try{
-          const keySubject=norm(decodeURIComponent(raw.slice(0,cut)));
-          const keyGrade=norm(decodeURIComponent(raw.slice(cut+1)));
-          return keySubject===wantedSubject && keyGrade===wantedGrade;
-        }catch(_e){ return false; }
-      });
+
+      // ابحث أولاً داخل JSON نفسه؛ هذا يتجنب أي مشكلة في ترميز المفتاح العربي.
+      let {data:row,error:rowError}=await admin.from('school_kv')
+        .select('key,value')
+        .like('key','preparation_curriculum:%')
+        .contains('value',{subject:wantedSubject,grade:wantedGrade})
+        .limit(1)
+        .maybeSingle();
+      if(rowError) return res.status(500).json({error:rowError.message});
+
+      // توافق احتياطي مع السجلات القديمة.
+      if(!row){
+        const exactKey='preparation_curriculum:'+encodeURIComponent(wantedSubject)+':'+encodeURIComponent(wantedGrade);
+        const exact=await admin.from('school_kv').select('key,value').eq('key',exactKey).maybeSingle();
+        if(exact.error) return res.status(500).json({error:exact.error.message});
+        row=exact.data||null;
+      }
+
       const value=row?.value||{};
-      return {grade:g,units:Array.isArray(value.units)?value.units:[]};
-    });
+      curriculum.push({grade:g,units:Array.isArray(value.units)?value.units:[]});
+    }
     return res.status(200).json({subject,curriculum});
   }
 
