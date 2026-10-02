@@ -284,14 +284,23 @@ module.exports = async function handler(req,res){
       let assignments=Array.isArray(map.get(t.auth_user_id)?.assignments)?map.get(t.auth_user_id).assignments:[];
       if(!assignments.length&&t.subject){
         const classes=(Array.isArray(t.stages)?t.stages:[]).map(s=>{
-          const m=String(s).match(/—\\s*([^—]+?)\\s*—\\s*الشعبة\\s*\\(([^)]+)\\)/);
+          const m=String(s).match(/—\s*([^—]+?)\s*—\s*الشعبة\s*\(([^)]+)\)/);
           return m?{grade:m[1].trim(),section:m[2].trim(),stage:String(s)}:null;
         }).filter(Boolean);
         assignments=[{subject:t.subject,classes}];
       }
       return {authUserId:t.auth_user_id,name:t.name,email:t.email,assignments,latestPreparation:latestMap.get(t.auth_user_id)||null};
     });
-    return res.status(200).json({teacher:{name:profile.name,email:profile.email},teachers:result});
+    // الإدارة تحتاج جميع التحضيرات المرسلة، وليس آخر تحضير لكل معلم فقط.
+    const {data:allPrepRows,error:allPrepErr}=await admin.from('school_kv').select('key,value').like('key','teacher_preparation:%');
+    if(allPrepErr) return res.status(500).json({error:allPrepErr.message});
+    const teacherNameMap=new Map((teachers||[]).map(t=>[String(t.auth_user_id),t.name||'معلم']));
+    const preparations=(allPrepRows||[]).map(x=>x.value).filter(p=>p&&['sent','viewed'].includes(p.status)).map(p=>({
+      ...p,
+      teacherId:String(p.teacherId||''),
+      teacherName:p.teacherName||teacherNameMap.get(String(p.teacherId||''))||'معلم'
+    })).sort((a,b)=>String(b.sentAt||b.savedAt||'').localeCompare(String(a.sentAt||a.savedAt||'')));
+    return res.status(200).json({teacher:{name:profile.name,email:profile.email},teachers:result,preparations});
   }
 
   return res.status(403).json({error:'This section is available to teachers and admin only'});
