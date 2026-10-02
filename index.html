@@ -3100,20 +3100,34 @@ function syncTeacherAcademicSelectors(prefix){
   const subject=document.getElementById(prefix+'Subject')?.value||'';
   const gradeEl=document.getElementById(prefix+'Grade'),sectionEl=document.getElementById(prefix+'Section');
   if(!gradeEl||!sectionEl)return;
+
+  // لا نعرض إلا الصفوف المسندة فعليًا للمادة المختارة لهذا المعلم.
   const grades=uniqueTeacherGrades(subject);
   gradeEl.innerHTML='<option value="">اختر الصف</option>'+grades.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('');
-  gradeEl.disabled=!subject;
+  gradeEl.disabled=!subject || !grades.length;
+
   sectionEl.innerHTML='<option value="">اختر الشعبة</option>';
   sectionEl.disabled=true;
+
+  // إذا كان للمادة صف واحد فقط نختاره تلقائيًا ثم نعرض شعبه المسندة فقط.
+  if(grades.length===1){
+    gradeEl.value=grades[0];
+    syncTeacherAcademicSections(prefix);
+  }
 }
 function syncTeacherAcademicSections(prefix){
   const subject=document.getElementById(prefix+'Subject')?.value||'';
   const grade=document.getElementById(prefix+'Grade')?.value||'';
   const sectionEl=document.getElementById(prefix+'Section');
   if(!sectionEl)return;
+
+  // لا نعرض إلا الشعب المسندة فعليًا لنفس المادة ونفس الصف.
   const sections=uniqueTeacherSections(subject,grade);
   sectionEl.innerHTML='<option value="">اختر الشعبة</option>'+sections.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('');
-  sectionEl.disabled=!grade;
+  sectionEl.disabled=!grade || !sections.length;
+
+  // إذا كانت شعبة واحدة فقط نختارها تلقائيًا.
+  if(sections.length===1) sectionEl.value=sections[0];
 }
 async function loadTeacherAcademicAssignments(){
   if(role!=='teacher')return;
@@ -3160,7 +3174,7 @@ function renderRolePages(){
       <div id="teacherAssignedSubjects" class="grid grid-3"><div class="card" style="grid-column:1/-1;text-align:center;color:var(--muted)">جاري تحميل المواد المسندة لك...</div></div>`;
 
     lessons.innerHTML=`
-      <div class="page-head"><div><h2>لوحة المعلم — إدارة الدروس 🎓</h2><p>هذه المساحة خاصة بالمعلم لإضافة الدروس وحذف محتواه.</p></div></div>
+      <div class="page-head"><div><h2>لوحة المعلم — إدارة الدروس 🎓</h2><p>اختر المادة، وبعدها ستظهر فقط الصفوف والشعب المسندة لك في هذه المادة.</p></div></div>
       <div class="teacher-tool">
         <h3>➕ إضافة درس جديد</h3>
         <div class="upload-row">
@@ -3179,7 +3193,7 @@ function renderRolePages(){
       </div>`;
 
     document.getElementById('quizzes').innerHTML=`
-      <div class="page-head"><div><h2>لوحة المعلم — إدارة الاختبارات ✅</h2><p>أنشئ اختبارًا جديدًا وحدد الصف والشعبة والموعد.</p></div></div>
+      <div class="page-head"><div><h2>لوحة المعلم — إدارة الاختبارات ✅</h2><p>اختر المادة، وبعدها ستظهر فقط الصفوف والشعب المسندة لك في هذه المادة.</p></div></div>
       <div class="teacher-tool">
         <h3>➕ إنشاء اختبار جديد</h3>
         <div class="upload-row">
