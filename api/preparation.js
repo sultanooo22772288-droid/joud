@@ -43,13 +43,31 @@ module.exports = async function handler(req,res){
       return res.status(403).json({error:'غير مصرح'});
     }
 
-    const keys=grades.map(g=>'preparation_curriculum:'+encodeURIComponent(subject)+':'+encodeURIComponent(g));
-    const {data:rows,error:rowsError}=await admin.from('school_kv').select('key,value').in('key',keys);
+    const norm=s=>String(s||'').trim().replace(/\s+/g,' ');
+    // اقرأ سجلات المناهج ثم طابق المادة والصف من داخل القيمة نفسها.
+    // هذا أكثر ثباتًا من الاعتماد على شكل ترميز المفتاح العربي (%D8...) فقط.
+    const {data:rows,error:rowsError}=await admin.from('school_kv')
+      .select('key,value')
+      .like('key','preparation_curriculum:%');
     if(rowsError) return res.status(500).json({error:rowsError.message});
-    const byKey=new Map((rows||[]).map(r=>[r.key,r.value||{}]));
+
+    const wantedSubject=norm(subject);
     const curriculum=grades.map(g=>{
-      const key='preparation_curriculum:'+encodeURIComponent(subject)+':'+encodeURIComponent(g);
-      const value=byKey.get(key)||{};
+      const wantedGrade=norm(g);
+      const row=(rows||[]).find(r=>{
+        const v=r?.value||{};
+        if(norm(v.subject)===wantedSubject && norm(v.grade)===wantedGrade) return true;
+        // توافق رجعي مع السجلات القديمة حتى لو لم تكن subject/grade داخل value.
+        const raw=String(r?.key||'').replace(/^preparation_curriculum:/,'');
+        const cut=raw.lastIndexOf(':');
+        if(cut<0) return false;
+        try{
+          const keySubject=norm(decodeURIComponent(raw.slice(0,cut)));
+          const keyGrade=norm(decodeURIComponent(raw.slice(cut+1)));
+          return keySubject===wantedSubject && keyGrade===wantedGrade;
+        }catch(_e){ return false; }
+      });
+      const value=row?.value||{};
       return {grade:g,units:Array.isArray(value.units)?value.units:[]};
     });
     return res.status(200).json({subject,curriculum});
