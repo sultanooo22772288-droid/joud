@@ -283,10 +283,18 @@ module.exports = async function handler(req, res) {
       const {error:profileDeleteError}=await admin.from('profiles').delete().eq('auth_user_id',authUserId);
       if(profileDeleteError) throw profileDeleteError;
 
-      const {error:authDeleteError}=await admin.auth.admin.deleteUser(authUserId);
-      if(authDeleteError) return res.status(400).json({error:authDeleteError.message||'تعذر حذف حساب الدخول.'});
+      let authMode='hard';
+      let {error:authDeleteError}=await admin.auth.admin.deleteUser(authUserId);
+      if(authDeleteError){
+        authMode='soft';
+        const softResult=await admin.auth.admin.deleteUser(authUserId,true);
+        authDeleteError=softResult.error;
+      }
+      if(authDeleteError){
+        return res.status(400).json({error:authDeleteError.message||'تعذر تعطيل حساب الدخول بعد إزالة سجل المعلم.'});
+      }
 
-      return res.status(200).json({ok:true});
+      return res.status(200).json({ok:true,auth_mode:authMode});
     }
 
     return res.status(400).json({ error: 'Unknown action' });
