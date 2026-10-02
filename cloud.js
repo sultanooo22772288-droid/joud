@@ -239,6 +239,28 @@
     return out;
   }
 
+  async function getPreparationRecord(recordId){
+    const token=await getAccessToken();
+    const r=await fetch('/api/preparation',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action:'get-record',recordId})});
+    const out=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(out.error||'تعذر تحميل التحضير المحفوظ.');
+    return out;
+  }
+  async function savePreparation(preparation){
+    const token=await getAccessToken();
+    const r=await fetch('/api/preparation',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action:'save-preparation',preparation})});
+    const out=await r.json().catch(()=>({}));
+    if(!r.ok){const e=new Error(out.error||'تعذر حفظ التحضير.');e.locked=!!out.locked;throw e;}
+    return out;
+  }
+  async function sendPreparation(preparation){
+    const token=await getAccessToken();
+    const r=await fetch('/api/preparation',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action:'send-preparation',preparation})});
+    const out=await r.json().catch(()=>({}));
+    if(!r.ok){const e=new Error(out.error||'تعذر إرسال التحضير للإدارة.');e.locked=!!out.locked;throw e;}
+    return out;
+  }
+
   async function loadProfiles(){
     const c=await init();
     const {data,error}=await c.from('profiles').select('*').order('id',{ascending:true});
@@ -606,7 +628,7 @@
   }
 
   window.NabdCloud={
-    init,signIn,signOut,changeOwnPassword,restoreSession,getAccessToken,loadProfiles,getPreparationContext,markPreparationViewed,getPreparationCurriculum,savePreparationCurriculum,generatePreparationAI,getReadyPreparation,createUser,updateUser,deleteUser,bulkCreateUsers,getAddLocks,loadAdminCredentials,syncOwnCredential,
+    init,signIn,signOut,changeOwnPassword,restoreSession,getAccessToken,loadProfiles,getPreparationContext,markPreparationViewed,getPreparationCurriculum,savePreparationCurriculum,generatePreparationAI,getReadyPreparation,getPreparationRecord,savePreparation,sendPreparation,createUser,updateUser,deleteUser,bulkCreateUsers,getAddLocks,loadAdminCredentials,syncOwnCredential,
     currentUser,uploadSchoolFile,signedSchoolFileUrl,
     createInteractiveHomework,listInteractiveHomeworks,deleteInteractiveHomework,
     submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,
