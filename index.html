@@ -2986,16 +2986,46 @@ async function renderPreparationPage(){
     return;
   }
   if(role==='admin'){
-    page.innerHTML=`
-      <div class="page-head"><div><h2>إدارة التحضير 🗂️</h2><p>متابعة التحضير وربطه بالمعلمين والمواد والصفوف والشعب.</p></div></div>
-      <div class="grid grid-3">
-        <div class="card"><h3 style="margin-top:0">المعلمون والتوزيع</h3><p style="color:var(--muted)">تم ربط قسم التحضير بحسابات المعلمين وتوزيع المادة ← الصف ← الشعبة.</p><span class="tag green">جاهز ✓</span></div>
-        <div class="card"><h3 style="margin-top:0">الوحدات والدروس</h3><p style="color:var(--muted)">الخطوة التالية هي إضافة عناوين الوحدات والدروس لكل مادة وصف.</p><span class="tag orange">التالي</span></div>
-        <div class="card"><h3 style="margin-top:0">تحضيرات المعلمين</h3><p style="color:var(--muted)">ستظهر هنا لاحقًا حالتا «مرسل للإدارة» و«تم الاطلاع».</p></div>
-      </div>`;
+    page.innerHTML='<div class="card" style="text-align:center;padding:28px;color:var(--muted)">جاري تحميل المعلمين وتوزيعهم...</div>';
+    try{
+      const ctx=await NabdCloud.getPreparationContext();
+      const teachers=ctx.teachers||[];
+      const rows=teachers.map(t=>{
+        const subjectRows=(t.assignments||[]).map(a=>{
+          const cls=(a.classes||[]).map(x=>`${esc(x.grade)} / ${esc(x.section)}`).join('، ');
+          return `<div style="padding:6px 0;border-bottom:1px dashed var(--line)"><b>${esc(a.subject||'—')}</b><div style="color:var(--muted);font-size:12px;margin-top:3px">${cls||'لا توجد صفوف وشعب'}</div></div>`;
+        }).join('');
+        const hasSent=!!t.latestPreparation;
+        const status=hasSent?(t.latestPreparation.status==='viewed'?'تم الاطلاع':'مرسل للإدارة'):'لا يوجد تحضير مرسل';
+        const statusCls=hasSent?(t.latestPreparation.status==='viewed'?'green':'orange'):'';
+        return `<tr style="border-top:1px solid var(--line)">
+          <td style="font-weight:800">${esc(t.name||'—')}</td>
+          <td>${subjectRows||'<span style="color:var(--muted)">لا يوجد توزيع مسجل</span>'}</td>
+          <td><span class="tag ${statusCls}">${esc(status)}</span></td>
+          <td>
+            ${hasSent
+              ? `<button class="btn primary" onclick="openTeacherPreparation('${encodeURIComponent(t.authUserId)}')">عرض التحضير</button>
+                 <button class="btn soft" onclick="markTeacherPreparationViewed('${encodeURIComponent(t.authUserId)}')">${t.latestPreparation.status==='viewed'?'تم الاطلاع ✓':'اعتماد / تم الاطلاع'}</button>`
+              : '<button class="btn soft" disabled>بانتظار إرسال التحضير</button>'}
+          </td>
+        </tr>`;
+      }).join('');
+      page.innerHTML=`
+        <div class="page-head"><div><h2>تحضيرات المعلمين 🗂️</h2><p>عرض المعلمين حسب المواد والصفوف والشعب، ومراجعة التحضيرات المرسلة للإدارة.</p></div></div>
+        <div class="card">
+          <div style="overflow:auto">
+            <table style="width:100%;min-width:850px;border-collapse:collapse">
+              <thead><tr><th>المعلم</th><th>المادة / الصفوف والشعب</th><th>حالة التحضير</th><th>الإجراء</th></tr></thead>
+              <tbody>${rows||'<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--muted)">لا يوجد معلمون مسجلون.</td></tr>'}</tbody>
+            </table>
+          </div>
+        </div>
+        <div id="adminPreparationViewer" style="margin-top:14px"></div>`;
+    }catch(e){
+      page.innerHTML='<div class="card"><h3>تعذر تحميل بيانات التحضير</h3><p style="color:#c0392b">'+esc(e.message||'حاول مرة أخرى')+'</p></div>';
+    }
     return;
   }
-
   page.innerHTML='<div class="card" style="text-align:center;padding:28px;color:var(--muted)">جاري تحميل توزيعك الأكاديمي...</div>';
   try{
     const ctx=await NabdCloud.getPreparationContext();
@@ -3023,6 +3053,34 @@ async function renderPreparationPage(){
   }catch(e){
     page.innerHTML='<div class="card"><h3>تعذر تحميل بيانات التحضير</h3><p style="color:#c0392b">'+esc(e.message||'حاول مرة أخرى')+'</p></div>';
   }
+}
+
+
+async function openTeacherPreparation(teacherIdEncoded){
+  const box=document.getElementById('adminPreparationViewer'); if(!box)return;
+  box.innerHTML='<div class="card" style="text-align:center;color:var(--muted)">جاري تحميل التحضير...</div>';
+  try{
+    const teacherId=decodeURIComponent(teacherIdEncoded||'');
+    const out=await NabdCloud.getPreparationContext({teacher_auth_user_id:teacherId});
+    if(!out.latestPreparation){
+      box.innerHTML='<div class="card">لا يوجد تحضير مرسل من هذا المعلم حتى الآن.</div>'; return;
+    }
+    const p=out.latestPreparation;
+    box.innerHTML=`<div class="card">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+        <h3 style="margin:0">${esc(p.title||'تحضير المعلم')}</h3>
+        <span class="tag ${p.status==='viewed'?'green':'orange'}">${p.status==='viewed'?'تم الاطلاع':'مرسل للإدارة'}</span>
+      </div>
+      <div style="margin-top:12px;line-height:1.9">${esc(p.content||'سيظهر محتوى التحضير هنا بعد تفعيل إنشاء وإرسال التحضير.').replace(/\n/g,'<br>')}</div>
+    </div>`;
+  }catch(e){ box.innerHTML='<div class="card" style="color:#c0392b">'+esc(e.message||'تعذر تحميل التحضير')+'</div>'; }
+}
+async function markTeacherPreparationViewed(teacherIdEncoded){
+  const teacherId=decodeURIComponent(teacherIdEncoded||'');
+  try{
+    await NabdCloud.markPreparationViewed(teacherId);
+    await renderPreparationPage();
+  }catch(e){ alert('تعذر تحديث حالة التحضير: '+(e.message||'')); }
 }
 
 function renderRolePages(){
