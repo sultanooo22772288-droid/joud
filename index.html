@@ -1507,6 +1507,7 @@ body[data-theme] .app-shell,body[data-theme] .login-screen{position:relative;z-i
       <section id="ai" class="page"></section>
       <section id="profile" class="page"></section>
       <section id="attendance" class="page"></section>
+      <section id="preparation" class="page"></section>
       <section id="themesAdmin" class="page"></section>
       <section id="announcementsAdmin" class="page"></section>
       <section id="studentsAdmin" class="page"></section>
@@ -1539,10 +1540,10 @@ const navByRole = {
   ],
   teacher:[
     ['dashboard','🏠','الرئيسية'],['subjects','📚','المواد'],['lessons','🎓','إدارة الدروس'],['assignments','📝','إدارة الواجبات'],
-    ['quizzes','✅','الاختبارات'],['attendance','📋','الحضور والغياب'],['progressPage','📊','تقارير الطلاب'],['schedule','🗓️','الجدول'],['notifications','🔔','الإشعارات'],['profile','👤','الملف الشخصي']
+    ['quizzes','✅','الاختبارات'],['preparation','🗂️','التحضير'],['attendance','📋','الحضور والغياب'],['progressPage','📊','تقارير الطلاب'],['schedule','🗓️','الجدول'],['notifications','🔔','الإشعارات'],['profile','👤','الملف الشخصي']
   ],
   admin:[
-    ['dashboard','🏠','الرئيسية'],['attendance','📋','الحضور والغياب'],['studentsAdmin','👨‍🎓','الطلاب'],['teachersAdmin','👨‍🏫','المعلمون'],['stagesAdmin','🏫','المراحل والصفوف'],
+    ['dashboard','🏠','الرئيسية'],['preparation','🗂️','التحضير'],['attendance','📋','الحضور والغياب'],['studentsAdmin','👨‍🎓','الطلاب'],['teachersAdmin','👨‍🏫','المعلمون'],['stagesAdmin','🏫','المراحل والصفوف'],
     ['subjects','📚','المواد'],['lessons','🎓','الدروس'],['assignments','📝','الواجبات'],['quizzes','✅','الاختبارات'],
     ['progressPage','📊','التقارير'],['schedule','🗓️','الجداول'],['notifications','🔔','الإشعارات'],['announcementsAdmin','📢','الإعلانات'],['themesAdmin','🎨','الثيمات'],['profile','⚙️','الإعدادات']
   ]
@@ -2976,6 +2977,54 @@ async function showAttendanceDetails(id){
  try{const rows=await NabdCloud.getAttendanceRecords(id); const absent=rows.filter(x=>x.status==='absent'); alert(absent.length?'الطلاب الغائبون:\n'+absent.map(x=>'• '+x.student_name).join('\n'):'لا يوجد غياب — جميع الطلاب حاضرون.');}catch(e){alert('تعذر تحميل التفاصيل: '+e.message);}
 }
 
+
+async function renderPreparationPage(){
+  const page=document.getElementById('preparation');
+  if(!page)return;
+  if(role==='student'){
+    page.innerHTML='<div class="card"><h3>هذه الصفحة خاصة بالمعلمين والإدارة.</h3></div>';
+    return;
+  }
+  if(role==='admin'){
+    page.innerHTML=`
+      <div class="page-head"><div><h2>إدارة التحضير 🗂️</h2><p>متابعة التحضير وربطه بالمعلمين والمواد والصفوف والشعب.</p></div></div>
+      <div class="grid grid-3">
+        <div class="card"><h3 style="margin-top:0">المعلمون والتوزيع</h3><p style="color:var(--muted)">تم ربط قسم التحضير بحسابات المعلمين وتوزيع المادة ← الصف ← الشعبة.</p><span class="tag green">جاهز ✓</span></div>
+        <div class="card"><h3 style="margin-top:0">الوحدات والدروس</h3><p style="color:var(--muted)">الخطوة التالية هي إضافة عناوين الوحدات والدروس لكل مادة وصف.</p><span class="tag orange">التالي</span></div>
+        <div class="card"><h3 style="margin-top:0">تحضيرات المعلمين</h3><p style="color:var(--muted)">ستظهر هنا لاحقًا حالتا «مرسل للإدارة» و«تم الاطلاع».</p></div>
+      </div>`;
+    return;
+  }
+
+  page.innerHTML='<div class="card" style="text-align:center;padding:28px;color:var(--muted)">جاري تحميل توزيعك الأكاديمي...</div>';
+  try{
+    const ctx=await NabdCloud.getPreparationContext();
+    const assignments=ctx.assignments||[];
+    const cards=assignments.map(a=>{
+      const cls=(a.classes||[]).map(x=>`${esc(x.grade)} — الشعبة (${esc(x.section)})`).join(' • ');
+      return `<div class="card" style="border-right:4px solid var(--primary)">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+          <h3 style="margin:0">${esc(a.subject||'مادة غير محددة')}</h3><span class="tag green">مسندة ✓</span>
+        </div>
+        <div style="margin-top:12px;color:var(--muted);line-height:1.9">${cls||'لا توجد صفوف وشعب مسندة.'}</div>
+      </div>`;
+    }).join('');
+    page.innerHTML=`
+      <div class="page-head"><div><h2>التحضير 🗂️</h2><p>هذه الصفحة مرتبطة بتوزيعك المسجل، لذلك لن تظهر لك إلا المواد والصفوف والشعب التي تدرّسها.</p></div></div>
+      <div class="card" style="margin-bottom:14px">
+        <strong>المعلم: ${esc(ctx.teacher?.name||'—')}</strong>
+        <div style="color:var(--muted);margin-top:5px">التوزيع الأكاديمي محمّل من بيانات الإدارة.</div>
+      </div>
+      <div class="grid grid-2">${cards||'<div class="card">لا توجد مواد مسندة لهذا الحساب حتى الآن.</div>'}</div>
+      <div class="card" style="margin-top:14px;background:#fafbff">
+        <h3 style="margin-top:0">الخطوة التالية</h3>
+        <p style="margin-bottom:0;color:var(--muted)">إضافة الوحدات وعناوين الدروس لكل مادة وصف، ثم نربط إنشاء التحضير بالذكاء الاصطناعي.</p>
+      </div>`;
+  }catch(e){
+    page.innerHTML='<div class="card"><h3>تعذر تحميل بيانات التحضير</h3><p style="color:#c0392b">'+esc(e.message||'حاول مرة أخرى')+'</p></div>';
+  }
+}
+
 function renderRolePages(){
   role=normalizeAccountRole(role);
   renderAdminManagement();
@@ -2985,6 +3034,7 @@ function renderRolePages(){
   renderAnnouncementsAdmin();
   renderAnnouncementTicker();
   renderAttendancePage();
+  renderPreparationPage();
   const lessons=document.getElementById('lessons');
   const assignments=document.getElementById('assignments');
   const subjects=document.getElementById('subjects');
