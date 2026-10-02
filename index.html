@@ -3144,7 +3144,7 @@ async function loadTeacherAcademicAssignments(){
       }).join(''):'<div class="card" style="grid-column:1/-1">لا توجد مواد مسندة لهذا الحساب.</div>';
     }
 
-    ['lesson','quiz'].forEach(prefix=>{
+    ['lesson','quiz','hw'].forEach(prefix=>{
       const el=document.getElementById(prefix+'Subject');
       if(el)el.innerHTML='<option value="">اختر المادة</option>'+subjects.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('');
     });
@@ -3248,17 +3248,14 @@ function renderRolePages(){
       </div>`;
 
     assignments.innerHTML=`
-      <div class="page-head"><div><h2>لوحة المعلم — إدارة الواجبات 📝</h2><p>أنشئ الواجبات والأسئلة وتابع تسليم الطلاب.</p></div></div>
+      <div class="page-head"><div><h2>لوحة المعلم — إدارة الواجبات 📝</h2><p>اختر المادة، وبعدها ستظهر فقط الصفوف والشعب المسندة لك في هذه المادة.</p></div></div>
       <div class="teacher-tool">
         <h3>➕ إنشاء واجب جديد</h3>
         <div class="upload-row">
           <input id="hwTitle" placeholder="عنوان الواجب">
-          <select id="hwGrade">
-            <option value="روضة">روضة</option><option value="تمهيدي">تمهيدي</option>
-            <option value="الصف الأول">الصف الأول</option><option value="الصف الثاني">الصف الثاني</option>
-            <option value="الصف الثالث">الصف الثالث</option><option value="الصف الرابع">الصف الرابع</option>
-          </select>
-          <select id="hwSection"><option>أ</option><option>ب</option><option>ج</option><option>د</option></select>
+          <select id="hwSubject" aria-label="المادة" onchange="syncTeacherAcademicSelectors('hw')"><option value="">اختر المادة</option></select>
+          <select id="hwGrade" aria-label="الصف" onchange="syncTeacherAcademicSections('hw')" disabled><option value="">اختر الصف</option></select>
+          <select id="hwSection" aria-label="الشعبة" disabled><option value="">اختر الشعبة</option></select>
           <input id="hwDue" type="datetime-local">
         </div>
         <textarea id="hwDesc" rows="3" placeholder="تعليمات الواجب..." style="width:100%;margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:13px"></textarea>
@@ -3801,7 +3798,7 @@ async function publishSmartHomework(){
     if(status) status.textContent='جاري النشر في السحابة...';
     const teacher=demoData.teachers.find(x=>String(x.email||'').toLowerCase()===String(currentLoginEmail||'').toLowerCase());
     await NabdCloud.createTeacherHomework({
-      title,description,grade,section,due_at:due,questions,mode,attachment,
+      title,subject,description,grade,section,due_at:due,questions,mode,attachment,
       max_score:questions.reduce((s,q)=>s+(Number(q.points)||1),0)
     });
     homeworkQuestionDraft=[];
