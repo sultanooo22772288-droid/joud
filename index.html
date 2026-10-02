@@ -3636,6 +3636,8 @@ async function markTeacherPreparationViewed(teacherIdEncoded,recordIdEncoded='')
 }
 
 let myPreparationsCache=[];
+let myPreparationsFiltered=[];
+let myPreparationsSelected=new Set();
 
 function myPrepStatusInfo(status){
   if(status==='viewed') return {label:'تم الاطلاع عليه 🔒',cls:'green'};
@@ -3647,111 +3649,89 @@ function myPrepFormatSavedAt(v){
   const d=new Date(v); if(Number.isNaN(d.getTime()))return '';
   return d.toLocaleString('ar-OM',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
 }
+function myPrepSections(p){return Array.isArray(p.sections)?p.sections.map(String):[];}
 async function renderMyPreparationsPage(){
   const page=document.getElementById('myPreparations');if(!page)return;
   if(role!=='teacher'){page.innerHTML='<div class="card"><h3>هذه الصفحة خاصة بالمعلمين.</h3></div>';return;}
   page.innerHTML='<div class="card" style="text-align:center;padding:28px;color:var(--muted)">جاري تحميل تحضيراتك المحفوظة...</div>';
   try{
     const out=await NabdCloud.listMyPreparations();
-    myPreparationsCache=Array.isArray(out.preparations)?out.preparations:[];
-    const subjects=[...new Set(myPreparationsCache.map(x=>String(x.subject||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
-    page.innerHTML=
-      '<style>'+
-      '.myprep-toolbar{display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:10px;margin-bottom:14px}'+
-      '.myprep-toolbar input,.myprep-toolbar select{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#fff}'+
-      '.myprep-list{display:grid;gap:12px}.myprep-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow)}'+
-      '.myprep-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}.myprep-title{font-size:17px;font-weight:900;color:var(--text)}'+
-      '.myprep-meta{display:flex;gap:8px 14px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:7px}.myprep-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px;padding-top:12px;border-top:1px dashed var(--line)}'+
-      '.myprep-actions .btn{padding:9px 12px}@media(max-width:800px){.myprep-toolbar{grid-template-columns:1fr 1fr}.myprep-toolbar .full-mobile{grid-column:1/-1}}@media(max-width:520px){.myprep-toolbar{grid-template-columns:1fr}}'+
+    myPreparationsCache=(Array.isArray(out.preparations)?out.preparations:[]).sort((x,y)=>new Date(y.savedAt||y.sentAt||y.createdAt||0)-new Date(x.savedAt||x.sentAt||x.createdAt||0));
+    myPreparationsSelected.clear();
+    const vals=k=>[...new Set(myPreparationsCache.map(x=>String(x[k]||'')).filter(Boolean))].sort((x,y)=>x.localeCompare(y,'ar'));
+    const subjects=vals('subject'),grades=vals('grade');
+    page.innerHTML='<style>'+
+      '.myprep-toolbar{display:grid;grid-template-columns:1.4fr repeat(4,1fr) auto;gap:10px;margin-bottom:12px}.myprep-toolbar input,.myprep-toolbar select{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#fff}'+
+      '.myprep-bulk{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--line)}.myprep-list{display:grid;gap:12px}.myprep-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow)}'+
+      '.myprep-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}.myprep-title-row{display:flex;gap:10px;align-items:flex-start}.myprep-title{font-size:17px;font-weight:900;color:var(--text)}.myprep-check{width:19px;height:19px;margin-top:2px;accent-color:var(--primary)}'+
+      '.myprep-meta{display:flex;gap:8px 14px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:7px}.myprep-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px;padding-top:12px;border-top:1px dashed var(--line)}.myprep-actions .btn{padding:9px 12px}'+
+      '@media(max-width:900px){.myprep-toolbar{grid-template-columns:1fr 1fr 1fr}.myprep-toolbar .full-mobile{grid-column:1/-1}}@media(max-width:560px){.myprep-toolbar{grid-template-columns:1fr}.myprep-bulk .btn{flex:1 1 45%}}'+
       '</style>'+
-      '<div class="page-head"><div><h2>تحضيراتي 📁</h2><p>كل تحضير تحفظه في المنصة يظهر هنا باسم الوحدة والدرس والتاريخ، ويمكنك فتحه أو طباعته أو تصديره PDF.</p></div><button class="btn primary" onclick="showPage(\'preparation\')">➕ تحضير جديد</button></div>'+
+      '<div class="page-head"><div><h2>تحضيراتي 📁</h2><p>اختر الصف والشعبة أو أي مجموعة من التحضيرات، ثم صدّرها أو أرسلها للإدارة دفعة واحدة.</p></div><button class="btn primary" onclick="showPage(\'preparation\')">➕ تحضير جديد</button></div>'+
       '<div class="card" style="margin-bottom:14px"><div class="myprep-toolbar">'+
       '<input id="myPrepSearch" class="full-mobile" placeholder="ابحث باسم الوحدة أو الدرس..." oninput="filterMyPreparations()">'+
+      '<select id="myPrepGradeFilter" onchange="syncMyPrepSectionFilter();filterMyPreparations()"><option value="">كل الصفوف</option>'+grades.map(g=>'<option value="'+esc(g)+'">'+esc(g)+'</option>').join('')+'</select>'+
+      '<select id="myPrepSectionFilter" onchange="filterMyPreparations()"><option value="">كل الشعب</option></select>'+
       '<select id="myPrepSubjectFilter" onchange="filterMyPreparations()"><option value="">كل المواد</option>'+subjects.map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join('')+'</select>'+
       '<select id="myPrepStatusFilter" onchange="filterMyPreparations()"><option value="">كل الحالات</option><option value="saved">محفوظ</option><option value="sent">مرسل للإدارة</option><option value="viewed">تم الاطلاع عليه</option></select>'+
-      '<button class="btn soft" onclick="renderMyPreparationsPage()">↻ تحديث</button></div><div id="myPrepCount" style="font-size:12px;color:var(--muted)"></div></div>'+
+      '<button class="btn soft" onclick="renderMyPreparationsPage()">↻ تحديث</button></div>'+
+      '<div class="myprep-bulk"><label style="display:flex;align-items:center;gap:7px;font-weight:800"><input id="myPrepSelectAll" type="checkbox" class="myprep-check" onchange="toggleAllMyPreparations(this.checked)"> تحديد كل النتائج الظاهرة</label>'+
+      '<span id="myPrepCount" style="font-size:12px;color:var(--muted)"></span><span id="myPrepSelectedCount" style="font-size:12px;font-weight:800"></span>'+
+      '<button class="btn primary" onclick="sendSelectedMyPreparations()">📨 إرسال المحدد للإدارة</button><button class="btn soft" onclick="exportSelectedMyPreparationsPdf()">📄 تصدير المحدد PDF</button><button class="btn soft" onclick="printSelectedMyPreparations()">🖨️ طباعة المحدد</button></div></div>'+
       '<div id="myPreparationsList" class="myprep-list"></div>';
-    filterMyPreparations();
+    syncMyPrepSectionFilter();filterMyPreparations();
   }catch(e){page.innerHTML='<div class="card" style="color:#c0392b">تعذر تحميل تحضيراتك: '+esc(e.message||'')+'</div>';}
+}
+function syncMyPrepSectionFilter(){
+  const el=document.getElementById('myPrepSectionFilter');if(!el)return;
+  const grade=String(document.getElementById('myPrepGradeFilter')?.value||''),old=el.value;
+  const sections=[...new Set(myPreparationsCache.filter(p=>!grade||String(p.grade||'')===grade).flatMap(myPrepSections))].sort((a,b)=>a.localeCompare(b,'ar'));
+  el.innerHTML='<option value="">كل الشعب</option>'+sections.map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join('');
+  if(sections.includes(old))el.value=old;
 }
 function filterMyPreparations(){
   const box=document.getElementById('myPreparationsList');if(!box)return;
-  const q=String(document.getElementById('myPrepSearch')?.value||'').trim().toLowerCase();
-  const subject=String(document.getElementById('myPrepSubjectFilter')?.value||'');
-  const status=String(document.getElementById('myPrepStatusFilter')?.value||'');
-  const list=myPreparationsCache.filter(p=>{
-    const hay=[p.subject,p.grade,p.unit,p.lesson,p.date,(p.sections||[]).join(' ')].join(' ').toLowerCase();
-    return (!q||hay.includes(q))&&(!subject||p.subject===subject)&&(!status||p.status===status);
-  });
-  const count=document.getElementById('myPrepCount');if(count)count.textContent='عدد التحضيرات: '+list.length;
-  if(!list.length){box.innerHTML='<div class="card" style="text-align:center;color:var(--muted);padding:30px">لا توجد تحضيرات مطابقة. احفظ تحضيرًا من صفحة «التحضير» وسيظهر هنا مباشرة.</div>';return;}
-  box.innerHTML=list.map(p=>{
-    const s=myPrepStatusInfo(p.status);
-    const rid=encodeURIComponent(p.recordId||'');
-    let extra='';
-    if(p.status==='saved') extra='<button class="btn soft" onclick="sendMyPreparationFromLibrary(\''+rid+'\')">📨 إرسال للإدارة</button>';
-    return '<div class="myprep-card"><div class="myprep-card-head"><div>'+
-      '<div class="myprep-title">📘 '+esc(p.unit||'بدون وحدة')+' — '+esc(p.lesson||p.title||'بدون عنوان')+'</div>'+
-      '<div class="myprep-meta"><span>📚 '+esc(p.subject||'')+'</span><span>🏫 '+esc(p.grade||'')+'</span><span>👥 '+esc((p.sections||[]).join('، ')||'—')+'</span><span>📅 '+esc(p.date||'')+'</span><span>🕐 آخر حفظ: '+esc(myPrepFormatSavedAt(p.savedAt||p.sentAt||p.createdAt))+'</span></div>'+
-      '</div><span class="tag '+s.cls+'">'+s.label+'</span></div>'+
-      '<div class="myprep-actions"><button class="btn primary" onclick="openMyPreparation(\''+rid+'\')">'+(p.status==='viewed'?'👁️ فتح للقراءة':'✏️ فتح وتعديل')+'</button>'+
-      extra+
-      '<button class="btn soft" onclick="exportMyPreparationPdf(\''+rid+'\')">📄 PDF</button>'+
-      '<button class="btn soft" onclick="printMyPreparation(\''+rid+'\')">🖨️ طباعة</button></div></div>';
-  }).join('');
+  const q=String(document.getElementById('myPrepSearch')?.value||'').trim().toLowerCase(),grade=String(document.getElementById('myPrepGradeFilter')?.value||''),section=String(document.getElementById('myPrepSectionFilter')?.value||''),subject=String(document.getElementById('myPrepSubjectFilter')?.value||''),status=String(document.getElementById('myPrepStatusFilter')?.value||'');
+  myPreparationsFiltered=myPreparationsCache.filter(p=>{const hay=[p.subject,p.grade,p.unit,p.lesson,p.date,myPrepSections(p).join(' ')].join(' ').toLowerCase();return(!q||hay.includes(q))&&(!grade||String(p.grade||'')===grade)&&(!section||myPrepSections(p).includes(section))&&(!subject||p.subject===subject)&&(!status||p.status===status);});
+  const visible=new Set(myPreparationsFiltered.map(p=>String(p.recordId||'')));[...myPreparationsSelected].forEach(id=>{if(!visible.has(id))myPreparationsSelected.delete(id);});
+  const count=document.getElementById('myPrepCount');if(count)count.textContent='النتائج: '+myPreparationsFiltered.length;
+  renderMyPreparationsList();
 }
-function findMyPreparation(recordIdEncoded){
-  const id=decodeURIComponent(recordIdEncoded||'');
-  return myPreparationsCache.find(x=>String(x.recordId||'')===id)||null;
+function renderMyPreparationsList(){
+  const box=document.getElementById('myPreparationsList');if(!box)return;
+  const selectedCount=document.getElementById('myPrepSelectedCount');if(selectedCount)selectedCount.textContent='المحدد: '+myPreparationsSelected.size;
+  const all=document.getElementById('myPrepSelectAll');if(all){all.checked=!!myPreparationsFiltered.length&&myPreparationsFiltered.every(p=>myPreparationsSelected.has(String(p.recordId||'')));all.indeterminate=myPreparationsSelected.size>0&&!all.checked;}
+  if(!myPreparationsFiltered.length){box.innerHTML='<div class="card" style="text-align:center;color:var(--muted);padding:30px">لا توجد تحضيرات مطابقة للاختيار الحالي.</div>';return;}
+  box.innerHTML=myPreparationsFiltered.map(p=>{const s=myPrepStatusInfo(p.status),id=String(p.recordId||''),rid=encodeURIComponent(id);let extra='';if(p.status==='saved')extra='<button class="btn soft" onclick="sendMyPreparationFromLibrary(\''+rid+'\')">📨 إرسال للإدارة</button>';return '<div class="myprep-card"><div class="myprep-card-head"><div class="myprep-title-row"><input class="myprep-check" type="checkbox" '+(myPreparationsSelected.has(id)?'checked':'')+' onchange="toggleMyPreparationSelection(\''+rid+'\',this.checked)"><div><div class="myprep-title">📘 '+esc(p.unit||'بدون وحدة')+' — '+esc(p.lesson||p.title||'بدون عنوان')+'</div><div class="myprep-meta"><span>📚 '+esc(p.subject||'')+'</span><span>🏫 '+esc(p.grade||'')+'</span><span>👥 '+esc(myPrepSections(p).join('، ')||'—')+'</span><span>📅 '+esc(p.date||'')+'</span><span>🕐 آخر حفظ: '+esc(myPrepFormatSavedAt(p.savedAt||p.sentAt||p.createdAt))+'</span></div></div></div><span class="tag '+s.cls+'">'+s.label+'</span></div><div class="myprep-actions"><button class="btn primary" onclick="openMyPreparation(\''+rid+'\')">'+(p.status==='viewed'?'👁️ فتح للقراءة':'✏️ فتح وتعديل')+'</button>'+extra+'<button class="btn soft" onclick="exportMyPreparationPdf(\''+rid+'\')">📄 PDF</button><button class="btn soft" onclick="printMyPreparation(\''+rid+'\')">🖨️ طباعة</button></div></div>';}).join('');
+}
+function toggleMyPreparationSelection(rid,checked){const id=decodeURIComponent(rid||'');if(checked)myPreparationsSelected.add(id);else myPreparationsSelected.delete(id);renderMyPreparationsList();}
+function toggleAllMyPreparations(checked){myPreparationsFiltered.forEach(p=>{const id=String(p.recordId||'');if(checked)myPreparationsSelected.add(id);else myPreparationsSelected.delete(id);});renderMyPreparationsList();}
+function selectedMyPreparations(){return myPreparationsCache.filter(p=>myPreparationsSelected.has(String(p.recordId||'')));}
+function findMyPreparation(recordIdEncoded){const id=decodeURIComponent(recordIdEncoded||'');return myPreparationsCache.find(x=>String(x.recordId||'')===id)||null;}
+async function sendMyPreparationFromLibrary(recordIdEncoded){const p=findMyPreparation(recordIdEncoded);if(!p)return;if(p.status==='viewed'){alert('تم الاطلاع على هذا التحضير من الإدارة وهو مقفل.');return;}try{await NabdCloud.sendPreparation(p);await renderMyPreparationsPage();}catch(e){alert('تعذر إرسال التحضير: '+(e.message||''));}}
+async function sendSelectedMyPreparations(){
+  const list=selectedMyPreparations().filter(p=>p.status!=='viewed');if(!list.length){alert('حدد تحضيرًا واحدًا على الأقل قابلًا للإرسال.');return;}
+  if(!confirm('سيتم إرسال '+list.length+' تحضير/تحضيرات إلى الإدارة. هل تريد المتابعة؟'))return;
+  let ok=0,fail=0;for(const p of list){try{await NabdCloud.sendPreparation(p);ok++;}catch(e){fail++;}}
+  alert('تم إرسال '+ok+' تحضير'+(fail?'، وتعذر إرسال '+fail:'')+'.');await renderMyPreparationsPage();
 }
 async function openMyPreparation(recordIdEncoded){
-  const p=findMyPreparation(recordIdEncoded);if(!p){alert('تعذر العثور على التحضير.');return;}
-  showPage('preparation');
-  await renderPreparationPage();
-  const idx=prepTeacherAssignments.findIndex(a=>String(a.subject||'')===String(p.subject||''));
-  if(idx<0){alert('هذه المادة لم تعد ضمن توزيعك الحالي.');return;}
-  selectPrepSubject(idx);
-  prepSelectedGrades=new Set([String(p.grade||'')]);
-  document.querySelectorAll('#prepGrades .prep-chip').forEach(b=>b.classList.toggle('active',String(b.dataset.grade||'')===String(p.grade||'')));
-  renderPrepSections();
-  const designer=document.getElementById('prepDesigner');if(designer)designer.style.display='block';
-  await loadPrepCurriculum();
-  const unitSel=document.getElementById('prepUnit');if(!unitSel)return;
-  let unitValue='';
-  for(const opt of [...unitSel.options]){if(String(opt.textContent||'').replace(/^.*?—\s*/,'').trim()===String(p.unit||'').trim()){unitValue=opt.value;break;}}
-  if(!unitValue){alert('لم أجد الوحدة المحفوظة ضمن المنهج الحالي.');return;}
-  unitSel.value=unitValue;prepUnitChanged();
-  const dateEl=document.getElementById('prepDate');if(dateEl)dateEl.value=p.date||dateEl.value;
-  const lessonSel=document.getElementById('prepLesson');let lessonValue='';
-  for(const opt of [...lessonSel.options]){if(String(opt.textContent||'').trim()===String(p.lesson||'').trim()){lessonValue=opt.value;break;}}
-  if(lessonValue===''){alert('لم أجد الدرس المحفوظ ضمن الوحدة الحالية.');return;}
-  lessonSel.value=lessonValue;
-  prepSelectedClasses=new Set((p.sections||[]).map(s=>String(p.grade||'')+'||'+String(s)));
-  document.querySelectorAll('#prepSections .prep-chip').forEach(b=>b.classList.toggle('active',prepSelectedClasses.has(String(b.dataset.class||''))));
-  syncPrepSectionSummary();
-  await loadReadyPreparation();
-  window.scrollTo({top:document.getElementById('prepDesigner')?.offsetTop||0,behavior:'smooth'});
+  const p=findMyPreparation(recordIdEncoded);if(!p){alert('تعذر العثور على التحضير.');return;}showPage('preparation');await renderPreparationPage();
+  const idx=prepTeacherAssignments.findIndex(a=>String(a.subject||'')===String(p.subject||''));if(idx<0){alert('هذه المادة لم تعد ضمن توزيعك الحالي.');return;}selectPrepSubject(idx);prepSelectedGrades=new Set([String(p.grade||'')]);document.querySelectorAll('#prepGrades .prep-chip').forEach(b=>b.classList.toggle('active',String(b.dataset.grade||'')===String(p.grade||'')));renderPrepSections();const designer=document.getElementById('prepDesigner');if(designer)designer.style.display='block';await loadPrepCurriculum();const unitSel=document.getElementById('prepUnit');if(!unitSel)return;let unitValue='';for(const opt of [...unitSel.options]){if(String(opt.textContent||'').replace(/^.*?—\s*/,'').trim()===String(p.unit||'').trim()){unitValue=opt.value;break;}}if(!unitValue){alert('لم أجد الوحدة المحفوظة ضمن المنهج الحالي.');return;}unitSel.value=unitValue;prepUnitChanged();const dateEl=document.getElementById('prepDate');if(dateEl)dateEl.value=p.date||dateEl.value;const lessonSel=document.getElementById('prepLesson');let lessonValue='';for(const opt of [...lessonSel.options]){if(String(opt.textContent||'').trim()===String(p.lesson||'').trim()){lessonValue=opt.value;break;}}if(lessonValue===''){alert('لم أجد الدرس المحفوظ ضمن الوحدة الحالية.');return;}lessonSel.value=lessonValue;prepSelectedClasses=new Set(myPrepSections(p).map(s=>String(p.grade||'')+'||'+String(s)));document.querySelectorAll('#prepSections .prep-chip').forEach(b=>b.classList.toggle('active',prepSelectedClasses.has(String(b.dataset.class||''))));syncPrepSectionSummary();await loadReadyPreparation();window.scrollTo({top:document.getElementById('prepDesigner')?.offsetTop||0,behavior:'smooth'});
 }
-async function sendMyPreparationFromLibrary(recordIdEncoded){
-  const p=findMyPreparation(recordIdEncoded);if(!p)return;
-  if(p.status==='viewed'){alert('تم الاطلاع على هذا التحضير من الإدارة وهو مقفل.');return;}
-  try{await NabdCloud.sendPreparation(p);await renderMyPreparationsPage();}catch(e){alert('تعذر إرسال التحضير: '+(e.message||''));}
+async function exportMyPreparationPdf(recordIdEncoded){const p=findMyPreparation(recordIdEncoded);if(!p)return;if(typeof html2pdf==='undefined'){alert('تعذر تحميل أداة PDF. تأكد من اتصال الإنترنت ثم أعد المحاولة.');return;}const holder=document.createElement('div');holder.style.position='fixed';holder.style.left='-10000px';holder.style.top='0';holder.style.background='#fff';holder.innerHTML=buildPreparationDocumentHtml(p);document.body.appendChild(holder);try{await html2pdf().set({margin:0,filename:prepPdfFileName(p),image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',letterRendering:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}}).from(holder.firstElementChild).save();}catch(e){alert('تعذر تصدير PDF: '+(e.message||''));}finally{holder.remove();}}
+async function exportSelectedMyPreparationsPdf(){
+  const list=selectedMyPreparations();if(!list.length){alert('حدد التحضيرات التي تريد تصديرها.');return;}if(typeof html2pdf==='undefined'){alert('تعذر تحميل أداة PDF.');return;}
+  const holder=document.createElement('div');holder.style.position='fixed';holder.style.left='-10000px';holder.style.top='0';holder.style.background='#fff';holder.innerHTML='<div>'+list.map((p,i)=>'<div style="'+(i?'page-break-before:always;':'')+'">'+buildPreparationDocumentHtml(p)+'</div>').join('')+'</div>';document.body.appendChild(holder);
+  const grade=document.getElementById('myPrepGradeFilter')?.value||'الكل',section=document.getElementById('myPrepSectionFilter')?.value||'الكل';
+  try{await html2pdf().set({margin:0,filename:'تحضيرات-'+grade+'-'+section+'.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',letterRendering:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}}).from(holder.firstElementChild).save();}catch(e){alert('تعذر تصدير PDF: '+(e.message||''));}finally{holder.remove();}
 }
-async function exportMyPreparationPdf(recordIdEncoded){
-  const p=findMyPreparation(recordIdEncoded);if(!p)return;
-  if(typeof html2pdf==='undefined'){alert('تعذر تحميل أداة PDF. تأكد من اتصال الإنترنت ثم أعد المحاولة.');return;}
-  const holder=document.createElement('div');holder.style.position='fixed';holder.style.left='-10000px';holder.style.top='0';holder.style.background='#fff';
-  holder.innerHTML=buildPreparationDocumentHtml(p);document.body.appendChild(holder);
-  try{await html2pdf().set({margin:0,filename:prepPdfFileName(p),image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',letterRendering:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}}).from(holder.firstElementChild).save();}
-  catch(e){alert('تعذر تصدير PDF: '+(e.message||''));}finally{holder.remove();}
-}
-function printMyPreparation(recordIdEncoded){
-  const p=findMyPreparation(recordIdEncoded);if(!p)return;
+function printMyPreparation(recordIdEncoded){const p=findMyPreparation(recordIdEncoded);if(!p)return;printMyPreparationList([p]);}
+function printSelectedMyPreparations(){const list=selectedMyPreparations();if(!list.length){alert('حدد التحضيرات التي تريد طباعتها.');return;}printMyPreparationList(list);}
+function printMyPreparationList(list){
   const w=window.open('','_blank','width=1000,height=820');if(!w){alert('تعذر فتح نافذة الطباعة. يرجى السماح بالنوافذ المنبثقة.');return;}
-  const html='<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>'+prepEscHtml(p.unit+' - '+p.lesson)+'</title>'+
-    '<style>@page{size:A4 portrait;margin:8mm}*{box-sizing:border-box}body{margin:0;background:#fff;font-family:Tajawal,Arial,sans-serif;color:#18233a}#prepPdfDocument{width:100%!important;padding:0!important}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>'+
-    buildPreparationDocumentHtml(p)+'<script>window.onload=()=>setTimeout(()=>window.print(),250);<\/script></body></html>';
-  w.document.write(html);w.document.close();
+  const docs=list.map((p,i)=>'<div style="'+(i?'page-break-before:always;':'')+'">'+buildPreparationDocumentHtml(p)+'</div>').join('');
+  const html='<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>تحضيراتي</title><style>@page{size:A4 portrait;margin:8mm}*{box-sizing:border-box}body{margin:0;background:#fff;font-family:Tajawal,Arial,sans-serif;color:#18233a}#prepPdfDocument{width:100%!important;padding:0!important}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>'+docs+'<script>window.onload=()=>setTimeout(()=>window.print(),250);<\/script></body></html>';w.document.write(html);w.document.close();
 }
 
 
