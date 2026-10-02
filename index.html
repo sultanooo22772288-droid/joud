@@ -3097,9 +3097,10 @@ async function renderPreparationPage(){
         </div>
 
         <div id="prepDesigner" style="display:none">
-          <div class="prep-toolbar" style="margin-bottom:12px;justify-content:flex-start">
+          <div class="prep-toolbar" style="margin-bottom:10px;justify-content:flex-start">
             <button class="btn primary" onclick="generatePreparationAI()" style="font-size:15px;padding:11px 18px">✨ توليد التحضير بالذكاء الاصطناعي</button>
           </div>
+          <div id="prepAiStatus" style="display:none;margin-bottom:12px;padding:11px 13px;border-radius:11px;background:#eef6ff;color:#255a9a;font-weight:800"></div>
           <div class="card" style="margin-bottom:12px">
             <div class="prep-meta-grid">
               <div class="prep-field"><label>عنوان الدرس — تلقائي</label><input id="prepTitle" readonly placeholder="يظهر تلقائيًا بعد اختيار الدرس"></div>
@@ -3268,11 +3269,97 @@ function prepLessonChanged(){
   const title=document.getElementById('prepTitle');
   if(title) title.value=lesson?.selectedOptions?.[0]?.textContent||'';
 }
-function generatePreparationAI(){
+async function generatePreparationAI(){
   if(!prepSelectedSubject){alert('اختر المادة أولاً.');return;}
   if(!prepSelectedGrades.size){alert('اختر الصف أو الصفوف أولاً.');return;}
   if(!prepSelectedClasses.size){alert('اختر الشعبة أو الشعب أولاً.');return;}
-  alert('واجهة التحضير أصبحت جاهزة. في الخطوة التالية سنربط الوحدات وعناوين الدروس، وبعدها التوليد الحقيقي بالذكاء الاصطناعي.');
+
+  const unitEl=document.getElementById('prepUnit');
+  const lessonEl=document.getElementById('prepLesson');
+  if(!unitEl?.value){alert('اختر الوحدة أولاً.');return;}
+  if(!lessonEl?.value){alert('اختر الدرس أولاً.');return;}
+
+  const [gradeEnc,idxRaw]=String(unitEl.value).split('::');
+  const grade=decodeURIComponent(gradeEnc||'');
+  const row=prepCurriculumRows.find(x=>String(x.grade||'')===grade);
+  const unitObj=row?.units?.[Number(idxRaw)];
+  const lessonObj=unitObj?.lessons?.[Number(lessonEl.value)];
+  const unitTitle=String(unitObj?.title||unitEl.selectedOptions?.[0]?.textContent||'').replace(/^.*?—\s*/,'').trim();
+  const lessonTitle=String(lessonObj?.title||lessonEl.selectedOptions?.[0]?.textContent||'').trim();
+
+  if(!grade||!unitTitle||!lessonTitle){alert('تعذر قراءة بيانات الوحدة أو الدرس. أعد الاختيار.');return;}
+
+  const sections=[...prepSelectedClasses]
+    .map(x=>x.split('||'))
+    .filter(([g])=>g===grade)
+    .map(([,s])=>s)
+    .filter(Boolean);
+
+  if(!sections.length){
+    alert('اختر شعبة واحدة على الأقل تابعة للصف الخاص بالدرس المختار.');
+    return;
+  }
+
+  const status=document.getElementById('prepAiStatus');
+  const buttons=[...document.querySelectorAll('button')].filter(b=>String(b.getAttribute('onclick')||'').includes('generatePreparationAI()'));
+  buttons.forEach(b=>{b.disabled=true;b.dataset.oldText=b.textContent;b.textContent='⏳ جاري توليد التحضير...';});
+  if(status){status.style.display='block';status.textContent='🤖 الذكاء الاصطناعي يجهز التحضير لكل خانة بما يناسب المادة والصف والدرس...';}
+
+  try{
+    const out=await NabdCloud.generatePreparationAI({
+      subject:prepSelectedSubject,
+      grade,
+      unit:unitTitle,
+      lesson:lessonTitle,
+      sections,
+      date:document.getElementById('prepDate')?.value||'',
+      period:document.getElementById('prepPeriod')?.value||'1'
+    });
+    const d=out.data||{};
+
+    const setVal=(id,val)=>{
+      const el=document.getElementById(id);
+      if(el) el.value=String(val||'').trim();
+    };
+    setVal('prepPrior',d.prior);
+    setVal('prepIntro',d.intro);
+    setVal('prepConcepts',d.concepts);
+    setVal('prepObjectives',d.objectives);
+    setVal('prepActivities',d.activities);
+    setVal('prepResources',d.resources);
+    setVal('prepFormative',d.formative);
+    setVal('prepEnrichment',d.enrichment);
+    setVal('prepSummative',d.summative);
+    setVal('prepHomework',d.homework);
+    setVal('prepTeacherNotes',d.teacherNotes);
+    setVal('prepOutcomeNums',d.outcomeNums);
+
+    const wanted=new Set((d.strategies||[]).map(x=>String(x||'').trim()));
+    document.querySelectorAll('.prepStrategy').forEach(ch=>{
+      ch.checked=wanted.has(String(ch.value||'').trim());
+    });
+    const known=new Set([...document.querySelectorAll('.prepStrategy')].map(ch=>String(ch.value||'').trim()));
+    const extras=[...wanted].filter(x=>!known.has(x));
+    setVal('prepStrategyOther',extras.join('، '));
+
+    setVal('prepTitle',lessonTitle);
+    setVal('prepSectionSummary',sections.map(s=>grade+' / '+s).join('، '));
+
+    if(status){
+      status.style.background='#ecfff3';
+      status.style.color='#176b3a';
+      status.textContent='✅ تم توليد التحضير بنجاح. راجع الخانات وعدّل أي جزء تريده قبل الحفظ أو الإرسال.';
+    }
+  }catch(e){
+    if(status){
+      status.style.background='#fff0f0';
+      status.style.color='#a93226';
+      status.textContent='❌ '+(e.message||'تعذر توليد التحضير.');
+    }
+    alert('تعذر توليد التحضير: '+(e.message||'حاول مرة أخرى.'));
+  }finally{
+    buttons.forEach(b=>{b.disabled=false;b.textContent=b.dataset.oldText||'✨ توليد التحضير بالذكاء الاصطناعي';delete b.dataset.oldText;});
+  }
 }
 
 async function openTeacherPreparation(teacherIdEncoded){
