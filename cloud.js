@@ -184,6 +184,14 @@
     return out;
   }
 
+  async function getPreparationContext(){
+    const token=await getAccessToken();
+    const r=await fetch('/api/preparation',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action:'context'})});
+    const out=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(out.error||'تعذر تحميل بيانات التحضير.');
+    return out;
+  }
+
   async function loadProfiles(){
     const c=await init();
     const {data,error}=await c.from('profiles').select('*').order('id',{ascending:true});
@@ -551,7 +559,7 @@
   }
 
   window.NabdCloud={
-    init,signIn,signOut,changeOwnPassword,restoreSession,getAccessToken,loadProfiles,createUser,updateUser,deleteUser,bulkCreateUsers,getAddLocks,loadAdminCredentials,syncOwnCredential,
+    init,signIn,signOut,changeOwnPassword,restoreSession,getAccessToken,loadProfiles,getPreparationContext,createUser,updateUser,deleteUser,bulkCreateUsers,getAddLocks,loadAdminCredentials,syncOwnCredential,
     currentUser,uploadSchoolFile,signedSchoolFileUrl,
     createInteractiveHomework,listInteractiveHomeworks,deleteInteractiveHomework,
     submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,
