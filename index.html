@@ -1990,6 +1990,10 @@ function task(icon,title,sub,tag,cls){return `<div class="task"><div class="dot"
 
 function renderDashboard(){
  const d=document.getElementById('dashboard');
+ const liveStudents=demoData.students.length;
+ const liveTeachers=demoData.teachers.length;
+ const liveGuardians=new Set(demoData.students.map(s=>String(s.guardianPhone||s.guardian_phone||'').replace(/\\D/g,'')).filter(Boolean)).size;
+ const liveSubjects=new Set(demoData.teachers.flatMap(t=>teacherSubjectList(t)).map(s=>String(s||'').trim()).filter(Boolean)).size;
  if(role==='student'){
  const currentStudent=demoData.students.find(x=>String(x.email||'').toLowerCase()===String(currentLoginEmail||'').toLowerCase()) || demoData.students[0];
  const studentFirstName=esc(studentDisplayName(currentStudent?.name||'طالبنا'));
@@ -2084,8 +2088,8 @@ function renderDashboard(){
     </div>
   </div>
   <div class="section-title"><h3>مؤشرات المدرسة</h3></div>
-  <div class="grid grid-4">${stat('👨‍🎓','#eaf4ff','1,245','طالب')}${stat('👨‍🏫','#e8fff5','85','معلم')}${stat('👨‍👩‍👦','#fff2df','980','ولي أمر')}${stat('📚','#f2eaff','36','مادة')}</div>
-  <div class="grid grid-2"><div><div class="section-title"><h3>نشاط المنصة</h3></div><div class="card"><div class="chart">${[55,67,61,74,83,78,89].map((x,i)=>`<div class="bar" style="height:${x}%"><span>أ${i+1}</span></div>`).join('')}</div></div></div><div><div class="section-title"><h3>مؤشرات الأداء</h3></div><div class="card">${task('📈','متوسط أداء الطلاب','تحسن 6% هذا الشهر','84%','green')}${task('✅','نسبة إكمال الواجبات','على مستوى المدرسة','91%','green')}${task('💻','النشاط داخل المنصة','مستخدمون نشطون أسبوعيًا','76%','blue')}</div></div></div>`;
+  <div class="grid grid-4">${stat('👨‍🎓','#eaf4ff',liveStudents,'طالب')}${stat('👨‍🏫','#e8fff5',liveTeachers,'معلم')}${stat('👨‍👩‍👦','#fff2df',liveGuardians,'ولي أمر مسجل برقم')}${stat('📚','#f2eaff',liveSubjects,'مادة مرتبطة بالمعلمين')}</div>
+  <div class="grid grid-2"><div><div class="section-title"><h3>نشاط المنصة</h3></div><div class="card"><div style="padding:24px;text-align:center;color:var(--muted)">سيظهر النشاط هنا تلقائيًا بعد بدء الاستخدام الفعلي للمنصة.</div></div></div><div><div class="section-title"><h3>مؤشرات الأداء</h3></div><div class="card">${task('📋','تحضيرات المعلمين','التحضيرات المحفوظة والمرسلة','0','blue')}${task('🔴','سجلات الغياب','بعد تصفير البيانات التجريبية','0','green')}${task('💻','بيانات الأداء','تبدأ بعد الاستخدام الفعلي','—','blue')}</div></div></div>`;
  }
 }
 
