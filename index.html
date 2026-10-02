@@ -3002,7 +3002,7 @@ async function renderPreparationPage(){
       page.innerHTML=`
         <style>
           .admin-prep-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}.admin-prep-stat{border:1px solid var(--line);border-radius:18px;padding:18px;background:#fff;box-shadow:var(--shadow)}.admin-prep-stat b{display:block;font-size:30px;margin-top:7px}
-          .admin-prep-filters{display:grid;grid-template-columns:repeat(4,1fr) auto;gap:10px}.admin-prep-filters select{width:100%;padding:11px;border:1px solid var(--line);border-radius:12px;background:#fff}.admin-prep-list{display:grid;gap:11px;margin-top:14px}.admin-prep-row{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fff}
+          .admin-prep-filters{display:grid;grid-template-columns:repeat(4,1fr) auto;gap:10px}.admin-prep-filters select{width:100%;padding:11px;border:1px solid var(--line);border-radius:12px;background:#fff}.admin-prep-list{display:grid;gap:11px;margin-top:14px}.admin-prep-row{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fff}.admin-prep-bulk{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}.btn{transition:transform .12s ease,box-shadow .12s ease,opacity .12s ease}.btn:active,.prep-action-btn:active{transform:scale(.96)!important;opacity:.78}.btn.is-loading,.prep-action-btn.is-loading{pointer-events:none;opacity:.65}
           @media(max-width:850px){.admin-prep-filters{grid-template-columns:1fr 1fr}}@media(max-width:520px){.admin-prep-stats,.admin-prep-filters{grid-template-columns:1fr}}
         </style>
         <div class="page-head"><div><h2>تحضيرات المعلمين 🗂️</h2><p>كل التحضيرات التي أرسلها المعلمون تظهر هنا للمراجعة والاطلاع.</p></div><button class="btn soft" onclick="renderPreparationPage()">↻ تحديث</button></div>
@@ -3019,6 +3019,8 @@ async function renderPreparationPage(){
             <button class="btn soft" onclick="clearAdminPreparationFilters()">مسح الفلاتر</button>
           </div>
           <div id="adminPrepResultCount" style="font-size:12px;color:var(--muted);margin-top:10px"></div>
+          <div class="admin-prep-bulk"><label style="display:flex;align-items:center;gap:7px;font-weight:800"><input id="adminPrepSelectAll" type="checkbox" style="width:19px;height:19px" onchange="toggleAllAdminPreparations(this.checked)"> تحديد كل النتائج الظاهرة</label><span id="adminPrepSelectedCount" style="font-size:12px;font-weight:800"></span><button class="btn primary" onclick="markSelectedAdminPreparationsViewed(this)">✓ تم الاطلاع على المحدد</button></div>
+          <div id="adminPrepNotice" style="display:none;margin-top:10px;padding:11px 13px;border-radius:11px;font-weight:800"></div>
         </div>
         <div id="adminPreparationsList" class="admin-prep-list"></div>
         <div id="adminPreparationViewer" style="margin-top:14px"></div>`;
@@ -3388,9 +3390,11 @@ async function sendCurrentPreparation(){
   if(!p.sections.length){alert('اختر الشعبة أو الشعب أولاً.');return;}
   const st=document.getElementById('prepWorkflowStatus');if(st){st.style.display='block';st.style.background='#eef6ff';st.style.color='#255a9a';st.textContent='📨 جاري إرسال التحضير للإدارة...';}
   try{
+    const btn=document.getElementById('prepSendBtn');setButtonLoading(btn,true,'جاري الإرسال...');
     const out=await NabdCloud.sendPreparation(p);prepCurrentStatus='sent';
-    if(st){st.style.background='#fff8e8';st.style.color='#8a6410';st.textContent='✅ تم إرسال التحضير للإدارة باسم: '+p.unit+' — '+p.lesson+' — '+p.date+'. ما زال بإمكانك تعديله وحفظ التعديلات حتى تضغط الإدارة «تم الاطلاع عليه».';}
-  }catch(e){if(e.locked)prepSetLocked(true,'viewed');if(st){st.style.background='#fff0f0';st.style.color='#a93226';st.textContent='❌ '+(e.message||'تعذر الإرسال.');}}
+    if(st){st.style.background='#ecfff3';st.style.color='#176b3a';st.textContent='✅ تم إرسال التحضير إلى الإدارة بنجاح: '+p.unit+' — '+p.lesson+' — '+p.date+'.';}
+    setTimeout(()=>{if(st&&prepCurrentStatus==='sent')st.textContent='📨 التحضير مرسل للإدارة ويمكنك تعديله حتى يتم الاطلاع عليه.';},3500);
+  }catch(e){if(e.locked)prepSetLocked(true,'viewed');if(st){st.style.background='#fff0f0';st.style.color='#a93226';st.textContent='❌ '+(e.message||'تعذر الإرسال.');}}finally{setButtonLoading(document.getElementById('prepSendBtn'),false);}
 }
 
 function prepEscHtml(v){
@@ -3587,6 +3591,24 @@ async function generatePreparationAI(){
   }
 }
 
+let adminPreparationSelected=new Set();
+function setButtonLoading(btn,on,label='جاري التنفيذ...'){
+  if(!btn)return;if(on){btn.dataset.oldHtml=btn.innerHTML;btn.classList.add('is-loading');btn.disabled=true;btn.innerHTML='⏳ '+label;}else{btn.classList.remove('is-loading');btn.disabled=false;if(btn.dataset.oldHtml){btn.innerHTML=btn.dataset.oldHtml;delete btn.dataset.oldHtml;}}
+}
+function showAdminPrepNotice(message,ok=true){
+  const n=document.getElementById('adminPrepNotice');if(!n)return;n.style.display='block';n.style.background=ok?'#ecfff3':'#fff0f0';n.style.color=ok?'#176b3a':'#a93226';n.textContent=(ok?'✅ ':'❌ ')+message;
+}
+function adminPrepKey(p){return String(p.teacherId||'')+'||'+String(p.recordId||'');}
+function toggleAdminPreparation(keyEncoded,checked){const k=decodeURIComponent(keyEncoded||'');if(checked)adminPreparationSelected.add(k);else adminPreparationSelected.delete(k);filterAdminPreparations();}
+function toggleAllAdminPreparations(checked){(window.adminPreparationsFiltered||[]).filter(p=>p.status!=='viewed').forEach(p=>{const k=adminPrepKey(p);if(checked)adminPreparationSelected.add(k);else adminPreparationSelected.delete(k);});filterAdminPreparations();}
+async function markSelectedAdminPreparationsViewed(btn){
+  const list=(window.adminPreparationsCache||[]).filter(p=>adminPreparationSelected.has(adminPrepKey(p))&&p.status!=='viewed');
+  if(!list.length){showAdminPrepNotice('حدد تحضيرًا واحدًا على الأقل يحتاج الاطلاع.',false);return;}
+  setButtonLoading(btn,true,'جاري اعتماد الاطلاع...');
+  let ok=0,fail=0;
+  for(const p of list){try{await NabdCloud.markPreparationViewed(p.teacherId,p.recordId);p.status='viewed';p.viewedAt=new Date().toISOString();adminPreparationSelected.delete(adminPrepKey(p));ok++;}catch(e){fail++;}}
+  setButtonLoading(btn,false);filterAdminPreparations();showAdminPrepNotice('تم الاطلاع على '+ok+' تحضير'+(fail?'، وتعذر تحديث '+fail:'')+'.',fail===0);
+}
 function syncAdminPrepSections(){
   const el=document.getElementById('adminPrepSection');if(!el)return;
   const old=el.value;
@@ -3596,13 +3618,16 @@ function syncAdminPrepSections(){
 }
 function filterAdminPreparations(){
   const all=window.adminPreparationsCache||[],teacher=document.getElementById('adminPrepTeacher')?.value||'',subject=document.getElementById('adminPrepSubject')?.value||'',grade=document.getElementById('adminPrepGrade')?.value||'',section=document.getElementById('adminPrepSection')?.value||'';
-  const list=all.filter(p=>(!teacher||String(p.teacherName||'')===teacher)&&(!subject||String(p.subject||'')===subject)&&(!grade||String(p.grade||'')===grade)&&(!section||(p.sections||[]).map(String).includes(section)));
+  const list=all.filter(p=>(!teacher||String(p.teacherName||'')===teacher)&&(!subject||String(p.subject||'')===subject)&&(!grade||String(p.grade||'')===grade)&&(!section||(p.sections||[]).map(String).includes(section))); window.adminPreparationsFiltered=list;
   const pending=document.getElementById('adminPrepPendingCount'),viewed=document.getElementById('adminPrepViewedCount');
   if(pending)pending.textContent=all.filter(p=>p.status==='sent').length;if(viewed)viewed.textContent=all.filter(p=>p.status==='viewed').length;
   const count=document.getElementById('adminPrepResultCount');if(count)count.textContent='النتائج الظاهرة: '+list.length+' من '+all.length;
+  const valid=new Set(list.map(adminPrepKey));[...adminPreparationSelected].forEach(k=>{if(!valid.has(k))adminPreparationSelected.delete(k);});
+  const sc=document.getElementById('adminPrepSelectedCount');if(sc)sc.textContent='المحدد: '+adminPreparationSelected.size;
+  const sa=document.getElementById('adminPrepSelectAll');if(sa){const selectable=list.filter(p=>p.status!=='viewed');sa.checked=!!selectable.length&&selectable.every(p=>adminPreparationSelected.has(adminPrepKey(p)));sa.indeterminate=adminPreparationSelected.size>0&&!sa.checked;}
   const box=document.getElementById('adminPreparationsList');if(!box)return;
   if(!list.length){box.innerHTML='<div class="card" style="text-align:center;padding:28px;color:var(--muted)">لا توجد تحضيرات مطابقة للفلاتر الحالية.</div>';return;}
-  box.innerHTML=list.map(p=>{const tid=encodeURIComponent(p.teacherId||''),rid=encodeURIComponent(p.recordId||'');return '<div class="admin-prep-row"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><b style="font-size:16px">'+esc(p.teacherName||'المعلم')+'</b><div style="font-weight:800;margin-top:5px">'+esc(p.unit||'')+' — '+esc(p.lesson||p.title||'')+'</div><div style="font-size:12px;color:var(--muted);margin-top:6px">📚 '+esc(p.subject||'')+' • 🏫 '+esc(p.grade||'')+' • 👥 '+esc((p.sections||[]).join('، ')||'—')+' • 📅 '+esc(p.date||'')+'</div></div><span class="tag '+(p.status==='viewed'?'green':'orange')+'">'+(p.status==='viewed'?'تم الاطلاع عليه 🔒':'يحتاج الاطلاع')+'</span></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn soft" onclick="openAdminPreparationDetails(\''+tid+'\',\''+rid+'\')">👁️ عرض التحضير</button>'+(p.status==='viewed'?'<button class="btn soft" disabled>تم الاطلاع عليه ✓</button>':'<button class="btn primary" onclick="markTeacherPreparationViewed(\''+tid+'\',\''+rid+'\')">✓ تم الاطلاع عليه</button>')+'</div></div>';}).join('');
+  box.innerHTML=list.map(p=>{const tid=encodeURIComponent(p.teacherId||''),rid=encodeURIComponent(p.recordId||''),key=encodeURIComponent(adminPrepKey(p)),checked=adminPreparationSelected.has(adminPrepKey(p));return '<div class="admin-prep-row"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="display:flex;gap:10px;align-items:flex-start"><input type="checkbox" '+(checked?'checked':'')+' '+(p.status==='viewed'?'disabled':'')+' style="width:19px;height:19px;margin-top:2px" onchange="toggleAdminPreparation(\''+key+'\',this.checked)"><div><b style="font-size:16px">'+esc(p.teacherName||'المعلم')+'</b><div style="font-weight:800;margin-top:5px">'+esc(p.unit||'')+' — '+esc(p.lesson||p.title||'')+'</div><div style="font-size:12px;color:var(--muted);margin-top:6px">📚 '+esc(p.subject||'')+' • 🏫 '+esc(p.grade||'')+' • 👥 '+esc((p.sections||[]).join('، ')||'—')+' • 📅 '+esc(p.date||'')+'</div></div></div><span class="tag '+(p.status==='viewed'?'green':'orange')+'">'+(p.status==='viewed'?'تم الاطلاع عليه 🔒':'يحتاج الاطلاع')+'</span></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn soft" onclick="openAdminPreparationDetails(\''+tid+'\',\''+rid+'\')">👁️ عرض التحضير</button>'+(p.status==='viewed'?'<button class="btn soft" disabled>تم الاطلاع عليه ✓</button>':'<button class="btn primary" onclick="markTeacherPreparationViewed(\''+tid+'\',\''+rid+'\')">✓ تم الاطلاع عليه</button>')+'</div></div>';}).join('');
 }
 function clearAdminPreparationFilters(){['adminPrepTeacher','adminPrepSubject','adminPrepGrade','adminPrepSection'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});syncAdminPrepSections();filterAdminPreparations();}
 function openAdminPreparationDetails(tid,rid){
@@ -3648,13 +3673,15 @@ function showPreparationDetails(encoded){
       <div class="grid grid-2">${sections.map(([h,v])=>`<div style="border:1px solid var(--line);border-radius:12px;padding:12px"><b>${esc(h)}</b><div style="margin-top:8px;white-space:pre-wrap;line-height:1.8">${esc(v||'—')}</div></div>`).join('')}</div></div>`;
   }catch(e){box.innerHTML='<div class="card" style="color:#c0392b">تعذر عرض التحضير.</div>';}
 }
-async function markTeacherPreparationViewed(teacherIdEncoded,recordIdEncoded=''){
+async function markTeacherPreparationViewed(teacherIdEncoded,recordIdEncoded='',btn=null){
   const teacherId=decodeURIComponent(teacherIdEncoded||''),recordId=decodeURIComponent(recordIdEncoded||'');
+  const clicked=btn||window.event?.currentTarget;setButtonLoading(clicked,true,'جاري الحفظ...');
   try{
     await NabdCloud.markPreparationViewed(teacherId,recordId);
-    await openTeacherPreparation(teacherIdEncoded);
-    await renderPreparationPage();
-  }catch(e){alert('تعذر تحديث حالة التحضير: '+(e.message||''));}
+    const p=(window.adminPreparationsCache||[]).find(x=>String(x.teacherId||'')===teacherId&&(!recordId||String(x.recordId||'')===recordId));
+    if(p){p.status='viewed';p.viewedAt=new Date().toISOString();}
+    filterAdminPreparations();showAdminPrepNotice('تم تسجيل الاطلاع على التحضير بنجاح.');
+  }catch(e){showAdminPrepNotice('تعذر تحديث حالة التحضير: '+(e.message||''),false);}finally{setButtonLoading(clicked,false);}
 }
 
 let myPreparationsCache=[];
