@@ -175,8 +175,8 @@ module.exports = async function handler(req, res) {
           const name=String(p.name||'').trim(),phone=normPhone(p.phone);
           const stages=Array.isArray(p.stages)?p.stages.map(x=>String(x).trim()).filter(Boolean):[];
           if(!name){errors.push({index:i,name,error:'اسم المعلم مفقود'});continue}
-          if(!/^\d{8}$/.test(phone)){errors.push({index:i,name,error:'رقم الهاتف يجب أن يتكون من 8 أرقام'});continue}
-          if(phones.has(phone)){errors.push({index:i,name,error:'رقم الهاتف مسجّل لمعلم آخر'});continue}
+          if(phone&&!/^\d{8}$/.test(phone)){errors.push({index:i,name,error:'رقم الهاتف يجب أن يتكون من 8 أرقام'});continue}
+          if(phone&&phones.has(phone)){errors.push({index:i,name,error:'رقم الهاتف مسجّل لمعلم آخر'});continue}
           let saved=null,lastErr=null;
           for(let attempt=0;attempt<5&&!saved;attempt++){
             const username=nextUsername();
@@ -189,9 +189,22 @@ module.exports = async function handler(req, res) {
             const row={auth_user_id:u.user.id,role:'teacher',name,phone,guardian_phone:'',email,external_id:String(ext++),stage:'',grade:'',section:'',subject:String(p.subject||''),stages};
             const {data:s,error:se}=await admin.from('profiles').insert(row).select().single();
             if(se){await admin.auth.admin.deleteUser(u.user.id);lastErr=se;break}
+            const subjectAssignments=Array.isArray(p.subject_assignments)?p.subject_assignments:[];
+            if(subjectAssignments.length){
+              const {error:ae}=await admin.from('school_kv').upsert({
+                key:`teacher_subject_assignments:${u.user.id}`,
+                value:{subjects:Array.isArray(p.subjects)?p.subjects:[],assignments:subjectAssignments},
+                updated_at:new Date().toISOString()
+              });
+              if(ae){
+                await admin.from('profiles').delete().eq('auth_user_id',u.user.id);
+                await admin.auth.admin.deleteUser(u.user.id);
+                lastErr=ae;break;
+              }
+            }
             saved=s;
           }
-          if(saved){phones.add(phone);created.push(saved)}
+          if(saved){if(phone)phones.add(phone);created.push(saved)}
           else errors.push({index:i,name,error:lastErr?.message||'تعذر إنشاء الحساب'});
         }
         return res.status(200).json({created,errors,password:DEFAULT_STUDENT_PASSWORD});
