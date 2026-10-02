@@ -24,6 +24,19 @@ module.exports = async function handler(req,res){
   if(!profile) return res.status(404).json({error:'Profile not found'});
 
   const action=(req.body||{}).action;
+  if(action==='mark-viewed'){
+    if(profile.role!=='admin') return res.status(403).json({error:'Admin access required'});
+    const teacherId=String((req.body||{}).teacher_auth_user_id||'').trim();
+    if(!teacherId) return res.status(400).json({error:'Teacher is required'});
+    const key='teacher_latest_preparation:'+teacherId;
+    const {data:row,error:readError}=await admin.from('school_kv').select('value').eq('key',key).maybeSingle();
+    if(readError) return res.status(500).json({error:readError.message});
+    if(!row?.value) return res.status(404).json({error:'لا يوجد تحضير مرسل لهذا المعلم'});
+    const value={...row.value,status:'viewed',viewedAt:new Date().toISOString(),viewedBy:profile.name||''};
+    const {error:saveError}=await admin.from('school_kv').upsert({key,value,updated_at:new Date().toISOString()});
+    if(saveError) return res.status(500).json({error:saveError.message});
+    return res.status(200).json({ok:true,value});
+  }
   if(action!=='context') return res.status(400).json({error:'Unsupported action'});
 
   if(profile.role==='teacher'){
@@ -45,7 +58,39 @@ module.exports = async function handler(req,res){
   }
 
   if(profile.role==='admin'){
-    return res.status(200).json({teacher:{name:profile.name,email:profile.email},assignments:[]});
+    const requestedTeacher=String((req.body||{}).teacher_auth_user_id||'').trim();
+    if(requestedTeacher){
+      const {data:tp,error:tpe}=await admin.from('profiles').select('auth_user_id,name,email,subject,stages').eq('auth_user_id',requestedTeacher).eq('role','teacher').maybeSingle();
+      if(tpe) return res.status(500).json({error:tpe.message});
+      if(!tp) return res.status(404).json({error:'Teacher not found'});
+      const {data:prepKv}=await admin.from('school_kv').select('value').eq('key','teacher_latest_preparation:'+requestedTeacher).maybeSingle();
+      return res.status(200).json({teacher:{name:tp.name,email:tp.email},latestPreparation:prepKv?.value||null});
+    }
+
+    const {data:teachers,error:teachersError}=await admin.from('profiles')
+      .select('auth_user_id,name,email,subject,stages').eq('role','teacher').order('name',{ascending:true});
+    if(teachersError) return res.status(500).json({error:teachersError.message});
+
+    const ids=(teachers||[]).map(t=>t.auth_user_id);
+    let kvRows=[];
+    if(ids.length){
+      const {data:kvs,error:kvsError}=await admin.from('school_kv').select('key,value').like('key','teacher_subject_assignments:%');
+      if(kvsError) return res.status(500).json({error:kvsError.message});
+      kvRows=kvs||[];
+    }
+    const map=new Map(kvRows.map(x=>[String(x.key).replace('teacher_subject_assignments:',''),x.value||{}]));
+    const result=(teachers||[]).map(t=>{
+      let assignments=Array.isArray(map.get(t.auth_user_id)?.assignments)?map.get(t.auth_user_id).assignments:[];
+      if(!assignments.length&&t.subject){
+        const classes=(Array.isArray(t.stages)?t.stages:[]).map(s=>{
+          const m=String(s).match(/—\\s*([^—]+?)\\s*—\\s*الشعبة\\s*\\(([^)]+)\\)/);
+          return m?{grade:m[1].trim(),section:m[2].trim(),stage:String(s)}:null;
+        }).filter(Boolean);
+        assignments=[{subject:t.subject,classes}];
+      }
+      return {authUserId:t.auth_user_id,name:t.name,email:t.email,assignments,latestPreparation:null};
+    });
+    return res.status(200).json({teacher:{name:profile.name,email:profile.email},teachers:result});
   }
 
   return res.status(403).json({error:'This section is available to teachers and admin only'});
