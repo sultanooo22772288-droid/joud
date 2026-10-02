@@ -264,9 +264,28 @@ module.exports = async function handler(req, res) {
     if (action === 'delete') {
       if (!body.auth_user_id) return res.status(400).json({ error: 'auth_user_id is required' });
       const authUserId=body.auth_user_id;
+
+      // نظف بيانات المستخدم التي قد تمنع حذف حساب Supabase Auth بسبب القيود المرجعية.
+      const directKeys=[
+        `login_credential:${authUserId}`,
+        `default_password:${authUserId}`,
+        `teacher_subject_assignments:${authUserId}`,
+        `teacher_latest_preparation:${authUserId}`
+      ];
+      const {error:keyDeleteError}=await admin.from('school_kv').delete().in('key',directKeys);
+      if(keyDeleteError) throw keyDeleteError;
+
+      const {error:contentDeleteError}=await admin.from('school_kv').delete().like('key',`teacher_content:%:${authUserId}:%`);
+      if(contentDeleteError) throw contentDeleteError;
+
+      // school_kv.updated_by مرتبط بـ auth.users بدون ON DELETE CASCADE.
+      // نفك هذا الارتباط أولاً حتى ينجح حذف المستخدم.
+      const {error:updatedByError}=await admin.from('school_kv').update({updated_by:null}).eq('updated_by',authUserId);
+      if(updatedByError) throw updatedByError;
+
       const { error } = await admin.auth.admin.deleteUser(authUserId);
       if (error) throw error;
-      await admin.from('school_kv').delete().in('key',[`login_credential:${authUserId}`,`default_password:${authUserId}`]);
+
       return res.status(200).json({ ok: true });
     }
 
