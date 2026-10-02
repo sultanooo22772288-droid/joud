@@ -263,9 +263,9 @@ module.exports = async function handler(req, res) {
 
     if (action === 'delete') {
       if (!body.auth_user_id) return res.status(400).json({ error: 'auth_user_id is required' });
-      const authUserId=body.auth_user_id;
+      const authUserId=String(body.auth_user_id);
 
-      // نظف بيانات المستخدم التي قد تمنع حذف حساب Supabase Auth بسبب القيود المرجعية.
+      // 1) نظف كل البيانات المرتبطة بالحساب أولاً.
       const directKeys=[
         `login_credential:${authUserId}`,
         `default_password:${authUserId}`,
@@ -278,15 +278,29 @@ module.exports = async function handler(req, res) {
       const {error:contentDeleteError}=await admin.from('school_kv').delete().like('key',`teacher_content:%:${authUserId}:%`);
       if(contentDeleteError) throw contentDeleteError;
 
-      // school_kv.updated_by مرتبط بـ auth.users بدون ON DELETE CASCADE.
-      // نفك هذا الارتباط أولاً حتى ينجح حذف المستخدم.
+      // 2) فك أي مرجع updated_by للحساب.
       const {error:updatedByError}=await admin.from('school_kv').update({updated_by:null}).eq('updated_by',authUserId);
       if(updatedByError) throw updatedByError;
 
-      const { error } = await admin.auth.admin.deleteUser(authUserId);
-      if (error) throw error;
+      // 3) احذف ملف المستخدم صراحة قبل حذف Auth، بدل الاعتماد على cascade فقط.
+      const {error:profileDeleteError}=await admin.from('profiles').delete().eq('auth_user_id',authUserId);
+      if(profileDeleteError) throw profileDeleteError;
 
-      return res.status(200).json({ ok: true });
+      // 4) حاول الحذف النهائي من Auth. إذا رفضته قاعدة Auth، نفذ soft-delete
+      // حتى يتوقف الحساب عن تسجيل الدخول ويختفي من المنصة.
+      let softDeleted=false;
+      const {error:hardDeleteError}=await admin.auth.admin.deleteUser(authUserId,false);
+      if(hardDeleteError){
+        const {error:softDeleteError}=await admin.auth.admin.deleteUser(authUserId,true);
+        if(softDeleteError){
+          return res.status(400).json({
+            error:'تعذر حذف حساب الدخول بعد تنظيف بيانات المعلم: '+(softDeleteError.message||hardDeleteError.message||'Unknown error')
+          });
+        }
+        softDeleted=true;
+      }
+
+      return res.status(200).json({ ok:true, soft_deleted:softDeleted });
     }
 
     return res.status(400).json({ error: 'Unknown action' });
