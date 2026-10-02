@@ -3097,6 +3097,9 @@ async function renderPreparationPage(){
         </div>
 
         <div id="prepDesigner" style="display:none">
+          <div class="prep-toolbar" style="margin-bottom:12px;justify-content:flex-start">
+            <button class="btn primary" onclick="generatePreparationAI()" style="font-size:15px;padding:11px 18px">✨ توليد التحضير بالذكاء الاصطناعي</button>
+          </div>
           <div class="card" style="margin-bottom:12px">
             <div class="prep-meta-grid">
               <div class="prep-field"><label>عنوان الدرس — تلقائي</label><input id="prepTitle" readonly placeholder="يظهر تلقائيًا بعد اختيار الدرس"></div>
@@ -3139,7 +3142,6 @@ async function renderPreparationPage(){
           </div>
 
           <div class="prep-toolbar">
-            <button class="btn primary" onclick="generatePreparationAI()">✨ توليد التحضير بالذكاء الاصطناعي</button>
             <button class="btn soft" onclick="generatePreparationAI()">↻ إعادة التوليد</button>
             <button class="btn soft" onclick="alert('الحفظ والإرسال للإدارة سيتم ربطهما في الخطوات التالية.')">💾 حفظ مسودة</button>
             <button class="btn soft" onclick="window.print()">🖨️ طباعة</button>
