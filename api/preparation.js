@@ -126,6 +126,18 @@ module.exports = async function handler(req,res){
     }
   });
 
+  if(action==='list-my-preparations'){
+    if(profile.role!=='teacher') return res.status(403).json({error:'Teacher access required'});
+    const prefix='teacher_preparation:'+user.id+':%';
+    const {data:rows,error:listErr}=await admin.from('school_kv').select('key,value').like('key',prefix);
+    if(listErr) return res.status(500).json({error:listErr.message});
+    const preparations=(rows||[])
+      .map(x=>x.value)
+      .filter(Boolean)
+      .sort((a,b)=>String(b.savedAt||b.sentAt||b.createdAt||'').localeCompare(String(a.savedAt||a.sentAt||a.createdAt||'')));
+    return res.status(200).json({ok:true,preparations});
+  }
+
   if(action==='get-record'){
     if(profile.role!=='teacher') return res.status(403).json({error:'Teacher access required'});
     const recordId=String((req.body||{}).recordId||'').trim();
