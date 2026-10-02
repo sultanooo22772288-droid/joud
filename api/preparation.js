@@ -68,9 +68,16 @@ module.exports = async function handler(req,res){
       }
 
       const value=row?.value||{};
-      curriculum.push({grade:g,units:Array.isArray(value.units)?value.units:[]});
+      const allUnits=Array.isArray(value.units)?value.units:[];
+      // التحضير في منصة جود مخصص حاليًا للفصل الدراسي الأول فقط.
+      // نخفي أي وحدات موسومة صراحة بأنها من الفصل/الفصل الدراسي الثاني.
+      const firstTermUnits=allUnits.filter(u=>{
+        const title=String(u?.title||'').trim();
+        return !/(الفصل\s*(الدراسي\s*)?الثاني|semester\s*2|term\s*2)/i.test(title);
+      });
+      curriculum.push({grade:g,units:firstTermUnits});
     }
-    return res.status(200).json({subject,curriculum});
+    return res.status(200).json({subject,curriculum,term:'first'});
   }
 
   if(action==='save-curriculum'){
