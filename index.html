@@ -2674,13 +2674,6 @@ function renderProfilePageForRole(){
               <label>البريد الإلكتروني</label>
               <input id="teacherProfileEmail" type="email" value="${esc(t.email||'')}" autocomplete="email">
             </div>
-            <div class="field">
-              <label>كلمة المرور</label>
-              <div style="position:relative">
-                <input id="teacherProfilePassword" type="password" value="${esc(t.password||'')}" autocomplete="new-password" style="padding-left:105px">
-                <button type="button" class="btn" onclick="toggleProfilePassword('teacherProfilePassword',this)" style="position:absolute;left:6px;top:50%;transform:translateY(-50%);padding:7px 10px;font-size:12px;white-space:nowrap">👁 مشاهدة</button>
-              </div>
-            </div>
           </div>
           <button class="btn primary" style="margin-top:12px" onclick="saveTeacherProfileChanges()">حفظ التغييرات</button>
           <div id="teacherProfileSaveStatus" class="save-status" aria-live="polite"></div>
@@ -2693,6 +2686,35 @@ function renderProfilePageForRole(){
             <div class="academic-box"><small>المادة</small><strong>${esc(t.subject||'—')}</strong></div>
             <div class="academic-box" style="grid-column:1/-1"><small>الصفوف والشعب</small><strong>${(t.stages||[]).length?(t.stages||[]).map(x=>esc(x)).join(' • '):'—'}</strong></div>
           </div>
+        </div>
+        <div class="card" id="teacherPasswordCard" style="grid-column:1/-1">
+          <h3 style="margin-top:0">🔑 تغيير كلمة المرور</h3>
+          <p style="color:var(--muted);margin-top:0">أدخل كلمة المرور الحالية، ثم كلمة المرور الجديدة وأكّدها. يجب أن تتكون من 6 خانات على الأقل.</p>
+          <div class="student-profile-grid">
+            <div class="field">
+              <label for="teacherCurrentPassword">كلمة المرور الحالية</label>
+              <div style="position:relative">
+                <input id="teacherCurrentPassword" type="password" autocomplete="current-password" dir="ltr" style="padding-left:105px">
+                <button type="button" class="btn" onclick="toggleProfilePassword('teacherCurrentPassword',this)" style="position:absolute;left:6px;top:50%;transform:translateY(-50%);padding:7px 10px;font-size:12px;white-space:nowrap">👁 مشاهدة</button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="teacherNewPassword">كلمة المرور الجديدة</label>
+              <div style="position:relative">
+                <input id="teacherNewPassword" type="password" autocomplete="new-password" dir="ltr" style="padding-left:105px">
+                <button type="button" class="btn" onclick="toggleProfilePassword('teacherNewPassword',this)" style="position:absolute;left:6px;top:50%;transform:translateY(-50%);padding:7px 10px;font-size:12px;white-space:nowrap">👁 مشاهدة</button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="teacherConfirmPassword">تأكيد كلمة المرور الجديدة</label>
+              <div style="position:relative">
+                <input id="teacherConfirmPassword" type="password" autocomplete="new-password" dir="ltr" style="padding-left:105px">
+                <button type="button" class="btn" onclick="toggleProfilePassword('teacherConfirmPassword',this)" style="position:absolute;left:6px;top:50%;transform:translateY(-50%);padding:7px 10px;font-size:12px;white-space:nowrap">👁 مشاهدة</button>
+              </div>
+            </div>
+          </div>
+          <button class="btn primary" style="margin-top:12px" onclick="changeTeacherPassword()">تغيير كلمة المرور</button>
+          <div id="teacherPasswordStatus" class="save-status" aria-live="polite"></div>
         </div>
       </div>`;
   } else {
@@ -3964,16 +3986,39 @@ async function saveTeacherProfileChanges(){
   if(role!=='teacher')return;
   const t=getCurrentTeacher(); if(!t){alert('تعذر العثور على سجل المعلم.');return;}
   const email=(document.getElementById('teacherProfileEmail')?.value||'').trim().toLowerCase();
-  const password=(document.getElementById('teacherProfilePassword')?.value||'').trim();
   const status=document.getElementById('teacherProfileSaveStatus');
-  if(!email || !password){if(status){status.style.color='#c0392b';status.textContent='يرجى إدخال البريد الإلكتروني وكلمة المرور الجديدة.';}return;}
+  if(!email){if(status){status.style.color='#c0392b';status.textContent='يرجى إدخال البريد الإلكتروني.';}return;}
+  if(email===String(t.email||'').trim().toLowerCase()){if(status){status.style.color='var(--muted)';status.textContent='لا توجد تغييرات للحفظ.';}return;}
   try{
     const c=await NabdCloud.init();
-    const {error:ae}=await c.auth.updateUser({email,password}); if(ae)throw ae;
+    const {error:ae}=await c.auth.updateUser({email}); if(ae)throw ae;
     const {error:pe}=await c.from('profiles').update({email}).eq('auth_user_id',t.authUserId); if(pe)throw pe;
     t.email=email; t.password=''; currentLoginEmail=email; renderProfilePageForRole();
     const st=document.getElementById('teacherProfileSaveStatus');if(st){st.style.color='#178a5b';st.textContent='✓ تم تحديث بيانات الدخول السحابية.';}
   }catch(e){if(status){status.style.color='#c0392b';status.textContent='تعذر التحديث: '+(e.message||'');}}
+}
+
+// تغيير كلمة مرور المعلم: الحالية ← الجديدة ← التأكيد
+async function changeTeacherPassword(){
+  if(role!=='teacher')return;
+  const get=id=>document.getElementById(id)?.value||'';
+  const current=get('teacherCurrentPassword'),next=get('teacherNewPassword'),confirmPw=get('teacherConfirmPassword');
+  const status=document.getElementById('teacherPasswordStatus');
+  const say=(msg,ok)=>{if(status){status.style.color=ok===true?'#178a5b':ok===false?'#c0392b':'var(--muted)';status.textContent=msg;}};
+  if(!current||!next||!confirmPw)return say('يرجى تعبئة الحقول الثلاثة.',false);
+  if(next.length<6)return say('كلمة المرور الجديدة يجب أن تتكون من 6 خانات على الأقل.',false);
+  if(/\s/.test(next))return say('كلمة المرور الجديدة يجب ألا تحتوي على مسافات.',false);
+  if(next!==confirmPw)return say('تأكيد كلمة المرور لا يطابق كلمة المرور الجديدة.',false);
+  if(next===current)return say('كلمة المرور الجديدة يجب أن تختلف عن الحالية.',false);
+  const btn=document.querySelector('#teacherPasswordCard .btn.primary');
+  try{
+    if(btn)btn.disabled=true;
+    say('جاري تغيير كلمة المرور…');
+    await NabdCloud.changeOwnPassword(current,next);
+    ['teacherCurrentPassword','teacherNewPassword','teacherConfirmPassword'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    say('✓ تم تغيير كلمة المرور بنجاح. استخدم كلمة المرور الجديدة في الدخول القادم.',true);
+  }catch(e){say(e.message||'تعذر تغيير كلمة المرور.',false);}
+  finally{if(btn)btn.disabled=false;}
 }
 
 function mobileAI(){ if(role==='student') showPage('ai'); else showPage('dashboard'); }
@@ -4271,7 +4316,7 @@ function renderAdminManagement(){
 
     <div class="card" style="margin-bottom:16px">
       <h3 style="margin-top:0">📥 استيراد المعلمين دفعة واحدة</h3>
-      <p style="color:var(--muted);font-size:13px">ارفع Excel أو PDF يحتوي على الاسم، الهاتف، البريد الإلكتروني، كلمة المرور، المادة، الصفوف/الشعب.</p>
+      <p style="color:var(--muted);font-size:13px">ارفع ملف Excel فيه: اسم المعلم، رقم الهاتف، الصف، الشعبة. اسم المستخدم (6 أرقام) والرقم السري (123456) يُنشآن تلقائيًا.</p>
       <label class="btn primary" style="cursor:pointer">اختيار ملف Excel / PDF
         <input id="teacherBulkFile" type="file" accept=".xlsx,.xls,.pdf" hidden onchange="previewBulkImport('teacher',this.files?.[0])">
       </label>
@@ -4828,10 +4873,83 @@ function nr(role,row){
 function verr(role,r){const e=[];if(!r.name)e.push('الاسم مفقود');if(role==='student'){if(r.guardianPhone&&!/^\d{8}$/.test(r.guardianPhone))e.push('هاتف ولي الأمر 8 أرقام')}else if(!/^\d{8}$/.test(r.phone||''))e.push('الهاتف 8 أرقام');if(role==='student'&&!r.email)r.autoUsername=true;else if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email||''))e.push(role==='student'?'اسم المستخدم غير صحيح':'البريد غير صحيح');else if(role==='student'&&demoData.students.some(x=>String(x.email||'').toLowerCase()===r.email))e.push('اسم المستخدم مستخدم لطالب آخر');if(!r.password||r.password.length<6)e.push('الرقم السري 6 خانات على الأقل');if(role==='student'){if(!['روضة','تمهيدي','الصف الأول','الصف الثاني','الصف الثالث','الصف الرابع'].includes(r.grade))e.push('الصف غير صحيح');r.section=({'أ':'1','ب':'2','ج':'3','د':'4'})[r.section]||r.section;if(!['1','2','3','4'].includes(r.section))e.push('الشعبة من 1 إلى 4');if(!r.stage)r.stage=(r.grade==='روضة'||r.grade==='تمهيدي')?'رياض الأطفال':'الحلقة الأولى'}else if(!r.subject)e.push('المادة مفقودة');return e}
 async function readX(file){const b=await file.arrayBuffer(),wb=XLSX.read(b,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];return XLSX.utils.sheet_to_json(ws,{defval:''})}
 async function readP(file){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise,lines=[];for(let n=1;n<=pdf.numPages;n++){const p=await pdf.getPage(n),tc=await p.getTextContent(),g={};tc.items.forEach(i=>{const y=Math.round((i.transform?.[5]||0)/3)*3;(g[y]||(g[y]=[])).push({x:i.transform?.[4]||0,t:i.str||''})});Object.keys(g).sort((a,b)=>b-a).forEach(y=>lines.push(g[y].sort((a,b)=>a.x-b.x).map(x=>x.t.trim()).filter(Boolean).join(' | ')))}if(lines.length<2)return[];const sp=l=>l.split(/\s*\|\s*|\t+|\s{3,}/).filter(Boolean),h=sp(lines[0]);return lines.slice(1).map(l=>{const v=sp(l),o={};h.forEach((x,i)=>o[x]=v[i]||'');return o})}
-async function previewBulkImport(role,file){const box=document.getElementById(role==='student'?'studentBulkPreview':'teacherBulkPreview');if(!file||!box)return;if(await jdAddLocked(role)){const f=document.getElementById(role+'BulkFile');if(f)f.value='';return}box.innerHTML='جاري قراءة الملف...';try{const raw=/\.pdf$/i.test(file.name)?await readP(file):await readX(file),seen=new Set();bulkImportState[role]=raw.map(nr.bind(null,role)).map((r,i)=>{const e=verr(role,r),k=(r.email||'').toLowerCase();if(k&&seen.has(k))e.push('البريد مكرر');if(k)seen.add(k);return {...r,_row:i+2,_errors:e}}).filter(r=>r.name||r.email);if(role==='student'){let n=nextStudentUsernameNumber();const taken=new Set(demoData.students.map(x=>String(x.email||'').toLowerCase()).concat(bulkImportState.student.map(x=>x.email)));bulkImportState.student.forEach(r=>{if(r.autoUsername&&!r._errors.length){while(taken.has(studentUsernameToEmail(String(n))))n++;r.email=studentUsernameToEmail(String(n++));}})}renderBulkPreview(role)}catch(e){box.innerHTML='<span style="color:#c0392b">تعذر القراءة: '+esc(e.message||'')+'</span>'}}
-function renderBulkPreview(role){const box=document.getElementById(role==='student'?'studentBulkPreview':'teacherBulkPreview'),rows=bulkImportState[role]||[],ok=rows.filter(r=>!r._errors.length);if(!rows.length){box.innerHTML='لا توجد بيانات.';return}box.innerHTML=`<div style="margin-bottom:10px"><span class="tag blue">الإجمالي ${rows.length}</span> <span class="tag green">صحيحة ${ok.length}</span> <button class="btn primary" onclick="confirmBulkImport('${role}')" ${ok.length?'':'disabled'}>إضافة الجميع</button></div><div style="overflow:auto;max-height:350px"><table style="width:100%;min-width:850px;border-collapse:collapse"><thead><tr><th>#</th><th>الاسم</th><th>${role==='student'?'هاتف ولي الأمر':'الهاتف'}</th><th>${role==='student'?'اسم المستخدم':'البريد'}</th><th>${role==='student'?'الصف / الشعبة':'المادة'}</th><th>الحالة</th></tr></thead><tbody>${rows.map(r=>`<tr style="border-top:1px solid var(--line)"><td>${r._row}</td><td>${esc(r.name)}</td><td dir="ltr">${esc(role==='student'?r.guardianPhone:r.phone)}</td><td dir="ltr">${esc(role==='student'?studentEmailToUsername(r.email):r.email)}</td><td>${esc(role==='student'?(r.grade+' / '+r.section):r.subject)}</td><td>${r._errors.length?'<span style="color:#c0392b">'+esc(r._errors.join('، '))+'</span>':'<span style="color:#178a5b">جاهز ✓</span>'}</td></tr>`).join('')}</tbody></table></div>`}
+async function previewBulkImport(role,file){const box=document.getElementById(role==='student'?'studentBulkPreview':'teacherBulkPreview');if(!file||!box)return;if(await jdAddLocked(role)){const f=document.getElementById(role+'BulkFile');if(f)f.value='';return}box.innerHTML='جاري قراءة الملف...';try{const raw=/\.pdf$/i.test(file.name)?await readP(file):await readX(file),seen=new Set();if(role==='teacher'){bulkImportState.teacher=buildTeacherImport(raw);renderBulkPreview('teacher');return}bulkImportState[role]=raw.map(nr.bind(null,role)).map((r,i)=>{const e=verr(role,r),k=(r.email||'').toLowerCase();if(k&&seen.has(k))e.push('البريد مكرر');if(k)seen.add(k);return {...r,_row:i+2,_errors:e}}).filter(r=>r.name||r.email);if(role==='student'){let n=nextStudentUsernameNumber();const taken=new Set(demoData.students.map(x=>String(x.email||'').toLowerCase()).concat(bulkImportState.student.map(x=>x.email)));bulkImportState.student.forEach(r=>{if(r.autoUsername&&!r._errors.length){while(taken.has(studentUsernameToEmail(String(n))))n++;r.email=studentUsernameToEmail(String(n++));}})}renderBulkPreview(role)}catch(e){box.innerHTML='<span style="color:#c0392b">تعذر القراءة: '+esc(e.message||'')+'</span>'}}
+function renderBulkPreview(role){if(role==='teacher')return renderTeacherImportPreview();const box=document.getElementById(role==='student'?'studentBulkPreview':'teacherBulkPreview'),rows=bulkImportState[role]||[],ok=rows.filter(r=>!r._errors.length);if(!rows.length){box.innerHTML='لا توجد بيانات.';return}box.innerHTML=`<div style="margin-bottom:10px"><span class="tag blue">الإجمالي ${rows.length}</span> <span class="tag green">صحيحة ${ok.length}</span> <button class="btn primary" onclick="confirmBulkImport('${role}')" ${ok.length?'':'disabled'}>إضافة الجميع</button></div><div style="overflow:auto;max-height:350px"><table style="width:100%;min-width:850px;border-collapse:collapse"><thead><tr><th>#</th><th>الاسم</th><th>${role==='student'?'هاتف ولي الأمر':'الهاتف'}</th><th>${role==='student'?'اسم المستخدم':'البريد'}</th><th>${role==='student'?'الصف / الشعبة':'المادة'}</th><th>الحالة</th></tr></thead><tbody>${rows.map(r=>`<tr style="border-top:1px solid var(--line)"><td>${r._row}</td><td>${esc(r.name)}</td><td dir="ltr">${esc(role==='student'?r.guardianPhone:r.phone)}</td><td dir="ltr">${esc(role==='student'?studentEmailToUsername(r.email):r.email)}</td><td>${esc(role==='student'?(r.grade+' / '+r.section):r.subject)}</td><td>${r._errors.length?'<span style="color:#c0392b">'+esc(r._errors.join('، '))+'</span>':'<span style="color:#178a5b">جاهز ✓</span>'}</td></tr>`).join('')}</tbody></table></div>`}
 function parseStages(v){return String(v||'').split(/[،,;|]+/).map(x=>x.trim()).filter(Boolean)}
-async function confirmBulkImport(role){const rows=(bulkImportState[role]||[]).filter(r=>!r._errors.length);if(!rows.length)return;if(await jdAddLocked(role))return;if(!confirm(`إضافة ${rows.length} حسابًا الآن؟`))return;try{const users=rows.map(r=>role==='student'?{password:r.password,profile:{role:'student',auto_username:!!r.autoUsername,name:r.name,phone:r.phone,guardian_phone:r.guardianPhone||'',email:r.email,external_id:'',stage:r.stage,grade:r.grade,section:r.section,subject:'',stages:[]}}:{password:r.password,profile:{role:'teacher',name:r.name,phone:r.phone,email:r.email,external_id:'',stage:'',grade:'',section:'',subject:r.subject,stages:parseStages(r.stagesRaw)}});const res=await NabdCloud.bulkCreateUsers(role,users);await syncCloudProfiles();renderAdminManagement();const nums=(res.created||[]).map(x=>studentEmailToUsername(x.email)).filter(Boolean);alert(`تمت إضافة ${res.created?.length||0} بنجاح${res.errors?.length?`، وتعذر ${res.errors.length}`:''}.${role==='student'&&nums.length?`\nأسماء المستخدمين من ${nums[0]} إلى ${nums[nums.length-1]}، والرقم السري الموحد ${DEFAULT_STUDENT_PASSWORD}.\nيمكنك طباعة بيانات الدخول من زر «طباعة بيانات الدخول».`:''}`)}catch(e){if(e?.code==='feature_locked'){jdShowAddLocked(e.role||role);return}alert('تعذر الاستيراد: '+(e.message||''))}}
+// ===== استيراد المعلمين: اسم المعلم، رقم الهاتف، الصف، الشعبة — اسم المستخدم (6 أرقام) والرقم السري 123456 تلقائيان =====
+const TEACHER_IMPORT_GRADES=['روضة','تمهيدي','الصف الأول','الصف الثاني','الصف الثالث','الصف الرابع','الصف الخامس','الصف السادس','الصف السابع','الصف الثامن','الصف التاسع','الصف العاشر','الصف الحادي عشر','الصف الثاني عشر'];
+const FIRST_TEACHER_NUMBER=900001,LAST_TEACHER_NUMBER=999999;
+function jdLatinDigits(v){return String(v??'').replace(/[٠-٩]/g,d=>String(d.charCodeAt(0)-0x660)).replace(/[۰-۹]/g,d=>String(d.charCodeAt(0)-0x6F0))}
+function teacherImportPhone(v){let s=jdLatinDigits(v).replace(/\D/g,'');if(s.length===11&&s.startsWith('968'))s=s.slice(3);if(s.length===13&&s.startsWith('00968'))s=s.slice(5);return s}
+function teacherImportGrade(v){const s=String(v||'').trim().replace(/\s+/g,' ');return ({'الروضة':'روضة','روضه':'روضة','الروضه':'روضة','التمهيدي':'تمهيدي'})[s]||s}
+function teacherImportSection(v){const s=jdLatinDigits(v).trim().replace(/\.0+$/,'');return ({'أ':'1','ب':'2','ج':'3','د':'4'})[s]||s}
+function teacherImportStage(grade,section){const st=allGrades().find(x=>x.grade===grade)?.stage||grade;return `${st} — ${grade} — الشعبة (${section})`}
+// رقم مبدئي للمعاينة فقط؛ الخادم يحدد الرقم النهائي ويتأكد أنه غير مستخدم.
+function nextTeacherUsernameNumber(){
+  const used=[...(demoData.teachers||[]),...(demoData.students||[])].map(x=>studentEmailToUsername(x.email)).filter(u=>/^\d{6}$/.test(u)).map(Number);
+  let n=used.filter(u=>u>=FIRST_TEACHER_NUMBER&&u<=LAST_TEACHER_NUMBER).reduce((m,u)=>Math.max(m,u),FIRST_TEACHER_NUMBER-1)+1;
+  const taken=new Set(used);while(taken.has(n))n++;return n;
+}
+function buildTeacherImport(raw){
+  const rows=raw.map((row,i)=>({_row:i+2,name:pv(row,['اسم المعلم','الاسم','name']).replace(/\s+/g,' '),phone:teacherImportPhone(pv(row,['رقم الهاتف','الهاتف','phone'])),grade:teacherImportGrade(pv(row,['الصف','grade'])),section:teacherImportSection(pv(row,['الشعبة','section']))}))
+    .filter(r=>r.name||r.phone||r.grade||r.section);
+  const existing=new Map((demoData.teachers||[]).map(t=>[teacherImportPhone(t.phone),t.name]).filter(x=>x[0]));
+  const byPhone=new Map(),out=[];
+  rows.forEach(r=>{
+    const e=[];
+    if(!r.name)e.push('اسم المعلم مفقود');
+    if(!r.phone)e.push('رقم الهاتف مفقود');
+    else if(!/^\d{8}$/.test(r.phone))e.push('رقم الهاتف يجب أن يتكون من 8 أرقام');
+    else if(existing.has(r.phone))e.push('رقم الهاتف مسجّل للمعلم: '+existing.get(r.phone));
+    if(!TEACHER_IMPORT_GRADES.includes(r.grade))e.push(r.grade?'الصف غير صحيح':'الصف مفقود');
+    if(!['1','2','3','4'].includes(r.section))e.push(r.section?'الشعبة من 1 إلى 4':'الشعبة مفقودة');
+    const cls=r.grade&&r.section?`${r.grade} / ${r.section}`:(r.grade||'—');
+    if(!e.length){
+      // نفس المعلم (نفس الاسم والهاتف) في أكثر من سطر ← حساب واحد بكل صفوفه
+      const g=byPhone.get(r.phone),stage=teacherImportStage(r.grade,r.section);
+      if(g&&g.name!==r.name)e.push(`رقم الهاتف مكرر لمعلم آخر في الملف (سطر ${g.rows[0]})`);
+      else if(g&&g.stages.includes(stage))e.push(`سطر مكرر (سطر ${g.rows[0]})`);
+      else if(g){g.stages.push(stage);g.classes.push(cls);g.rows.push(r._row);return}
+      else{const t={name:r.name,phone:r.phone,stages:[stage],classes:[cls],rows:[r._row],_errors:[]};byPhone.set(r.phone,t);out.push(t);return}
+    }
+    out.push({name:r.name,phone:r.phone,stages:[],classes:[cls],rows:[r._row],_errors:e});
+  });
+  out.sort((a,b)=>a.rows[0]-b.rows[0]);
+  let n=nextTeacherUsernameNumber();
+  out.forEach(t=>{if(!t._errors.length)t.username=String(n++)});
+  return out;
+}
+function renderTeacherImportPreview(){
+  const box=document.getElementById('teacherBulkPreview');if(!box)return;
+  const rows=bulkImportState.teacher||[],ok=rows.filter(r=>!r._errors.length);
+  if(!rows.length){box.innerHTML='لا توجد بيانات.';return}
+  box.innerHTML=`<div style="margin-bottom:10px"><span class="tag blue">المعلمون ${rows.length}</span> <span class="tag green">جاهزون ${ok.length}</span>${rows.length-ok.length?` <span class="tag orange">بحاجة لتصحيح ${rows.length-ok.length}</span>`:''} <button class="btn primary" onclick="confirmBulkImport('teacher')" ${ok.length?'':'disabled'}>إضافة الجميع</button></div>
+  <p style="color:var(--muted);font-size:12px;margin:0 0 10px">اسم المستخدم يُنشأ تلقائيًا من 6 أرقام (الرقم الظاهر مبدئي ويُثبَّت عند الإضافة)، والرقم السري لكل الحسابات ${DEFAULT_STUDENT_PASSWORD}.</p>
+  <div style="overflow:auto;max-height:350px"><table style="width:100%;min-width:850px;border-collapse:collapse"><thead><tr><th>السطر</th><th>اسم المعلم</th><th>رقم الهاتف</th><th>الصف / الشعبة</th><th>اسم المستخدم</th><th>الرقم السري</th><th>الحالة</th></tr></thead><tbody>${rows.map(r=>`<tr style="border-top:1px solid var(--line)"><td>${r.rows.join('، ')}</td><td>${esc(r.name||'—')}</td><td dir="ltr">${esc(r.phone||'—')}</td><td>${r.classes.map(esc).join('<br>')}</td><td dir="ltr">${r.username?esc(r.username):'—'}</td><td dir="ltr">${r._errors.length?'—':DEFAULT_STUDENT_PASSWORD}</td><td>${r._errors.length?'<span style="color:#c0392b">'+esc(r._errors.join('، '))+'</span>':'<span style="color:#178a5b">جاهز ✓</span>'}</td></tr>`).join('')}</tbody></table></div>`;
+}
+async function confirmTeacherImport(){
+  const list=(bulkImportState.teacher||[]).filter(r=>!r._errors.length);if(!list.length)return;
+  if(await jdAddLocked('teacher'))return;
+  if(!confirm(`إضافة ${list.length} معلمًا الآن؟\nسيُنشأ لكل معلم اسم مستخدم من 6 أرقام، والرقم السري ${DEFAULT_STUDENT_PASSWORD}.`))return;
+  const btn=document.querySelector('#teacherBulkPreview .btn.primary');if(btn){btn.disabled=true;btn.textContent='جاري إنشاء الحسابات…';}
+  try{
+    const users=list.map(t=>({profile:{role:'teacher',auto_username:true,name:t.name,phone:t.phone,stages:t.stages,subject:''}}));
+    const res=await NabdCloud.bulkCreateUsers('teacher',users);
+    const created=res.created||[],errors=res.errors||[];
+    bulkImportState.teacher=[];
+    await syncCloudProfiles();renderAdminManagement();
+    const box=document.getElementById('teacherBulkPreview');if(!box)return;
+    box.innerHTML=`<div style="padding:14px;border-radius:14px;background:#e8fff5;color:#148b67;font-weight:800;margin-bottom:10px">✓ تمت إضافة ${created.length} معلمًا${errors.length?` — وتعذّر ${errors.length}`:''}. الرقم السري لجميع الحسابات: <span dir="ltr">${esc(res.password||DEFAULT_STUDENT_PASSWORD)}</span></div>
+    ${created.length?`<div style="overflow:auto;max-height:350px"><table style="width:100%;min-width:600px;border-collapse:collapse"><thead><tr><th>اسم المعلم</th><th>رقم الهاتف</th><th>اسم المستخدم</th><th>الرقم السري</th></tr></thead><tbody>${created.map(t=>`<tr style="border-top:1px solid var(--line)"><td>${esc(t.name)}</td><td dir="ltr">${esc(t.phone||'')}</td><td dir="ltr"><b>${esc(studentEmailToUsername(t.email))}</b></td><td dir="ltr">${esc(res.password||DEFAULT_STUDENT_PASSWORD)}</td></tr>`).join('')}</tbody></table></div>`:''}
+    ${errors.length?`<div style="margin-top:10px;color:#c0392b">${errors.map(x=>`• ${esc(x.name||list[x.index]?.name||'')}: ${esc(x.error||'')}`).join('<br>')}</div>`:''}`;
+    box.scrollIntoView({behavior:'smooth',block:'start'});
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='إضافة الجميع';}
+    if(e?.code==='feature_locked'){jdShowAddLocked('teacher');return}
+    alert('تعذر الاستيراد: '+(e.message||''));
+  }
+}
+async function confirmBulkImport(role){if(role==='teacher')return confirmTeacherImport();const rows=(bulkImportState[role]||[]).filter(r=>!r._errors.length);if(!rows.length)return;if(await jdAddLocked(role))return;if(!confirm(`إضافة ${rows.length} حسابًا الآن؟`))return;try{const users=rows.map(r=>role==='student'?{password:r.password,profile:{role:'student',auto_username:!!r.autoUsername,name:r.name,phone:r.phone,guardian_phone:r.guardianPhone||'',email:r.email,external_id:'',stage:r.stage,grade:r.grade,section:r.section,subject:'',stages:[]}}:{password:r.password,profile:{role:'teacher',name:r.name,phone:r.phone,email:r.email,external_id:'',stage:'',grade:'',section:'',subject:r.subject,stages:parseStages(r.stagesRaw)}});const res=await NabdCloud.bulkCreateUsers(role,users);await syncCloudProfiles();renderAdminManagement();const nums=(res.created||[]).map(x=>studentEmailToUsername(x.email)).filter(Boolean);alert(`تمت إضافة ${res.created?.length||0} بنجاح${res.errors?.length?`، وتعذر ${res.errors.length}`:''}.${role==='student'&&nums.length?`\nأسماء المستخدمين من ${nums[0]} إلى ${nums[nums.length-1]}، والرقم السري الموحد ${DEFAULT_STUDENT_PASSWORD}.\nيمكنك طباعة بيانات الدخول من زر «طباعة بيانات الدخول».`:''}`)}catch(e){if(e?.code==='feature_locked'){jdShowAddLocked(e.role||role);return}alert('تعذر الاستيراد: '+(e.message||''))}}
 
 async function saveStudentAdminForm(){
   if(role!=='admin'){alert('هذا الخيار متاح لإدارة المدرسة فقط.');return;}

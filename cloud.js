@@ -206,6 +206,31 @@
   }
   async function deleteUser(authUserId){ return adminRequest({action:'delete',auth_user_id:authUserId}); }
 
+  // تغيير كلمة المرور: يتحقق من الحالية بتسجيل دخول مستقل (لا يمس الجلسة المفتوحة) ثم يحدّث بنفس التوكن الجديد.
+  async function changeOwnPassword(currentPassword,newPassword){
+    const user=await currentUser();
+    if(!user?.email) throw new Error('يجب تسجيل الدخول أولاً.');
+    const conf=await getConfig();
+    const vr=await fetch(conf.url+'/auth/v1/token?grant_type=password',{method:'POST',headers:{'Content-Type':'application/json','apikey':conf.anonKey},body:JSON.stringify({email:user.email,password:currentPassword})});
+    const v=await vr.json().catch(()=>({}));
+    if(!vr.ok||!v?.access_token){const e=new Error('كلمة المرور الحالية غير صحيحة.');e.code='wrong_current';throw e;}
+    const headers={'Content-Type':'application/json','apikey':conf.anonKey,'Authorization':'Bearer '+v.access_token};
+    try{
+      const ur=await fetch(conf.url+'/auth/v1/user',{method:'PUT',headers,body:JSON.stringify({password:newPassword})});
+      const u=await ur.json().catch(()=>({}));
+      if(!ur.ok){
+        const msg=String(u.msg||u.error_description||u.message||'');
+        if(/different from the old|same_password/i.test(msg+u.error_code)) throw new Error('كلمة المرور الجديدة يجب أن تختلف عن الحالية.');
+        if(/at least|weak/i.test(msg)) throw new Error('كلمة المرور الجديدة ضعيفة أو قصيرة.');
+        throw new Error(msg||'تعذر تغيير كلمة المرور.');
+      }
+    }finally{
+      // أنهِ جلسة التحقق المؤقتة فقط
+      fetch(conf.url+'/auth/v1/logout?scope=local',{method:'POST',headers}).catch(()=>{});
+    }
+    return true;
+  }
+
   async function currentUser(){
     if(directSession?.user?.id) return directSession.user;
     const c=await init();
@@ -526,7 +551,7 @@
   }
 
   window.NabdCloud={
-    init,signIn,signOut,restoreSession,getAccessToken,loadProfiles,createUser,updateUser,deleteUser,bulkCreateUsers,getAddLocks,loadAdminCredentials,syncOwnCredential,
+    init,signIn,signOut,changeOwnPassword,restoreSession,getAccessToken,loadProfiles,createUser,updateUser,deleteUser,bulkCreateUsers,getAddLocks,loadAdminCredentials,syncOwnCredential,
     currentUser,uploadSchoolFile,signedSchoolFileUrl,
     createInteractiveHomework,listInteractiveHomeworks,deleteInteractiveHomework,
     submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,

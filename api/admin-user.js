@@ -60,6 +60,21 @@ module.exports = async function handler(req, res) {
     const max = (data || []).reduce((m, r) => Math.max(m, studentNumberFromEmail(r.email)), FIRST_STUDENT_NUMBER - 1);
     return max + 1;
   }
+  // أسماء مستخدمي المعلمين المستوردين: رقم فريد من 6 أرقام في نطاق مستقل عن الطلاب (900001–999999).
+  const FIRST_TEACHER_NUMBER = 900001;
+  const LAST_TEACHER_NUMBER = 999999;
+  function teacherNumberFromEmail(email) {
+    const n = studentNumberFromEmail(email);
+    return n >= FIRST_TEACHER_NUMBER && n <= LAST_TEACHER_NUMBER ? n : 0;
+  }
+  // يقبل الأرقام العربية/الفارسية والمسافات ومفتاح عُمان 968، ويعيد 8 أرقام.
+  function normPhone(v) {
+    let s = String(v ?? '').replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x660)).replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x6F0)).replace(/\D/g, '');
+    if (s.length === 11 && s.startsWith('968')) s = s.slice(3);
+    if (s.length === 13 && s.startsWith('00968')) s = s.slice(5);
+    return s;
+  }
+
   // علامة غير سرية: الحساب ما زال يستخدم الرقم السري الموحد، لتظهر في قائمة الطباعة.
   async function markDefaultPassword(authUserId, password) {
     const key = `default_password:${authUserId}`;
@@ -139,6 +154,48 @@ module.exports = async function handler(req, res) {
       if (addLocks[role]) return lockedResponse(role);
       if(!users.length) return res.status(400).json({error:'No users'});
       if(users.length>500) return res.status(400).json({error:'Maximum 500 users per import'});
+
+      // استيراد المعلمين: اسم المستخدم رقم فريد من 6 أرقام، والرقم السري 123456 دائمًا.
+      if(role==='teacher'){
+        const {data:everyone,error:evErr}=await admin.from('profiles').select('email,role,phone,external_id');
+        if(evErr) throw evErr;
+        const taken=new Set((everyone||[]).map(x=>String(x.email||'').trim().toLowerCase()).filter(Boolean));
+        const teachers=(everyone||[]).filter(x=>x.role==='teacher');
+        const phones=new Set(teachers.map(x=>normPhone(x.phone)).filter(Boolean));
+        let ext=teachers.reduce((m,r)=>{const n=parseInt(String(r.external_id||'').replace(/\D+/g,''),10);return Number.isFinite(n)?Math.max(m,n):m},0)+1;
+        let num=teachers.reduce((m,r)=>Math.max(m,teacherNumberFromEmail(r.email)),FIRST_TEACHER_NUMBER-1)+1;
+        const nextUsername=()=>{
+          while(num<=LAST_TEACHER_NUMBER&&taken.has(`${num}@${STUDENT_DOMAIN}`)) num++;
+          if(num>LAST_TEACHER_NUMBER) return null;
+          return String(num++);
+        };
+        const created=[],errors=[];
+        for(let i=0;i<users.length;i++){
+          const p=(users[i]||{}).profile||{};
+          const name=String(p.name||'').trim(),phone=normPhone(p.phone);
+          const stages=Array.isArray(p.stages)?p.stages.map(x=>String(x).trim()).filter(Boolean):[];
+          if(!name){errors.push({index:i,name,error:'اسم المعلم مفقود'});continue}
+          if(!/^\d{8}$/.test(phone)){errors.push({index:i,name,error:'رقم الهاتف يجب أن يتكون من 8 أرقام'});continue}
+          if(phones.has(phone)){errors.push({index:i,name,error:'رقم الهاتف مسجّل لمعلم آخر'});continue}
+          let saved=null,lastErr=null;
+          for(let attempt=0;attempt<5&&!saved;attempt++){
+            const username=nextUsername();
+            if(!username){lastErr=new Error('لا توجد أسماء مستخدمين متاحة');break}
+            const email=`${username}@${STUDENT_DOMAIN}`;
+            taken.add(email);
+            const {data:u,error:ue}=await admin.auth.admin.createUser({email,password:DEFAULT_STUDENT_PASSWORD,email_confirm:true,user_metadata:{role:'teacher',name}});
+            // البريد مستخدم في نظام الدخول دون ملف شخصي: جرّب الرقم التالي
+            if(ue){lastErr=ue;if(/already|exists|registered/i.test(ue.message||''))continue;break}
+            const row={auth_user_id:u.user.id,role:'teacher',name,phone,guardian_phone:'',email,external_id:String(ext++),stage:'',grade:'',section:'',subject:String(p.subject||''),stages};
+            const {data:s,error:se}=await admin.from('profiles').insert(row).select().single();
+            if(se){await admin.auth.admin.deleteUser(u.user.id);lastErr=se;break}
+            saved=s;
+          }
+          if(saved){phones.add(phone);created.push(saved)}
+          else errors.push({index:i,name,error:lastErr?.message||'تعذر إنشاء الحساب'});
+        }
+        return res.status(200).json({created,errors,password:DEFAULT_STUDENT_PASSWORD});
+      }
 
       const {data:existing,error:exErr}=await admin.from('profiles').select('email,external_id').eq('role',role);
       if(exErr) throw exErr;
