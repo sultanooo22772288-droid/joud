@@ -184,11 +184,19 @@
     return out;
   }
 
-  async function getPreparationContext(){
+  async function getPreparationContext(extra={}){
     const token=await getAccessToken();
-    const r=await fetch('/api/preparation',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action:'context'})});
+    const r=await fetch('/api/preparation',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action:'context',...(extra||{})})});
     const out=await r.json().catch(()=>({}));
     if(!r.ok) throw new Error(out.error||'تعذر تحميل بيانات التحضير.');
+    return out;
+  }
+
+  async function markPreparationViewed(teacherAuthUserId){
+    const token=await getAccessToken();
+    const r=await fetch('/api/preparation',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action:'mark-viewed',teacher_auth_user_id:teacherAuthUserId})});
+    const out=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(out.error||'تعذر تحديث حالة التحضير.');
     return out;
   }
 
@@ -559,7 +567,7 @@
   }
 
   window.NabdCloud={
-    init,signIn,signOut,changeOwnPassword,restoreSession,getAccessToken,loadProfiles,getPreparationContext,createUser,updateUser,deleteUser,bulkCreateUsers,getAddLocks,loadAdminCredentials,syncOwnCredential,
+    init,signIn,signOut,changeOwnPassword,restoreSession,getAccessToken,loadProfiles,getPreparationContext,markPreparationViewed,createUser,updateUser,deleteUser,bulkCreateUsers,getAddLocks,loadAdminCredentials,syncOwnCredential,
     currentUser,uploadSchoolFile,signedSchoolFileUrl,
     createInteractiveHomework,listInteractiveHomeworks,deleteInteractiveHomework,
     submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,
