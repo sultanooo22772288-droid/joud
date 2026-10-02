@@ -2989,44 +2989,39 @@ async function renderPreparationPage(){
     return;
   }
   if(role==='admin'){
-    page.innerHTML='<div class="card" style="text-align:center;padding:28px;color:var(--muted)">جاري تحميل المعلمين وتوزيعهم...</div>';
+    page.innerHTML='<div class="card" style="text-align:center;padding:28px;color:var(--muted)">جاري تحميل تحضيرات المعلمين...</div>';
     try{
       const ctx=await NabdCloud.getPreparationContext();
-      const teachers=ctx.teachers||[];
-      const rows=teachers.map(t=>{
-        const subjectRows=(t.assignments||[]).map(a=>{
-          const cls=(a.classes||[]).map(x=>`${esc(x.grade)} / ${esc(x.section)}`).join('، ');
-          return `<div style="padding:6px 0;border-bottom:1px dashed var(--line)"><b>${esc(a.subject||'—')}</b><div style="color:var(--muted);font-size:12px;margin-top:3px">${cls||'لا توجد صفوف وشعب'}</div></div>`;
-        }).join('');
-        const hasSent=!!t.latestPreparation;
-        const status=hasSent?(t.latestPreparation.status==='viewed'?'تم الاطلاع':'مرسل للإدارة'):'لا يوجد تحضير مرسل';
-        const statusCls=hasSent?(t.latestPreparation.status==='viewed'?'green':'orange'):'';
-        return `<tr style="border-top:1px solid var(--line)">
-          <td style="font-weight:800">${esc(t.name||'—')}</td>
-          <td>${subjectRows||'<span style="color:var(--muted)">لا يوجد توزيع مسجل</span>'}</td>
-          <td><span class="tag ${statusCls}">${esc(status)}</span></td>
-          <td>
-            ${hasSent
-              ? `<button class="btn primary" onclick="openTeacherPreparation('${encodeURIComponent(t.authUserId)}')">عرض التحضير</button>
-                 <button class="btn soft" onclick="markTeacherPreparationViewed('${encodeURIComponent(t.authUserId)}')">${t.latestPreparation.status==='viewed'?'تم الاطلاع ✓':'تم الاطلاع عليه'}</button>`
-              : '<button class="btn soft" disabled>بانتظار إرسال التحضير</button>'}
-          </td>
-        </tr>`;
-      }).join('');
+      window.adminPreparationsCache=Array.isArray(ctx.preparations)?ctx.preparations:[];
+      window.adminPreparationTeachers=Array.isArray(ctx.teachers)?ctx.teachers:[];
+      const teachers=[...new Set(window.adminPreparationTeachers.map(t=>String(t.name||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
+      const subjects=[...new Set(window.adminPreparationsCache.map(p=>String(p.subject||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
+      const grades=[...new Set(window.adminPreparationsCache.map(p=>String(p.grade||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
       page.innerHTML=`
-        <div class="page-head"><div><h2>تحضيرات المعلمين 🗂️</h2><p>عرض المعلمين حسب المواد والصفوف والشعب، ومراجعة التحضيرات المرسلة للإدارة.</p></div></div>
-        <div class="card">
-          <div style="overflow:auto">
-            <table style="width:100%;min-width:850px;border-collapse:collapse">
-              <thead><tr><th>المعلم</th><th>المادة / الصفوف والشعب</th><th>حالة التحضير</th><th>الإجراء</th></tr></thead>
-              <tbody>${rows||'<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--muted)">لا يوجد معلمون مسجلون.</td></tr>'}</tbody>
-            </table>
-          </div>
+        <style>
+          .admin-prep-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}.admin-prep-stat{border:1px solid var(--line);border-radius:18px;padding:18px;background:#fff;box-shadow:var(--shadow)}.admin-prep-stat b{display:block;font-size:30px;margin-top:7px}
+          .admin-prep-filters{display:grid;grid-template-columns:repeat(4,1fr) auto;gap:10px}.admin-prep-filters select{width:100%;padding:11px;border:1px solid var(--line);border-radius:12px;background:#fff}.admin-prep-list{display:grid;gap:11px;margin-top:14px}.admin-prep-row{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fff}
+          @media(max-width:850px){.admin-prep-filters{grid-template-columns:1fr 1fr}}@media(max-width:520px){.admin-prep-stats,.admin-prep-filters{grid-template-columns:1fr}}
+        </style>
+        <div class="page-head"><div><h2>تحضيرات المعلمين 🗂️</h2><p>كل التحضيرات التي أرسلها المعلمون تظهر هنا للمراجعة والاطلاع.</p></div><button class="btn soft" onclick="renderPreparationPage()">↻ تحديث</button></div>
+        <div class="admin-prep-stats">
+          <div class="admin-prep-stat"><span>📨 يحتاج الاطلاع عليه</span><b id="adminPrepPendingCount">0</b><small style="color:var(--muted)">تحضير مرسل من المعلمين ولم يتم الاطلاع عليه بعد</small></div>
+          <div class="admin-prep-stat"><span>✅ تم الاطلاع عليه</span><b id="adminPrepViewedCount">0</b><small style="color:var(--muted)">تحضير تمت مراجعته وقُفل لدى المعلم</small></div>
         </div>
+        <div class="card">
+          <div class="admin-prep-filters">
+            <select id="adminPrepTeacher" onchange="filterAdminPreparations()"><option value="">كل المعلمين</option>${teachers.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('')}</select>
+            <select id="adminPrepSubject" onchange="filterAdminPreparations()"><option value="">كل المواد</option>${subjects.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('')}</select>
+            <select id="adminPrepGrade" onchange="syncAdminPrepSections();filterAdminPreparations()"><option value="">كل الصفوف</option>${grades.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('')}</select>
+            <select id="adminPrepSection" onchange="filterAdminPreparations()"><option value="">كل الشعب</option></select>
+            <button class="btn soft" onclick="clearAdminPreparationFilters()">مسح الفلاتر</button>
+          </div>
+          <div id="adminPrepResultCount" style="font-size:12px;color:var(--muted);margin-top:10px"></div>
+        </div>
+        <div id="adminPreparationsList" class="admin-prep-list"></div>
         <div id="adminPreparationViewer" style="margin-top:14px"></div>`;
-    }catch(e){
-      page.innerHTML='<div class="card"><h3>تعذر تحميل بيانات التحضير</h3><p style="color:#c0392b">'+esc(e.message||'حاول مرة أخرى')+'</p></div>';
-    }
+      syncAdminPrepSections();filterAdminPreparations();
+    }catch(e){page.innerHTML='<div class="card"><h3>تعذر تحميل بيانات التحضير</h3><p style="color:#c0392b">'+esc(e.message||'حاول مرة أخرى')+'</p></div>';}
     return;
   }
   page.innerHTML='<div class="card" style="text-align:center;padding:28px;color:var(--muted)">جاري تحميل توزيعك الأكاديمي...</div>';
@@ -3588,6 +3583,31 @@ async function generatePreparationAI(){
   }finally{
     buttons.forEach(b=>{b.disabled=false;b.textContent=b.dataset.oldText||'✨ توليد التحضير بالذكاء الاصطناعي';delete b.dataset.oldText;});
   }
+}
+
+function syncAdminPrepSections(){
+  const el=document.getElementById('adminPrepSection');if(!el)return;
+  const grade=String(document.getElementById('adminPrepGrade')?.value||''),old=el.value;
+  const sections=[...new Set((window.adminPreparationsCache||[]).filter(p=>!grade||String(p.grade||'')===grade).flatMap(p=>Array.isArray(p.sections)?p.sections.map(String):[]))].sort((a,b)=>a.localeCompare(b,'ar'));
+  el.innerHTML='<option value="">كل الشعب</option>'+sections.map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join('');
+  if(sections.includes(old))el.value=old;
+}
+function filterAdminPreparations(){
+  const all=window.adminPreparationsCache||[],teacher=document.getElementById('adminPrepTeacher')?.value||'',subject=document.getElementById('adminPrepSubject')?.value||'',grade=document.getElementById('adminPrepGrade')?.value||'',section=document.getElementById('adminPrepSection')?.value||'';
+  const list=all.filter(p=>(!teacher||String(p.teacherName||'')===teacher)&&(!subject||String(p.subject||'')===subject)&&(!grade||String(p.grade||'')===grade)&&(!section||(p.sections||[]).map(String).includes(section)));
+  const pending=document.getElementById('adminPrepPendingCount'),viewed=document.getElementById('adminPrepViewedCount');
+  if(pending)pending.textContent=all.filter(p=>p.status==='sent').length;if(viewed)viewed.textContent=all.filter(p=>p.status==='viewed').length;
+  const count=document.getElementById('adminPrepResultCount');if(count)count.textContent='النتائج الظاهرة: '+list.length+' من '+all.length;
+  const box=document.getElementById('adminPreparationsList');if(!box)return;
+  if(!list.length){box.innerHTML='<div class="card" style="text-align:center;padding:28px;color:var(--muted)">لا توجد تحضيرات مطابقة للفلاتر الحالية.</div>';return;}
+  box.innerHTML=list.map(p=>{const tid=encodeURIComponent(p.teacherId||''),rid=encodeURIComponent(p.recordId||'');return '<div class="admin-prep-row"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><b style="font-size:16px">'+esc(p.teacherName||'المعلم')+'</b><div style="font-weight:800;margin-top:5px">'+esc(p.unit||'')+' — '+esc(p.lesson||p.title||'')+'</div><div style="font-size:12px;color:var(--muted);margin-top:6px">📚 '+esc(p.subject||'')+' • 🏫 '+esc(p.grade||'')+' • 👥 '+esc((p.sections||[]).join('، ')||'—')+' • 📅 '+esc(p.date||'')+'</div></div><span class="tag '+(p.status==='viewed'?'green':'orange')+'">'+(p.status==='viewed'?'تم الاطلاع عليه 🔒':'يحتاج الاطلاع')+'</span></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn soft" onclick="openAdminPreparationDetails(\''+tid+'\',\''+rid+'\')">👁️ عرض التحضير</button>'+(p.status==='viewed'?'<button class="btn soft" disabled>تم الاطلاع عليه ✓</button>':'<button class="btn primary" onclick="markTeacherPreparationViewed(\''+tid+'\',\''+rid+'\')">✓ تم الاطلاع عليه</button>')+'</div></div>';}).join('');
+}
+function clearAdminPreparationFilters(){['adminPrepTeacher','adminPrepSubject','adminPrepGrade','adminPrepSection'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});syncAdminPrepSections();filterAdminPreparations();}
+function openAdminPreparationDetails(tid,rid){
+  const teacherId=decodeURIComponent(tid||''),recordId=decodeURIComponent(rid||'');
+  const p=(window.adminPreparationsCache||[]).find(x=>String(x.teacherId||'')===teacherId&&String(x.recordId||'')===recordId);
+  const box=document.getElementById('adminPreparationViewer');if(!box||!p)return;
+  box.innerHTML='<div id="adminPreparationDetails"></div>';showPreparationDetails(encodeURIComponent(JSON.stringify(p)));box.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 async function openTeacherPreparation(teacherIdEncoded){
