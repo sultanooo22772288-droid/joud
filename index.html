@@ -3030,31 +3030,209 @@ async function renderPreparationPage(){
   try{
     const ctx=await NabdCloud.getPreparationContext();
     const assignments=ctx.assignments||[];
-    const cards=assignments.map(a=>{
-      const cls=(a.classes||[]).map(x=>`${esc(x.grade)} — الشعبة (${esc(x.section)})`).join(' • ');
-      return `<div class="card" style="border-right:4px solid var(--primary)">
-        <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
-          <h3 style="margin:0">${esc(a.subject||'مادة غير محددة')}</h3><span class="tag green">مسندة ✓</span>
-        </div>
-        <div style="margin-top:12px;color:var(--muted);line-height:1.9">${cls||'لا توجد صفوف وشعب مسندة.'}</div>
-      </div>`;
-    }).join('');
+    prepTeacherAssignments=assignments;
+    prepSelectedSubject='';
+    prepSelectedGrades=new Set();
+    prepSelectedClasses=new Set();
+
+    if(!assignments.length){
+      page.innerHTML=`
+        <div class="page-head"><div><h2>التحضير الإلكتروني ✨</h2><p>لا توجد مواد مسندة لهذا الحساب حتى الآن.</p></div></div>
+        <div class="card">راجع توزيع المعلم من الإدارة أولاً.</div>`;
+      return;
+    }
+
     page.innerHTML=`
-      <div class="page-head"><div><h2>التحضير 🗂️</h2><p>هذه الصفحة مرتبطة بتوزيعك المسجل، لذلك لن تظهر لك إلا المواد والصفوف والشعب التي تدرّسها.</p></div></div>
-      <div class="card" style="margin-bottom:14px">
-        <strong>المعلم: ${esc(ctx.teacher?.name||'—')}</strong>
-        <div style="color:var(--muted);margin-top:5px">التوزيع الأكاديمي محمّل من بيانات الإدارة.</div>
-      </div>
-      <div class="grid grid-2">${cards||'<div class="card">لا توجد مواد مسندة لهذا الحساب حتى الآن.</div>'}</div>
-      <div class="card" style="margin-top:14px;background:#fafbff">
-        <h3 style="margin-top:0">الخطوة التالية</h3>
-        <p style="margin-bottom:0;color:var(--muted)">إضافة الوحدات وعناوين الدروس لكل مادة وصف، ثم نربط إنشاء التحضير بالذكاء الاصطناعي.</p>
+      <style>
+        .prep-shell{display:grid;gap:14px}
+        .prep-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+        .prep-subjects,.prep-chips{display:flex;gap:8px;flex-wrap:wrap}
+        .prep-subject-btn,.prep-chip{border:1px solid var(--line);background:#fff;border-radius:12px;padding:9px 14px;font-weight:800;cursor:pointer}
+        .prep-subject-btn.active,.prep-chip.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+        .prep-top-grid{display:grid;grid-template-columns:1.2fr 1.2fr 1fr 1fr;gap:10px}
+        .prep-meta-grid{display:grid;grid-template-columns:1.6fr 1fr .7fr 1fr 1fr;gap:10px}
+        .prep-field{display:grid;gap:5px}
+        .prep-field label{font-size:12px;font-weight:800;color:var(--muted)}
+        .prep-field input,.prep-field select,.prep-editor textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff;font-family:inherit}
+        .prep-field input[readonly]{background:#f7f9fc;color:#42526a}
+        .prep-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+        .prep-grid-main{display:grid;grid-template-columns:1.15fr 2.1fr 1.2fr 1.35fr;gap:10px}
+        .prep-grid-assess{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+        .prep-card{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff}
+        .prep-card h4{margin:0;padding:10px 12px;background:#f3f7ff;color:#183c7a;font-size:15px}
+        .prep-editor{padding:8px}
+        .prep-editor textarea{min-height:135px;resize:vertical;line-height:1.8}
+        .prep-grid-main .prep-editor textarea{min-height:250px}
+        .prep-strategies{padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:7px;font-size:13px}
+        .prep-strategies label{display:flex;align-items:center;gap:6px}
+        .prep-status{padding:9px 12px;border-radius:10px;background:#eef6ff;color:#255a9a;font-weight:700}
+        @media(max-width:1000px){
+          .prep-top-grid,.prep-meta-grid,.prep-grid-4,.prep-grid-main,.prep-grid-assess{grid-template-columns:1fr 1fr}
+        }
+        @media(max-width:640px){
+          .prep-top-grid,.prep-meta-grid,.prep-grid-4,.prep-grid-main,.prep-grid-assess{grid-template-columns:1fr}
+        }
+      </style>
+      <div class="prep-shell">
+        <div class="page-head">
+          <div><h2>التحضير الإلكتروني ✨</h2><p>اختر المادة ثم الصف أو أكثر، وبعدها الوحدة والدرس والشعبة. جميع خانات التحضير قابلة للتعديل.</p></div>
+          <button class="btn soft" onclick="renderPreparationPage()">↻ تحديث</button>
+        </div>
+
+        <div class="card">
+          <div style="font-weight:900;margin-bottom:10px">المادة</div>
+          <div class="prep-subjects" id="prepSubjects">
+            ${assignments.map((a,i)=>`<button class="prep-subject-btn" data-index="${i}" onclick="selectPrepSubject(${i})">${esc(a.subject||'مادة')}</button>`).join('')}
+          </div>
+        </div>
+
+        <div class="card" id="prepSelectionCard" style="display:none">
+          <div class="prep-top-grid">
+            <div class="prep-field"><label>الصف (يمكن اختيار أكثر من صف)</label><div class="prep-chips" id="prepGrades"></div></div>
+            <div class="prep-field"><label>الوحدة</label><select id="prepUnit" onchange="prepUnitChanged()"><option value="">اختر الوحدة</option></select></div>
+            <div class="prep-field"><label>الدرس</label><select id="prepLesson" onchange="prepLessonChanged()"><option value="">اختر الدرس</option></select></div>
+            <div class="prep-field"><label>الشعبة / الشعب</label><div class="prep-chips" id="prepSections"></div></div>
+          </div>
+          <div id="prepUnitHint" class="prep-status" style="margin-top:10px">سيتم ربط الوحدات وعناوين الدروس من الكتب في الخطوة التالية.</div>
+        </div>
+
+        <div id="prepDesigner" style="display:none">
+          <div class="card" style="margin-bottom:12px">
+            <div class="prep-meta-grid">
+              <div class="prep-field"><label>عنوان الدرس — تلقائي</label><input id="prepTitle" readonly placeholder="يظهر تلقائيًا بعد اختيار الدرس"></div>
+              <div class="prep-field"><label>اليوم والتاريخ — تلقائي</label><input id="prepDate" readonly value="${new Intl.DateTimeFormat('ar-OM',{weekday:'long',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}"></div>
+              <div class="prep-field"><label>الحصة</label><input id="prepPeriod" value="1"></div>
+              <div class="prep-field"><label>الشعبة</label><input id="prepSectionSummary" readonly placeholder="حسب الاختيار"></div>
+              <div class="prep-field"><label>أرقام الأهداف / المخرجات</label><input id="prepOutcomeNums" placeholder="مثال: 1.1، 1.2"></div>
+            </div>
+          </div>
+
+          <div class="prep-grid-4" style="margin-bottom:10px">
+            ${prepEditorCard('التعلم القبلي','prepPrior')}
+            ${prepEditorCard('التمهيد','prepIntro')}
+            ${prepEditorCard('المفاهيم','prepConcepts')}
+            ${prepEditorCard('الأهداف / المخرجات التعليمية','prepObjectives')}
+          </div>
+
+          <div class="prep-grid-main" style="margin-bottom:10px">
+            <div class="prep-card"><h4>الاستراتيجيات / طرق التدريس</h4>
+              <div class="prep-strategies">
+                ${['الحوار والمناقشة','الاستقصاء','العصف الذهني','تنبأ وفسر ولاحظ','التعلم التعاوني','شكل V المعرفي','القياس','القصة','الخرائط الذهنية','الاستكشاف الاستقرائي','التعلم باللعب','تمثيل الأدوار','التعلم بالأقران','حل المشكلات'].map(s=>`<label><input type="checkbox" class="prepStrategy" value="${esc(s)}"> ${esc(s)}</label>`).join('')}
+                <div class="prep-field" style="grid-column:1/-1"><input id="prepStrategyOther" placeholder="أخرى..."></div>
+              </div>
+            </div>
+            ${prepEditorCard('آلية التنفيذ / الأنشطة التدريبية / التعليمية','prepActivities')}
+            ${prepEditorCard('الوسائل ومصادر التعلم','prepResources')}
+            ${prepEditorCard('ملاحظات المعلم','prepTeacherNotes')}
+          </div>
+
+          <div class="prep-grid-assess" style="margin-bottom:10px">
+            ${prepEditorCard('التقويم التكويني','prepFormative')}
+            ${prepEditorCard('نشاط إثرائي / علاجي','prepEnrichment')}
+            ${prepEditorCard('التقويم الختامي','prepSummative')}
+            ${prepEditorCard('الواجب المنزلي','prepHomework')}
+          </div>
+
+          <div class="prep-card" style="margin-bottom:12px">
+            <h4>يعتمد: المشرف التربوي</h4>
+            <div class="prep-editor"><textarea id="prepSupervisor" placeholder="تترك للإدارة / المشرف عند المراجعة"></textarea></div>
+          </div>
+
+          <div class="prep-toolbar">
+            <button class="btn primary" onclick="generatePreparationAI()">✨ توليد التحضير بالذكاء الاصطناعي</button>
+            <button class="btn soft" onclick="generatePreparationAI()">↻ إعادة التوليد</button>
+            <button class="btn soft" onclick="alert('الحفظ والإرسال للإدارة سيتم ربطهما في الخطوات التالية.')">💾 حفظ مسودة</button>
+            <button class="btn soft" onclick="window.print()">🖨️ طباعة</button>
+          </div>
+        </div>
       </div>`;
   }catch(e){
     page.innerHTML='<div class="card"><h3>تعذر تحميل بيانات التحضير</h3><p style="color:#c0392b">'+esc(e.message||'حاول مرة أخرى')+'</p></div>';
   }
 }
 
+
+
+let prepTeacherAssignments=[];
+let prepSelectedSubject='';
+let prepSelectedGrades=new Set();
+let prepSelectedClasses=new Set();
+
+function prepEditorCard(title,id){
+  return `<div class="prep-card"><h4>${esc(title)}</h4><div class="prep-editor"><textarea id="${id}" placeholder="سيتم توليد المحتوى هنا ويمكن للمعلم تعديله..."></textarea></div></div>`;
+}
+function selectPrepSubject(index){
+  const a=prepTeacherAssignments[index]; if(!a)return;
+  prepSelectedSubject=a.subject||'';
+  prepSelectedGrades=new Set();
+  prepSelectedClasses=new Set();
+  document.querySelectorAll('.prep-subject-btn').forEach((b,i)=>b.classList.toggle('active',i===index));
+  const grades=[...new Set((a.classes||[]).map(x=>String(x.grade||'')).filter(Boolean))];
+  const box=document.getElementById('prepGrades');
+  if(box) box.innerHTML=grades.map(g=>`<button class="prep-chip" data-grade="${esc(g)}" onclick="togglePrepGrade(this,'${encodeURIComponent(g)}')">${esc(g)}</button>`).join('');
+  const card=document.getElementById('prepSelectionCard'); if(card)card.style.display='block';
+  const designer=document.getElementById('prepDesigner'); if(designer)designer.style.display='none';
+  renderPrepSections();
+}
+function togglePrepGrade(btn,encoded){
+  const grade=decodeURIComponent(encoded||'');
+  if(prepSelectedGrades.has(grade)) prepSelectedGrades.delete(grade); else prepSelectedGrades.add(grade);
+  btn.classList.toggle('active',prepSelectedGrades.has(grade));
+  renderPrepSections();
+  const designer=document.getElementById('prepDesigner'); if(designer)designer.style.display=prepSelectedGrades.size?'block':'none';
+  const unit=document.getElementById('prepUnit');
+  if(unit){
+    unit.disabled=!prepSelectedGrades.size;
+    unit.innerHTML=prepSelectedGrades.size
+      ? '<option value="">اختر الوحدة</option><option value="__pending" disabled>سيتم ربط الوحدات من الكتب في الخطوة التالية</option>'
+      : '<option value="">اختر الوحدة</option>';
+  }
+}
+function renderPrepSections(){
+  const a=prepTeacherAssignments.find(x=>String(x.subject||'')===String(prepSelectedSubject||''));
+  const box=document.getElementById('prepSections'); if(!box)return;
+  const classes=(a?.classes||[]).filter(x=>prepSelectedGrades.has(String(x.grade||'')));
+  const seen=new Set();
+  const items=classes.filter(x=>{
+    const k=String(x.grade||'')+'||'+String(x.section||'');
+    if(seen.has(k))return false; seen.add(k); return true;
+  });
+  box.innerHTML=items.map(x=>{
+    const key=String(x.grade||'')+'||'+String(x.section||'');
+    return `<button class="prep-chip" data-class="${esc(key)}" onclick="togglePrepClass(this,'${encodeURIComponent(key)}')">${esc(x.grade||'')} / ${esc(x.section||'')}</button>`;
+  }).join('') || '<span style="color:var(--muted)">اختر الصف أولاً</span>';
+  syncPrepSectionSummary();
+}
+function togglePrepClass(btn,encoded){
+  const key=decodeURIComponent(encoded||'');
+  if(prepSelectedClasses.has(key)) prepSelectedClasses.delete(key); else prepSelectedClasses.add(key);
+  btn.classList.toggle('active',prepSelectedClasses.has(key));
+  syncPrepSectionSummary();
+}
+function syncPrepSectionSummary(){
+  const el=document.getElementById('prepSectionSummary');
+  if(!el)return;
+  el.value=[...prepSelectedClasses].map(x=>{
+    const [g,s]=x.split('||'); return g+' / '+s;
+  }).join('، ');
+}
+function prepUnitChanged(){
+  const lesson=document.getElementById('prepLesson');
+  if(!lesson)return;
+  lesson.innerHTML='<option value="">اختر الدرس</option>';
+  lesson.disabled=true;
+}
+function prepLessonChanged(){
+  const lesson=document.getElementById('prepLesson');
+  const title=document.getElementById('prepTitle');
+  if(title) title.value=lesson?.selectedOptions?.[0]?.textContent||'';
+}
+function generatePreparationAI(){
+  if(!prepSelectedSubject){alert('اختر المادة أولاً.');return;}
+  if(!prepSelectedGrades.size){alert('اختر الصف أو الصفوف أولاً.');return;}
+  if(!prepSelectedClasses.size){alert('اختر الشعبة أو الشعب أولاً.');return;}
+  alert('واجهة التحضير أصبحت جاهزة. في الخطوة التالية سنربط الوحدات وعناوين الدروس، وبعدها التوليد الحقيقي بالذكاء الاصطناعي.');
+}
 
 async function openTeacherPreparation(teacherIdEncoded){
   const box=document.getElementById('adminPreparationViewer'); if(!box)return;
