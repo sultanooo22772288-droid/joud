@@ -4583,9 +4583,16 @@ function renderAdminManagement(){
     </div>
 
     <div class="card">
-      <div id="teacherCount" style="margin-bottom:12px;color:var(--muted);font-size:13px">عدد المعلمين: ${demoData.teachers.length}</div>
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+        <div id="teacherCount" style="color:var(--muted);font-size:13px">عدد المعلمين: ${demoData.teachers.length}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn soft" type="button" onclick="setAllTeacherDeleteChecks(true,'list')">☑ تحديد الكل</button>
+          <button class="btn soft" type="button" onclick="setAllTeacherDeleteChecks(false,'list')">إلغاء التحديد</button>
+          <button id="deleteSelectedTeachersBtn" class="btn soft" type="button" onclick="deleteSelectedTeachers('list')" disabled>🗑️ حذف المحدد</button>
+        </div>
+      </div>
       <div style="overflow:auto"><table style="width:100%;border-collapse:collapse">
-        <thead><tr><th style="padding:10px;text-align:right">المعلم</th><th>الرقم</th><th>المادة</th><th>المراحل والصفوف</th><th>الإجراء</th></tr></thead>
+        <thead><tr><th style="width:44px;text-align:center"><input id="selectAllTeachersList" type="checkbox" onchange="setAllTeacherDeleteChecks(this.checked,'list')"></th><th style="padding:10px;text-align:right">المعلم</th><th>الرقم</th><th>المادة</th><th>المراحل والصفوف</th><th>الإجراء</th></tr></thead>
         <tbody id="teachersTableBody">${renderTeacherRows(demoData.teachers)}</tbody>
       </table></div>
     </div>
@@ -4595,9 +4602,14 @@ function renderAdminManagement(){
         <div><h3 style="margin:0 0 5px">🔐 حسابات دخول المعلمين</h3><small style="color:var(--muted)">مرتبطة مباشرة بسجل المعلم وتتحدث تلقائيًا بعد تعديل البريد أو كلمة المرور.</small></div>
         <span class="tag green">متزامنة تلقائيًا</span>
       </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="btn soft" type="button" onclick="setAllTeacherDeleteChecks(true,'accounts')">☑ تحديد كل الحسابات</button>
+        <button class="btn soft" type="button" onclick="setAllTeacherDeleteChecks(false,'accounts')">إلغاء التحديد</button>
+        <button id="deleteSelectedTeacherAccountsBtn" class="btn soft" type="button" onclick="deleteSelectedTeachers('accounts')" disabled>🗑️ حذف الحسابات المحددة</button>
+      </div>
       <div class="credentials-fit-wrap">
         <table class="credentials-fit-table" style="width:100%;border-collapse:collapse;table-layout:fixed">
-          <thead><tr><th>المعلم</th><th>م</th><th>المواد</th><th>اسم المستخدم</th><th>الرقم السري</th><th>الإجراء</th></tr></thead>
+          <thead><tr><th style="width:42px"><input id="selectAllTeacherAccounts" type="checkbox" onchange="setAllTeacherDeleteChecks(this.checked,'accounts')"></th><th>المعلم</th><th>م</th><th>المواد</th><th>اسم المستخدم</th><th>الرقم السري</th><th>الإجراء</th></tr></thead>
           <tbody id="teacherCredentialsBody">${renderTeacherCredentialsRows()}</tbody>
         </table>
       </div>
@@ -5247,8 +5259,9 @@ async function deleteStudentAdmin(id){
 
 function renderTeacherRows(list){
   list=[...(list||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
-  if(!list.length) return `<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--muted)">لا يوجد معلمون في هذا التصنيف.</td></tr>`;
+  if(!list.length) return `<tr><td colspan="6" style="padding:24px;text-align:center;color:var(--muted)">لا يوجد معلمون في هذا التصنيف.</td></tr>`;
   return list.map((t,i)=>`<tr style="border-top:1px solid var(--line)">
+    <td style="text-align:center"><input type="checkbox" class="teacher-delete-check" value="${esc(t.id||'')}" onchange="syncTeacherBulkDeleteButtons()"></td>
     <td style="padding:12px">${esc(t.name)}</td>
     <td>${i+1}</td>
     <td>${teacherSubjectList(t).map(x=>`<span class="tag blue" style="display:inline-block;margin:2px">${esc(x)}</span>`).join('')||'—'}</td>
@@ -5263,8 +5276,9 @@ function renderTeacherRows(list){
 }
 
 function renderTeacherCredentialsRows(list=demoData.teachers){list=[...(list||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
-  if(!list.length) return `<tr><td colspan="6" style="padding:25px;text-align:center;color:var(--muted)">لا توجد حسابات معلمين.</td></tr>`;
+  if(!list.length) return `<tr><td colspan="7" style="padding:25px;text-align:center;color:var(--muted)">لا توجد حسابات معلمين.</td></tr>`;
   return list.map((t,i)=>`<tr style="border-top:1px solid var(--line)">
+    <td style="text-align:center"><input type="checkbox" class="teacher-account-delete-check" value="${esc(t.id||'')}" onchange="syncTeacherBulkDeleteButtons()"></td>
     <td style="padding:12px;font-weight:800">${esc(t.name)}</td>
     <td>${i+1}</td>
     <td>${teacherSubjectList(t).map(x=>`<span class="tag blue" style="display:inline-block;margin:2px">${esc(x)}</span>`).join('')||'—'}</td>
@@ -5484,6 +5498,59 @@ function editTeacherAdminFull(id){
  setTeacherFormMode(true);validateTeacherPhoneField();validateTeacherEmailField();
  document.getElementById('teacherFormCard')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
+
+function setAllTeacherDeleteChecks(checked,area){
+  const cls=area==='accounts'?'.teacher-account-delete-check':'.teacher-delete-check';
+  document.querySelectorAll(cls).forEach(cb=>cb.checked=!!checked);
+  const master=document.getElementById(area==='accounts'?'selectAllTeacherAccounts':'selectAllTeachersList');
+  if(master) master.checked=!!checked;
+  syncTeacherBulkDeleteButtons();
+}
+
+function syncTeacherBulkDeleteButtons(){
+  const listCount=document.querySelectorAll('.teacher-delete-check:checked').length;
+  const accountCount=document.querySelectorAll('.teacher-account-delete-check:checked').length;
+  const b1=document.getElementById('deleteSelectedTeachersBtn');
+  const b2=document.getElementById('deleteSelectedTeacherAccountsBtn');
+  if(b1){b1.disabled=!listCount;b1.textContent=listCount?`🗑️ حذف المحدد (${listCount})`:'🗑️ حذف المحدد';}
+  if(b2){b2.disabled=!accountCount;b2.textContent=accountCount?`🗑️ حذف الحسابات المحددة (${accountCount})`:'🗑️ حذف الحسابات المحددة';}
+}
+
+async function deleteSelectedTeachers(area){
+  if(role!=='admin'){alert('هذا الخيار متاح للإدارة فقط.');return;}
+  const cls=area==='accounts'?'.teacher-account-delete-check:checked':'.teacher-delete-check:checked';
+  const ids=[...document.querySelectorAll(cls)].map(cb=>String(cb.value||'')).filter(Boolean);
+  if(!ids.length){alert('حدد معلمًا واحدًا على الأقل.');return;}
+
+  const selected=demoData.teachers.filter(t=>ids.includes(String(t.id||'')));
+  if(!selected.length){alert('تعذر العثور على الحسابات المحددة.');return;}
+
+  const label=area==='accounts'?'حسابات المعلمين المحددة':'المعلمين المحددين';
+  if(!confirm(`سيتم حذف ${selected.length} من ${label} نهائيًا من المنصة وحسابات الدخول. هل تريد المتابعة؟`)) return;
+
+  const btn=document.getElementById(area==='accounts'?'deleteSelectedTeacherAccountsBtn':'deleteSelectedTeachersBtn');
+  if(btn){btn.disabled=true;btn.textContent='جاري الحذف...';}
+
+  let deleted=0,failed=[];
+  for(const t of selected){
+    try{
+      if(!t.authUserId) throw new Error('معرف الحساب غير موجود');
+      await NabdCloud.deleteUser(t.authUserId);
+      deleted++;
+    }catch(e){
+      failed.push((t.name||'معلم')+': '+(e.message||'تعذر الحذف'));
+    }
+  }
+
+  await syncCloudProfiles();
+  renderAdminManagement();
+  if(failed.length){
+    alert(`تم حذف ${deleted} بنجاح، وتعذر حذف ${failed.length}:\n`+failed.join('\n'));
+  }else{
+    showDeleteSuccess(`✅ تم حذف ${deleted} معلم/حساب بنجاح`);
+  }
+}
+
 async function deleteTeacherAdmin(id){
   if(!confirm('هل تريد حذف هذا المعلم؟')) return;
   const t=demoData.teachers.find(x=>String(x.id||'')===String(id||''));
