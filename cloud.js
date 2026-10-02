@@ -215,6 +215,18 @@
     return out;
   }
 
+  async function generatePreparationAI(payload){
+    const token=await getAccessToken();
+    const r=await fetch('/api/generate-preparation',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body:JSON.stringify(payload||{})
+    });
+    const out=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(out.error||'تعذر توليد التحضير بالذكاء الاصطناعي.');
+    return out;
+  }
+
   async function loadProfiles(){
     const c=await init();
     const {data,error}=await c.from('profiles').select('*').order('id',{ascending:true});
@@ -582,7 +594,7 @@
   }
 
   window.NabdCloud={
-    init,signIn,signOut,changeOwnPassword,restoreSession,getAccessToken,loadProfiles,getPreparationContext,markPreparationViewed,getPreparationCurriculum,savePreparationCurriculum,createUser,updateUser,deleteUser,bulkCreateUsers,getAddLocks,loadAdminCredentials,syncOwnCredential,
+    init,signIn,signOut,changeOwnPassword,restoreSession,getAccessToken,loadProfiles,getPreparationContext,markPreparationViewed,getPreparationCurriculum,savePreparationCurriculum,generatePreparationAI,createUser,updateUser,deleteUser,bulkCreateUsers,getAddLocks,loadAdminCredentials,syncOwnCredential,
     currentUser,uploadSchoolFile,signedSchoolFileUrl,
     createInteractiveHomework,listInteractiveHomeworks,deleteInteractiveHomework,
     submitInteractiveHomework,myInteractiveSubmission,teacherHomeworkSubmissions,gradeHomeworkSubmission,
