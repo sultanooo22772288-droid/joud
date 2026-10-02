@@ -3180,13 +3180,7 @@ function togglePrepGrade(btn,encoded){
   btn.classList.toggle('active',prepSelectedGrades.has(grade));
   renderPrepSections();
   const designer=document.getElementById('prepDesigner'); if(designer)designer.style.display=prepSelectedGrades.size?'block':'none';
-  const unit=document.getElementById('prepUnit');
-  if(unit){
-    unit.disabled=!prepSelectedGrades.size;
-    unit.innerHTML=prepSelectedGrades.size
-      ? '<option value="">اختر الوحدة</option><option value="__pending" disabled>سيتم ربط الوحدات من الكتب في الخطوة التالية</option>'
-      : '<option value="">اختر الوحدة</option>';
-  }
+  loadPrepCurriculum();
 }
 function renderPrepSections(){
   const a=prepTeacherAssignments.find(x=>String(x.subject||'')===String(prepSelectedSubject||''));
@@ -3216,11 +3210,56 @@ function syncPrepSectionSummary(){
     const [g,s]=x.split('||'); return g+' / '+s;
   }).join('، ');
 }
-function prepUnitChanged(){
+let prepCurriculumRows=[];
+async function loadPrepCurriculum(){
+  const unit=document.getElementById('prepUnit');
   const lesson=document.getElementById('prepLesson');
-  if(!lesson)return;
+  const hint=document.getElementById('prepUnitHint');
+  if(!unit||!lesson)return;
+  unit.innerHTML='<option value="">اختر الوحدة</option>';
+  lesson.innerHTML='<option value="">اختر الدرس</option>';
+  unit.disabled=true; lesson.disabled=true;
+  prepCurriculumRows=[];
+  if(!prepSelectedSubject||!prepSelectedGrades.size){
+    if(hint)hint.textContent='اختر المادة ثم الصف أو الصفوف لعرض الوحدات والدروس.';
+    return;
+  }
+  try{
+    if(hint)hint.textContent='جاري تحميل الوحدات والدروس...';
+    const out=await NabdCloud.getPreparationCurriculum(prepSelectedSubject,[...prepSelectedGrades]);
+    prepCurriculumRows=out.curriculum||[];
+    const opts=[];
+    prepCurriculumRows.forEach(row=>{
+      (row.units||[]).forEach((u,ui)=>{
+        opts.push({grade:row.grade,unitIndex:ui,title:u.title||('الوحدة '+(ui+1))});
+      });
+    });
+    if(!opts.length){
+      if(hint)hint.textContent='لا توجد وحدات ودروس مضافة لهذه المادة والصف حتى الآن. أرسل كتب المادة وسأضيفها بالترتيب الصحيح.';
+      return;
+    }
+    unit.innerHTML='<option value="">اختر الوحدة</option>'+opts.map(o=>`<option value="${encodeURIComponent(o.grade)}::${o.unitIndex}">${esc(o.grade)} — ${esc(o.title)}</option>`).join('');
+    unit.disabled=false;
+    if(hint)hint.textContent='تم تحميل الوحدات والدروس المرتبطة بالصفوف المختارة.';
+  }catch(e){
+    if(hint)hint.textContent='تعذر تحميل الوحدات والدروس: '+(e.message||'');
+  }
+}
+function prepUnitChanged(){
+  const unit=document.getElementById('prepUnit');
+  const lesson=document.getElementById('prepLesson');
+  if(!lesson||!unit)return;
   lesson.innerHTML='<option value="">اختر الدرس</option>';
   lesson.disabled=true;
+  const val=unit.value||'';
+  if(!val)return;
+  const [gradeEnc,idxRaw]=val.split('::');
+  const grade=decodeURIComponent(gradeEnc||'');
+  const row=prepCurriculumRows.find(x=>String(x.grade||'')===grade);
+  const u=row?.units?.[Number(idxRaw)];
+  const lessons=Array.isArray(u?.lessons)?u.lessons:[];
+  lesson.innerHTML='<option value="">اختر الدرس</option>'+lessons.map((l,i)=>`<option value="${i}">${esc(l.title||('الدرس '+(i+1)))}</option>`).join('');
+  lesson.disabled=!lessons.length;
 }
 function prepLessonChanged(){
   const lesson=document.getElementById('prepLesson');
