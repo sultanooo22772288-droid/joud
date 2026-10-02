@@ -251,6 +251,14 @@
     const token=await getAccessToken();
     const r=await fetch('/api/preparation',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action:'list-my-preparations'})});
     const out=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(out.error||'تعذر تحميل التحضيرات المحفوظة.');
+    return out;
+  }
+
+  async function listMyPreparations(){
+    const token=await getAccessToken();
+    const r=await fetch('/api/preparation',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action:'list-my-preparations'})});
+    const out=await r.json().catch(()=>({}));
     if(!r.ok) throw new Error(out.error||'تعذر تحميل تحضيراتك.');
     return out;
   }
