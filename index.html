@@ -1416,6 +1416,7 @@ body[data-theme] .app-shell,body[data-theme] .login-screen{position:relative;z-i
   <link rel="stylesheet" href="joud-design.css">
   <link rel="stylesheet" href="joud-finance.css">
   <link rel="stylesheet" href="joud-themes.css">
+  <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 <div id="deleteSuccessToast" class="success-toast"></div>
@@ -3067,11 +3068,23 @@ async function renderPreparationPage(){
         .prep-strategies{padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:7px;font-size:13px}
         .prep-strategies label{display:flex;align-items:center;gap:6px}
         .prep-status{padding:9px 12px;border-radius:10px;background:#eef6ff;color:#255a9a;font-weight:700}
+        .prep-actions-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;margin-top:12px}
+        .prep-action-btn{min-height:58px;border:1px solid var(--line);border-radius:15px;padding:10px 12px;display:flex;align-items:center;justify-content:center;gap:9px;font-weight:900;cursor:pointer;background:#fff;color:var(--text);box-shadow:0 5px 16px rgba(42,61,103,.06);transition:.18s}
+        .prep-action-btn:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(42,61,103,.10)}
+        .prep-action-btn .prep-action-icon{font-size:21px;line-height:1}
+        .prep-action-btn.save{background:#eef8ff;color:#16639a;border-color:#cfe8f7}
+        .prep-action-btn.send{background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff;border-color:transparent}
+        .prep-action-btn.pdf{background:#fff3f1;color:#b63b2e;border-color:#f4d4cf}
+        .prep-action-btn.print{background:#f2f7f3;color:#26704a;border-color:#d5e8da}
+        .prep-action-btn:disabled{opacity:.48;cursor:not-allowed;transform:none;box-shadow:none}
+
         @media(max-width:1000px){
           .prep-top-grid,.prep-meta-grid,.prep-grid-4,.prep-grid-main,.prep-grid-assess{grid-template-columns:1fr 1fr}
+          .prep-actions-grid{grid-template-columns:1fr 1fr}
         }
         @media(max-width:640px){
           .prep-top-grid,.prep-meta-grid,.prep-grid-4,.prep-grid-main,.prep-grid-assess{grid-template-columns:1fr}
+          .prep-actions-grid{grid-template-columns:1fr}
         }
       </style>
       <div class="prep-shell">
@@ -3140,9 +3153,11 @@ async function renderPreparationPage(){
           </div>
 
           <div id="prepWorkflowStatus" style="display:none;margin-bottom:10px;padding:11px 13px;border-radius:11px;background:#eef6ff;color:#255a9a;font-weight:800"></div>
-          <div class="prep-toolbar">
-            <button id="prepSaveBtn" class="btn soft" onclick="saveCurrentPreparation()">💾 حفظ التحضير</button>
-            <button id="prepSendBtn" class="btn primary" onclick="sendCurrentPreparation()">📨 إرسال التحضير للإدارة</button>
+          <div class="prep-actions-grid">
+            <button id="prepSaveBtn" class="prep-action-btn save" onclick="saveCurrentPreparation()"><span class="prep-action-icon">💾</span><span>حفظ في المنصة</span></button>
+            <button id="prepSendBtn" class="prep-action-btn send" onclick="sendCurrentPreparation()"><span class="prep-action-icon">📨</span><span>إرسال للإدارة</span></button>
+            <button id="prepPdfBtn" class="prep-action-btn pdf" onclick="exportCurrentPreparationPdf()"><span class="prep-action-icon">📄</span><span>تصدير PDF</span></button>
+            <button id="prepPrintBtn" class="prep-action-btn print" onclick="printCurrentPreparation()"><span class="prep-action-icon">🖨️</span><span>طباعة التحضير</span></button>
           </div>
         </div>
       </div>`;
@@ -3377,6 +3392,107 @@ async function sendCurrentPreparation(){
     const out=await NabdCloud.sendPreparation(p);prepCurrentStatus='sent';
     if(st){st.style.background='#fff8e8';st.style.color='#8a6410';st.textContent='✅ تم إرسال التحضير للإدارة باسم: '+p.unit+' — '+p.lesson+' — '+p.date+'. ما زال بإمكانك تعديله وحفظ التعديلات حتى تضغط الإدارة «تم الاطلاع عليه».';}
   }catch(e){if(e.locked)prepSetLocked(true,'viewed');if(st){st.style.background='#fff0f0';st.style.color='#a93226';st.textContent='❌ '+(e.message||'تعذر الإرسال.');}}
+}
+
+function prepEscHtml(v){
+  return String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
+}
+function prepLinesHtml(v){
+  return prepEscHtml(v||'—').replace(/\n/g,'<br>');
+}
+function buildPreparationDocumentHtml(p){
+  const f=p.fields||{};
+  const strategyText=[...(f.strategies||[]),f.strategyOther].filter(Boolean).join('، ')||'—';
+  const sections=[
+    ['التعلم القبلي',f.prior],['التمهيد',f.intro],['المفاهيم',f.concepts],['الأهداف / المخرجات التعليمية',f.objectives],
+    ['الاستراتيجيات / طرق التدريس',strategyText],['آلية التنفيذ / الأنشطة التدريبية / التعليمية',f.activities],
+    ['الوسائل ومصادر التعلم',f.resources],['ملاحظات المعلم',f.teacherNotes],
+    ['التقويم التكويني',f.formative],['نشاط إثرائي / علاجي',f.enrichment],['التقويم الختامي',f.summative],['الواجب المنزلي',f.homework]
+  ];
+  return `
+    <div id="prepPdfDocument" dir="rtl" style="width:190mm;box-sizing:border-box;background:#fff;color:#18233a;font-family:Tajawal,Arial,sans-serif;padding:8mm;line-height:1.7">
+      <div style="border:2px solid #2b6cb0;border-radius:14px;overflow:hidden;margin-bottom:10px">
+        <div style="background:linear-gradient(135deg,#eff7ff,#f8fbff);padding:12px 14px;text-align:center;border-bottom:1px solid #dbe8f5">
+          <div style="font-size:21px;font-weight:900;color:#174f86">منصة جود - تحضير درس</div>
+          <div style="font-size:15px;font-weight:800;margin-top:4px">${prepEscHtml(p.lesson||'')}</div>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <tr>
+            <td style="border:1px solid #dce5ee;padding:7px"><b>المادة:</b> ${prepEscHtml(p.subject||'')}</td>
+            <td style="border:1px solid #dce5ee;padding:7px"><b>الصف:</b> ${prepEscHtml(p.grade||'')}</td>
+            <td style="border:1px solid #dce5ee;padding:7px"><b>الشعبة:</b> ${prepEscHtml((p.sections||[]).join('، ')||'—')}</td>
+          </tr>
+          <tr>
+            <td style="border:1px solid #dce5ee;padding:7px"><b>الوحدة:</b> ${prepEscHtml(p.unit||'')}</td>
+            <td style="border:1px solid #dce5ee;padding:7px"><b>التاريخ:</b> ${prepEscHtml(p.date||'')}</td>
+            <td style="border:1px solid #dce5ee;padding:7px"><b>الحصة:</b> ${prepEscHtml(p.period||'')}</td>
+          </tr>
+          <tr>
+            <td colspan="3" style="border:1px solid #dce5ee;padding:7px"><b>أرقام الأهداف / المخرجات:</b> ${prepEscHtml(f.outcomeNums||'—')}</td>
+          </tr>
+        </table>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${sections.map(([title,val])=>`
+          <div style="border:1px solid #dce5ee;border-radius:10px;overflow:hidden;break-inside:avoid;page-break-inside:avoid">
+            <div style="background:#f2f7fd;color:#174f86;font-weight:900;padding:7px 9px;font-size:11px">${prepEscHtml(title)}</div>
+            <div style="padding:8px 9px;font-size:10.5px;min-height:42px">${prepLinesHtml(val)}</div>
+          </div>`).join('')}
+      </div>
+      <div style="margin-top:10px;text-align:center;color:#718096;font-size:9px;border-top:1px solid #e5e9ef;padding-top:7px">تم إعداد هذا التحضير عبر منصة جود</div>
+    </div>`;
+}
+function currentPreparationForDocument(){
+  const p=prepGatherPayload();
+  if(!p){alert('اختر الوحدة والدرس أولاً.');return null;}
+  if(!p.sections.length){alert('اختر الشعبة أو الشعب أولاً.');return null;}
+  return p;
+}
+function prepPdfFileName(p){
+  const raw=(p.unit+' - '+p.lesson+' - '+p.date).replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,' ').trim();
+  return (raw||'تحضير درس')+'.pdf';
+}
+async function exportCurrentPreparationPdf(){
+  const p=currentPreparationForDocument(); if(!p)return;
+  if(typeof html2pdf==='undefined'){
+    alert('تعذر تحميل أداة PDF. تأكد من اتصال الإنترنت ثم أعد المحاولة.');
+    return;
+  }
+  const btn=document.getElementById('prepPdfBtn');
+  const old=btn?.innerHTML;if(btn){btn.disabled=true;btn.innerHTML='<span class="prep-action-icon">⏳</span><span>جاري تجهيز PDF...</span>';}
+  const holder=document.createElement('div');
+  holder.style.position='fixed';holder.style.left='-10000px';holder.style.top='0';holder.style.background='#fff';
+  holder.innerHTML=buildPreparationDocumentHtml(p);
+  document.body.appendChild(holder);
+  try{
+    const el=holder.firstElementChild;
+    await html2pdf().set({
+      margin:0,
+      filename:prepPdfFileName(p),
+      image:{type:'jpeg',quality:0.98},
+      html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',letterRendering:true},
+      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
+      pagebreak:{mode:['css','legacy'],avoid:['.prep-pdf-section']}
+    }).from(el).save();
+  }catch(e){
+    console.error(e);alert('تعذر تصدير PDF: '+(e.message||'حاول مرة أخرى.'));
+  }finally{
+    holder.remove();if(btn){btn.disabled=false;btn.innerHTML=old;}
+  }
+}
+function printCurrentPreparation(){
+  const p=currentPreparationForDocument(); if(!p)return;
+  const w=window.open('','_blank','width=1000,height=820');
+  if(!w){alert('تعذر فتح نافذة الطباعة. يرجى السماح بالنوافذ المنبثقة.');return;}
+  w.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>${prepEscHtml(p.unit+' - '+p.lesson)}</title>
+  <style>
+    @page{size:A4 portrait;margin:8mm}
+    *{box-sizing:border-box}
+    body{margin:0;background:#fff;font-family:Tajawal,Arial,sans-serif;color:#18233a}
+    #prepPdfDocument{width:100% !important;padding:0 !important}
+    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  </style></head><body>${buildPreparationDocumentHtml(p)}<script>window.onload=()=>setTimeout(()=>window.print(),250);<\/script></body></html>`);
+  w.document.close();
 }
 
 async function generatePreparationAI(){
