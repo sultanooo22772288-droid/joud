@@ -24,6 +24,54 @@ module.exports = async function handler(req,res){
   if(!profile) return res.status(404).json({error:'Profile not found'});
 
   const action=(req.body||{}).action;
+
+  // منهج التحضير: الوحدات والدروس تحفظ لكل مادة + صف.
+  if(action==='curriculum'){
+    const subject=String((req.body||{}).subject||'').trim();
+    const grades=Array.isArray((req.body||{}).grades)?req.body.grades.map(x=>String(x||'').trim()).filter(Boolean):[];
+    if(!subject||!grades.length) return res.status(400).json({error:'المادة والصف مطلوبة'});
+
+    if(profile.role==='teacher'){
+      const mapKey='teacher_subject_assignments:'+user.id;
+      const {data:mapRow,error:mapErr}=await admin.from('school_kv').select('value').eq('key',mapKey).maybeSingle();
+      if(mapErr) return res.status(500).json({error:mapErr.message});
+      const assignments=Array.isArray(mapRow?.value?.assignments)?mapRow.value.assignments:[];
+      const a=assignments.find(x=>String(x.subject||'')===subject);
+      const allowed=new Set((a?.classes||[]).map(x=>String(x.grade||'')));
+      if(!a||grades.some(g=>!allowed.has(g))) return res.status(403).json({error:'هذه المادة أو الصف غير مسند للمعلم'});
+    }else if(profile.role!=='admin'){
+      return res.status(403).json({error:'غير مصرح'});
+    }
+
+    const keys=grades.map(g=>'preparation_curriculum:'+encodeURIComponent(subject)+':'+encodeURIComponent(g));
+    const {data:rows,error:rowsError}=await admin.from('school_kv').select('key,value').in('key',keys);
+    if(rowsError) return res.status(500).json({error:rowsError.message});
+    const byKey=new Map((rows||[]).map(r=>[r.key,r.value||{}]));
+    const curriculum=grades.map(g=>{
+      const key='preparation_curriculum:'+encodeURIComponent(subject)+':'+encodeURIComponent(g);
+      const value=byKey.get(key)||{};
+      return {grade:g,units:Array.isArray(value.units)?value.units:[]};
+    });
+    return res.status(200).json({subject,curriculum});
+  }
+
+  if(action==='save-curriculum'){
+    if(profile.role!=='admin') return res.status(403).json({error:'Admin access required'});
+    const subject=String((req.body||{}).subject||'').trim();
+    const grade=String((req.body||{}).grade||'').trim();
+    const units=Array.isArray((req.body||{}).units)?req.body.units:[];
+    if(!subject||!grade) return res.status(400).json({error:'المادة والصف مطلوبة'});
+    const cleanUnits=units.map((u,i)=>({
+      id:String(u?.id||('u'+(i+1))),
+      title:String(u?.title||'').trim(),
+      lessons:Array.isArray(u?.lessons)?u.lessons.map((l,j)=>({id:String(l?.id||('l'+(j+1))),title:String(l?.title||'').trim()})).filter(l=>l.title):[]
+    })).filter(u=>u.title);
+    const key='preparation_curriculum:'+encodeURIComponent(subject)+':'+encodeURIComponent(grade);
+    const value={subject,grade,units:cleanUnits,updatedAt:new Date().toISOString()};
+    const {error:saveError}=await admin.from('school_kv').upsert({key,value,updated_by:user.id,updated_at:new Date().toISOString()});
+    if(saveError) return res.status(500).json({error:saveError.message});
+    return res.status(200).json({ok:true,value});
+  }
   if(action==='mark-viewed'){
     if(profile.role!=='admin') return res.status(403).json({error:'Admin access required'});
     const teacherId=String((req.body||{}).teacher_auth_user_id||'').trim();
