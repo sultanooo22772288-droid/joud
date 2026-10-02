@@ -1904,6 +1904,13 @@ async function restoreLoggedInUser(){
     setTimeout(async()=>{
       try{
         await syncCloudProfiles();
+        if(role==='admin'){
+          try{
+            const prepCtx=await NabdCloud.getPreparationContext();
+            const prepTeachers=prepCtx?.teachers||[];
+            window.adminPreparationSubjects=[...new Set(prepTeachers.flatMap(t=>(t.assignments||[]).map(a=>String(a.subject||'').trim())).filter(Boolean))];
+          }catch(e){ console.warn('تعذر تحميل عداد المواد الفعلي:',e); }
+        }
         renderDashboard();
         renderRolePages();
         renderAdminManagement();
@@ -1949,6 +1956,13 @@ async function enterDemo(){
     setTimeout(async()=>{
       try{
         await syncCloudProfiles();
+        if(role==='admin'){
+          try{
+            const prepCtx=await NabdCloud.getPreparationContext();
+            const prepTeachers=prepCtx?.teachers||[];
+            window.adminPreparationSubjects=[...new Set(prepTeachers.flatMap(t=>(t.assignments||[]).map(a=>String(a.subject||'').trim())).filter(Boolean))];
+          }catch(e){ console.warn('تعذر تحميل عداد المواد الفعلي:',e); }
+        }
         renderDashboard(); renderRolePages(); renderAdminManagement(); updateVisitorCounter();
       }catch(e){ console.warn('تعذر تحديث البيانات بعد الدخول:',e); }
     },0);
@@ -1993,7 +2007,7 @@ function renderDashboard(){
  const liveStudents=demoData.students.length;
  const liveTeachers=demoData.teachers.length;
  const liveGuardians=new Set(demoData.students.map(s=>String(s.guardianPhone||s.guardian_phone||'').replace(/\\D/g,'')).filter(Boolean)).size;
- const liveSubjects=new Set(demoData.teachers.flatMap(t=>teacherSubjectList(t)).map(s=>String(s||'').trim()).filter(Boolean)).size;
+ const liveSubjects=(window.adminPreparationSubjects?.length)||new Set(demoData.teachers.flatMap(t=>teacherSubjectList(t)).map(s=>String(s||'').trim()).filter(Boolean)).size;
  if(role==='student'){
  const currentStudent=demoData.students.find(x=>String(x.email||'').toLowerCase()===String(currentLoginEmail||'').toLowerCase()) || demoData.students[0];
  const studentFirstName=esc(studentDisplayName(currentStudent?.name||'طالبنا'));
