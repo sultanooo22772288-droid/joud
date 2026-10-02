@@ -27,6 +27,15 @@ export default async function handler(req,res){
       if(!['lesson','quiz'].includes(type)) return res.status(400).json({error:'نوع المحتوى غير صحيح.'});
       const item=b.item||{};
       if(!String(item.title||'').trim()) return res.status(400).json({error:'العنوان مطلوب.'});
+      const subject=String(item.subject||'').trim(),grade=String(item.grade||'').trim(),section=String(item.section||'').trim();
+      if(!subject||!grade||!section) return res.status(400).json({error:'يجب اختيار المادة والصف والشعبة.'});
+      const {data:assignmentRow,error:assignmentError}=await sb.from('school_kv').select('value').eq('key',`teacher_subject_assignments:${uid}`).maybeSingle();
+      if(assignmentError) throw assignmentError;
+      const assignments=Array.isArray(assignmentRow?.value?.assignments)?assignmentRow.value.assignments:[];
+      if(assignments.length){
+        const allowed=assignments.some(a=>String(a.subject||'').trim()===subject && (a.classes||[]).some(c=>String(c.grade||'').trim()===grade && String(c.section||'').trim()===section));
+        if(!allowed) return res.status(403).json({error:'هذه المادة أو الصف أو الشعبة غير مسندة لهذا المعلم.'});
+      }
 
       const id=randomUUID();
       const value={
@@ -34,11 +43,11 @@ export default async function handler(req,res){
         teacher_id:uid,
         teacher_name:p.name||'معلم',
         teacher_email:p.email||'',
-        subject:item.subject||p.subject||'',
+        subject,
         title:String(item.title||'').trim(),
         description:item.description||'',
-        grade:item.grade||'',
-        section:item.section||'',
+        grade,
+        section,
         scheduled_at:item.scheduled_at||null,
         questions_count:Number(item.questions_count)||null,
         attachment:item.attachment||null,
