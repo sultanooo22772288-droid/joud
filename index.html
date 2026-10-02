@@ -4890,26 +4890,14 @@ function nextTeacherUsernameNumber(){
   let n=used.filter(u=>u>=FIRST_TEACHER_NUMBER&&u<=LAST_TEACHER_NUMBER).reduce((m,u)=>Math.max(m,u),FIRST_TEACHER_NUMBER-1)+1;
   const taken=new Set(used);while(taken.has(n))n++;return n;
 }
-function parseTeacherClassAssignments(gradesValue,sectionsValue){
-  const grades=String(gradesValue||'').split(/[،,;|]+/).map(teacherImportGrade).filter(Boolean);
-  const sectionText=String(sectionsValue||'').trim();
+function parseTeacherSubjectClasses(value){
   const out=[];
-  if(!grades.length)return out;
-
-  // الصيغة المفضلة: "الصف الأول: 1، 2، 3 | الصف الثاني: 1، 2"
-  if(sectionText.includes(':')){
-    sectionText.split('|').map(x=>x.trim()).filter(Boolean).forEach(part=>{
-      const p=part.split(':');
-      const grade=teacherImportGrade(p.shift()||'');
-      const sections=p.join(':').split(/[،,;]+/).map(teacherImportSection).filter(Boolean);
-      sections.forEach(section=>out.push({grade,section}));
-    });
-  }else{
-    // دعم ملف بصف واحد/شعبة واحدة أو قائمة شعب بسيطة عند وجود صف واحد.
-    const sections=sectionText.split(/[،,;|]+/).map(teacherImportSection).filter(Boolean);
-    if(grades.length===1)sections.forEach(section=>out.push({grade:grades[0],section}));
-    else if(grades.length===sections.length)grades.forEach((grade,i)=>out.push({grade,section:sections[i]}));
-  }
+  String(value||'').split('|').map(x=>x.trim()).filter(Boolean).forEach(part=>{
+    const p=part.split(':');
+    const grade=teacherImportGrade(p.shift()||'');
+    const sections=p.join(':').split(/[،,;]+/).map(teacherImportSection).filter(Boolean);
+    sections.forEach(section=>out.push({grade,section}));
+  });
   return out;
 }
 function buildTeacherImport(raw){
@@ -4920,35 +4908,44 @@ function buildTeacherImport(raw){
   raw.forEach((row,i)=>{
     const name=pv(row,['اسم المعلم','الاسم','name']).replace(/\s+/g,' ').trim();
     const phone=teacherImportPhone(pv(row,['رقم الهاتف','الهاتف','phone']));
-    const gradesRaw=pv(row,['الصفوف التي يدرسها','الصفوف','الصف','grade']);
-    const sectionsRaw=pv(row,['الشعب حسب الصف','الشعب','الشعبة','section']);
-    const subjectsRaw=pv(row,['المواد التي يدرسها','المواد','المادة','subject']);
-    const subjects=String(subjectsRaw||'').split(/[،,;|]+/).map(x=>x.trim()).filter(Boolean);
-    if(!name&&!phone&&!subjectsRaw&&!gradesRaw&&!sectionsRaw)return;
+    const pairs=[
+      {subject:pv(row,['المادة الأولى','المادة 1','subject 1']).trim(), classesRaw:pv(row,['صفوف وشعب المادة الأولى','صفوف المادة الأولى','classes 1'])},
+      {subject:pv(row,['المادة الثانية','المادة 2','subject 2']).trim(), classesRaw:pv(row,['صفوف وشعب المادة الثانية','صفوف المادة الثانية','classes 2'])}
+    ].filter(x=>x.subject||x.classesRaw);
+    if(!name&&!phone&&!pairs.length)return;
 
     const e=[];
     if(!name)e.push('اسم المعلم مفقود');
-    if(!subjects.length)e.push('المادة مفقودة');
     if(phone&&!/^\d{8}$/.test(phone))e.push('رقم الهاتف يجب أن يتكون من 8 أرقام');
     if(phone&&existingPhones.has(phone))e.push('رقم الهاتف مسجّل للمعلم: '+existingPhones.get(phone));
     if(name&&existingNames.has(name))e.push('المعلم موجود مسبقًا: '+name);
     if(name&&seenNames.has(name))e.push('اسم المعلم مكرر في الملف');
     if(phone&&seenPhones.has(phone)&&seenPhones.get(phone)!==name)e.push('رقم الهاتف مكرر لمعلم آخر في الملف');
+    if(!pairs.length)e.push('المادة مفقودة');
 
-    const assignments=parseTeacherClassAssignments(gradesRaw,sectionsRaw);
-    if(!assignments.length)e.push('الصفوف والشعب مفقودة أو غير مفهومة');
-
-    const stages=[],classes=[];
-    assignments.forEach(a=>{
-      if(!TEACHER_IMPORT_GRADES.includes(a.grade)){e.push('صف غير صحيح: '+a.grade);return}
-      if(!['1','2','3','4'].includes(a.section)){e.push('شعبة غير صحيحة في '+a.grade);return}
-      const stage=teacherImportStage(a.grade,a.section);
-      if(!stages.includes(stage)){stages.push(stage);classes.push(a.grade+' / '+a.section)}
+    const subjectAssignments=[],stages=[],classes=[],subjects=[];
+    pairs.forEach((pair,pi)=>{
+      if(!pair.subject){e.push('اسم المادة '+(pi+1)+' مفقود');return}
+      const assigns=parseTeacherSubjectClasses(pair.classesRaw);
+      if(!assigns.length){e.push('صفوف وشعب '+pair.subject+' مفقودة أو غير مفهومة');return}
+      const valid=[];
+      assigns.forEach(a=>{
+        if(!TEACHER_IMPORT_GRADES.includes(a.grade)){e.push('صف غير صحيح في '+pair.subject+': '+a.grade);return}
+        if(!['1','2','3','4'].includes(a.section)){e.push('شعبة غير صحيحة في '+pair.subject+' / '+a.grade);return}
+        const stage=teacherImportStage(a.grade,a.section);
+        if(!stages.includes(stage))stages.push(stage);
+        classes.push(pair.subject+' ← '+a.grade+' / '+a.section);
+        valid.push({grade:a.grade,section:a.section,stage});
+      });
+      if(valid.length){
+        subjects.push(pair.subject);
+        subjectAssignments.push({subject:pair.subject,classes:valid});
+      }
     });
 
     if(name)seenNames.add(name);
     if(phone)seenPhones.set(phone,name);
-    out.push({name,phone,subjects,stages,classes,rows:[i+2],_errors:[...new Set(e)]});
+    out.push({name,phone,subjects,subjectAssignments,stages,classes,rows:[i+2],_errors:[...new Set(e)]});
   });
 
   let n=nextTeacherUsernameNumber();
@@ -4960,16 +4957,17 @@ function renderTeacherImportPreview(){
   const rows=bulkImportState.teacher||[],ok=rows.filter(r=>!r._errors.length);
   if(!rows.length){box.innerHTML='لا توجد بيانات.';return}
   box.innerHTML=`<div style="margin-bottom:10px"><span class="tag blue">المعلمون ${rows.length}</span> <span class="tag green">جاهزون ${ok.length}</span>${rows.length-ok.length?` <span class="tag orange">بحاجة لتصحيح ${rows.length-ok.length}</span>`:''} <button class="btn primary" onclick="confirmBulkImport('teacher')" ${ok.length?'':'disabled'}>إضافة الجميع</button></div>
-  <p style="color:var(--muted);font-size:12px;margin:0 0 10px">اسم المستخدم يُنشأ تلقائيًا من 6 أرقام (الرقم الظاهر مبدئي ويُثبَّت عند الإضافة)، والرقم السري لكل الحسابات ${DEFAULT_STUDENT_PASSWORD}.</p>
-  <div style="overflow:auto;max-height:350px"><table style="width:100%;min-width:850px;border-collapse:collapse"><thead><tr><th>السطر</th><th>اسم المعلم</th><th>رقم الهاتف</th><th>المادة</th><th>الصف / الشعبة</th><th>اسم المستخدم</th><th>الرقم السري</th><th>الحالة</th></tr></thead><tbody>${rows.map(r=>`<tr style="border-top:1px solid var(--line)"><td>${r.rows.join('، ')}</td><td>${esc(r.name||'—')}</td><td dir="ltr">${esc(r.phone||'—')}</td><td>${(r.subjects||[]).map(esc).join('<br>')||'—'}</td><td>${r.classes.map(esc).join('<br>')}</td><td dir="ltr">${r.username?esc(r.username):'—'}</td><td dir="ltr">${r._errors.length?'—':DEFAULT_STUDENT_PASSWORD}</td><td>${r._errors.length?'<span style="color:#c0392b">'+esc(r._errors.join('، '))+'</span>':'<span style="color:#178a5b">جاهز ✓</span>'}</td></tr>`).join('')}</tbody></table></div>`;
+  <p style="color:var(--muted);font-size:12px;margin:0 0 10px">كل مادة مرتبطة بصفوفها وشعبها بشكل مستقل. اسم المستخدم 6 أرقام والرقم السري ${DEFAULT_STUDENT_PASSWORD}.</p>
+  <div style="overflow:auto;max-height:420px"><table style="width:100%;min-width:950px;border-collapse:collapse"><thead><tr><th>السطر</th><th>اسم المعلم</th><th>الهاتف</th><th>المادة ← الصف / الشعبة</th><th>اسم المستخدم</th><th>الرقم السري</th><th>الحالة</th></tr></thead><tbody>${rows.map(r=>`<tr style="border-top:1px solid var(--line)"><td>${r.rows.join('، ')}</td><td>${esc(r.name||'—')}</td><td dir="ltr">${esc(r.phone||'—')}</td><td>${r.classes.map(esc).join('<br>')||'—'}</td><td dir="ltr">${r.username?esc(r.username):'—'}</td><td dir="ltr">${r._errors.length?'—':DEFAULT_STUDENT_PASSWORD}</td><td>${r._errors.length?'<span style="color:#c0392b">'+esc(r._errors.join('، '))+'</span>':'<span style="color:#178a5b">جاهز ✓</span>'}</td></tr>`).join('')}</tbody></table></div>`;
 }
+
 async function confirmTeacherImport(){
   const list=(bulkImportState.teacher||[]).filter(r=>!r._errors.length);if(!list.length)return;
   if(await jdAddLocked('teacher'))return;
   if(!confirm(`إضافة ${list.length} معلمًا الآن؟\nسيُنشأ لكل معلم اسم مستخدم من 6 أرقام، والرقم السري ${DEFAULT_STUDENT_PASSWORD}.`))return;
   const btn=document.querySelector('#teacherBulkPreview .btn.primary');if(btn){btn.disabled=true;btn.textContent='جاري إنشاء الحسابات…';}
   try{
-    const users=list.map(t=>({profile:{role:'teacher',auto_username:true,name:t.name,phone:t.phone,stages:t.stages,subject:(t.subjects||[])[0]||'',subjects:t.subjects||[]}}));
+    const users=list.map(t=>({profile:{role:'teacher',auto_username:true,name:t.name,phone:t.phone,stages:t.stages,subject:(t.subjects||[])[0]||'',subjects:t.subjects||[],subject_assignments:t.subjectAssignments||[]}}));
     const res=await NabdCloud.bulkCreateUsers('teacher',users);
     const created=res.created||[],errors=res.errors||[];
     bulkImportState.teacher=[];
